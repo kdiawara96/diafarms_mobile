@@ -24,7 +24,7 @@ public class LauncherScreen extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_launcher_screen);
 
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main_launcher_act), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
@@ -37,10 +37,10 @@ public class LauncherScreen extends AppCompatActivity {
         imgBanner = findViewById(R.id.imgBanner);
 
         // Clic Connexion
-//        cardLogin.setOnClickListener(v -> {
-//            Intent intent = new Intent(LauncherActivity.this, LoginActivity.class);
-//            startActivity(intent);
-//        });
+        cardLogin.setOnClickListener(v -> {
+            Intent intent = new Intent(this, LoginActivity.class);
+            startActivity(intent);
+        });
 
         // Clic QR Code
 //        cardQr.setOnClickListener(v -> {

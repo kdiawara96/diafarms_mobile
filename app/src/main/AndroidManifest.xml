@@ -12,6 +12,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Diafarms">
         <activity
+            android:name=".activity.HomeActivity"
+            android:exported="false" />
+        <activity
             android:name=".activity.LauncherScreen"
             android:exported="true">
             <intent-filter>
