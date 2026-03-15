@@ -2,6 +2,7 @@ package com.mobile.diafarms.activity;
 
 import android.Manifest;
 import android.animation.ObjectAnimator;
+import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -11,6 +12,7 @@ import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.util.Log;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.animation.LinearInterpolator;
 import android.widget.ImageButton;
 import android.widget.Toast;
@@ -31,6 +33,8 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.textfield.TextInputEditText;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.mlkit.vision.barcode.BarcodeScanner;
 import com.google.mlkit.vision.barcode.BarcodeScanning;
@@ -182,23 +186,64 @@ public class CameraScanActivity extends AppCompatActivity {
 
 
     private void onQrCodeDetected(String qrValue) {
-        // Vibre pour confirmer (compatible API 24+)
+        // Vibration
         Vibrator vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
         if (vibrator != null && vibrator.hasVibrator()) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                // API 26+ (Android 8.0)
                 vibrator.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE));
             } else {
-                // API 24-25 (deprecated mais fonctionne)
                 vibrator.vibrate(50);
             }
         }
 
-        // Renvoie le résultat
-        Intent resultIntent = new Intent();
-        resultIntent.putExtra("QR_RESULT", qrValue);
-        setResult(RESULT_OK, resultIntent);
-        finish();
+        // Parser le QR (simulé pour test)
+        // Format attendu: "identifiant|motdepasse" ou JSON
+        String identifiant = "admin@diafarms.com";  // Extraire de qrValue
+        String password = "DiaFarms2024!";           // Extraire de qrValue
+
+        // Afficher la popup
+        showQrResultDialog(identifiant, password);
+    }
+
+    private void showQrResultDialog(String identifiant, String password) {
+        // Créer le dialog
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_qr_result, null);
+        builder.setView(dialogView);
+
+        AlertDialog dialog = builder.create();
+        dialog.setCancelable(false);  // Empêche de fermer en cliquant à l'extérieur
+
+        // Récupérer les vues
+        TextInputEditText editIdentifiant = dialogView.findViewById(R.id.editIdentifiant);
+        TextInputEditText editPassword = dialogView.findViewById(R.id.editPassword);
+        MaterialButton btnOk = dialogView.findViewById(R.id.btnOk);
+
+        // Remplir les champs
+        editIdentifiant.setText(identifiant);
+        editPassword.setText(password);
+
+        // Clic OK
+        btnOk.setOnClickListener(v -> {
+            dialog.dismiss();
+
+            // Aller vers HomeActivity
+            Intent intent = new Intent(this, HomeActivity.class);
+            intent.putExtra("IDENTIFIANT", identifiant);
+            startActivity(intent);
+            finish();
+        });
+
+        // Afficher
+        dialog.show();
+
+        // Adapter la largeur du dialog
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setLayout(
+                    (int) (getResources().getDisplayMetrics().widthPixels * 0.9),
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+        }
     }
 
     private boolean allPermissionsGranted() {

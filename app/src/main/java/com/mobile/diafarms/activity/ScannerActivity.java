@@ -39,9 +39,7 @@ public class ScannerActivity extends AppCompatActivity {
         // Clic Scanner - Lance l'activité de scan caméra
         btnScan.setOnClickListener(v -> {
             Intent intent = new Intent(this, CameraScanActivity.class);
-            startActivityForResult(intent, REQUEST_CODE_SCAN);
-
-
+            startActivity(intent);  // ← Simple startActivity suffit !
         });
 
         // Clic Retour
@@ -50,22 +48,5 @@ public class ScannerActivity extends AppCompatActivity {
         });
     }
 
-    // Récupère le résultat du scan
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
 
-        if (requestCode == REQUEST_CODE_SCAN && resultCode == RESULT_OK && data != null) {
-            String qrResult = data.getStringExtra("QR_RESULT");
-
-            // Fais quelque chose avec le résultat
-            Toast.makeText(this, "QR Code: " + qrResult, Toast.LENGTH_LONG).show();
-
-            // Ou navigue vers HomeActivity
-            Intent intent = new Intent(this, HomeActivity.class);
-            intent.putExtra("QR_DATA", qrResult);
-            startActivity(intent);
-            finish();
-        }
-    }
 }
