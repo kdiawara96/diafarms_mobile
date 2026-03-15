@@ -43,9 +43,9 @@ public class LauncherScreen extends AppCompatActivity {
         });
 
         // Clic QR Code
-//        cardQr.setOnClickListener(v -> {
-//            Intent intent = new Intent(LauncherActivity.this, ScannerActivity.class);
-//            startActivity(intent);
-//        });
+        cardQr.setOnClickListener(v -> {
+            Intent intent = new Intent(this, ScannerActivity.class);
+            startActivity(intent);
+        });
     }
 }
