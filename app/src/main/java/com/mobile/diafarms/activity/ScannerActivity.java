@@ -16,10 +16,6 @@ import com.mobile.diafarms.R;
 
 public class ScannerActivity extends AppCompatActivity {
 
-    private static final int REQUEST_CODE_SCAN = 1001;
-    private MaterialButton btnScan, btnQrCode;
-    private ImageButton btnBack;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -33,8 +29,8 @@ public class ScannerActivity extends AppCompatActivity {
         });
 
         // Liaison des vues
-        btnScan = findViewById(R.id.btnScan);
-        btnBack = findViewById(R.id.btnBack);
+        MaterialButton btnScan = findViewById(R.id.btnScan);
+        ImageButton btnBack = findViewById(R.id.btnBack);
 
         // Clic Scanner - Lance l'activité de scan caméra
         btnScan.setOnClickListener(v -> {
