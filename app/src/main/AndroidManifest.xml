@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
+
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" />
     <uses-permission android:name="android.permission.VIBRATE" />
@@ -14,6 +15,23 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Diafarms">
+
+        <!-- ✅ SPLASH = LAUNCHER (point d'entrée) -->
+        <activity
+            android:name=".activity.SplashActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Diafarms.Splash">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- ❌ LauncherScreen = plus launcher, juste une activity -->
+        <activity
+            android:name=".activity.LauncherScreen"
+            android:exported="false" />
+
         <activity
             android:name=".activity.CameraScanActivity"
             android:exported="false" />
@@ -21,20 +39,12 @@
             android:name=".activity.HomeActivity"
             android:exported="false" />
         <activity
-            android:name=".activity.LauncherScreen"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-        <activity
             android:name=".activity.ScannerActivity"
             android:exported="false" />
         <activity
             android:name=".activity.LoginActivity"
             android:exported="false" />
+
     </application>
 
 </manifest>

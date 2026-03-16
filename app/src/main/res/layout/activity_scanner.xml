@@ -56,21 +56,27 @@
                     android:gravity="center_horizontal"
                     android:padding="24dp">
 
-                    <!-- Icône QR Code dans box colorée -->
-                    <LinearLayout
+                    <com.google.android.material.card.MaterialCardView
                         android:layout_width="100dp"
                         android:layout_height="100dp"
                         android:elevation="1dp"
-                        android:background="@drawable/bg_qr_icon_rounded"
-                        android:gravity="center">
+                        app:cardCornerRadius="12dp"
+                        app:cardBackgroundColor="@color/white">
 
-                        <ImageView
-                            android:layout_width="60dp"
-                            android:layout_height="60dp"
-                            android:src="@drawable/ic_qr_code"
-                            app:tint="@color/primary" />
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center">
 
-                    </LinearLayout>
+                            <ImageView
+                                android:layout_width="60dp"
+                                android:layout_height="60dp"
+                                android:src="@drawable/ic_qr_code"
+                                app:tint="@color/primary" />
+
+                        </LinearLayout>
+
+                    </com.google.android.material.card.MaterialCardView>
 
                     <View
                         android:layout_width="match_parent"

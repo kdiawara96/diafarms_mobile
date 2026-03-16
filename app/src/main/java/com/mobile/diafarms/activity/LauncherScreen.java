@@ -7,6 +7,7 @@ import android.widget.ImageView;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatDelegate;
 import androidx.cardview.widget.CardView;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -15,9 +16,6 @@ import androidx.core.view.WindowInsetsCompat;
 import com.mobile.diafarms.R;
 
 public class LauncherScreen extends AppCompatActivity {
-
-    private CardView cardLogin, cardQr;
-    private ImageView imgEntete, imgBanner;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -31,10 +29,10 @@ public class LauncherScreen extends AppCompatActivity {
         });
 
         // Liaison des vues
-        cardLogin = findViewById(R.id.cardLogin);
-        cardQr = findViewById(R.id.cardQr);
-        imgEntete = findViewById(R.id.imgEntete);
-        imgBanner = findViewById(R.id.imgBanner);
+        CardView cardLogin = findViewById(R.id.cardLogin);
+        CardView cardQr = findViewById(R.id.cardQr);
+        ImageView imgEntete = findViewById(R.id.imgEntete);
+        ImageView imgBanner = findViewById(R.id.imgBanner);
 
         // Clic Connexion
         cardLogin.setOnClickListener(v -> {

@@ -21,6 +21,7 @@ import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.camera.core.Camera;
+import androidx.camera.core.CameraInfo;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.ImageProxy;
@@ -108,7 +109,7 @@ public class CameraScanActivity extends AppCompatActivity {
         });
 
         // Bouton flash
-        ImageButton btnFlash = findViewById(R.id.btnFlash);
+        btnFlash = findViewById(R.id.btnFlash);
         btnFlash.setOnClickListener(v -> toggleFlash());
 
 
@@ -121,13 +122,28 @@ public class CameraScanActivity extends AppCompatActivity {
     }
 
     private void toggleFlash() {
-        if (camera == null) return;
+        if (camera == null) {
+            Log.e(TAG, "Camera is null");
+            Toast.makeText(this, "Caméra non disponible", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Vérifie si le flash est disponible
+        CameraInfo cameraInfo = camera.getCameraInfo();
+        if (!cameraInfo.hasFlashUnit()) {
+            Toast.makeText(this, "Flash non disponible", Toast.LENGTH_SHORT).show();
+            return;
+        }
 
         isFlashOn = !isFlashOn;
-        camera.getCameraControl().enableTorch(isFlashOn);
 
-        // Change l'icône
-        btnFlash.setImageResource(isFlashOn ? R.drawable.ic_flash_on : R.drawable.ic_flash_off);
+        // Utilise ListenableFuture pour gérer l'async
+        ListenableFuture<Void> future = camera.getCameraControl().enableTorch(isFlashOn);
+        future.addListener(() -> {
+            runOnUiThread(() -> {
+                btnFlash.setImageResource(isFlashOn ? R.drawable.ic_flash_on : R.drawable.ic_flash_off);
+            });
+        }, ContextCompat.getMainExecutor(this));
     }
 
     // Modifie startCamera() pour garder la référence camera
