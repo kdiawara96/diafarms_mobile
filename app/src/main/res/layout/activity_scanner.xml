@@ -9,6 +9,7 @@
 
     <!-- ScrollView pour le contenu -->
     <ScrollView
+        android:id="@+id/main_section_scanner_act"
         android:layout_width="0dp"
         android:layout_height="0dp"
         app:layout_constraintTop_toTopOf="parent"
