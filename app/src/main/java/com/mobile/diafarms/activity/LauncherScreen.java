@@ -22,6 +22,9 @@ public class LauncherScreen extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_launcher_screen);
 
+        // Force light mode AVANT tout
+        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
+
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main_launcher_act), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
@@ -31,8 +34,8 @@ public class LauncherScreen extends AppCompatActivity {
         // Liaison des vues
         CardView cardLogin = findViewById(R.id.cardLogin);
         CardView cardQr = findViewById(R.id.cardQr);
-        ImageView imgEntete = findViewById(R.id.imgEntete);
-        ImageView imgBanner = findViewById(R.id.imgBanner);
+//        ImageView imgEntete = findViewById(R.id.imgEntete);
+//        ImageView imgBanner = findViewById(R.id.imgBanner);
 
         // Clic Connexion
         cardLogin.setOnClickListener(v -> {

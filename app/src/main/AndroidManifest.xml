@@ -16,21 +16,17 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Diafarms">
 
-        <!-- ✅ SPLASH = LAUNCHER (point d'entrée) -->
+
+        <!-- ❌ LauncherScreen = plus launcher, juste une activity -->
         <activity
-            android:name=".activity.SplashActivity"
+            android:name=".activity.LauncherScreen"
             android:exported="true"
-            android:theme="@style/Theme.Diafarms.Splash">
+            android:theme="@style/Theme.Diafarms">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
-        <!-- ❌ LauncherScreen = plus launcher, juste une activity -->
-        <activity
-            android:name=".activity.LauncherScreen"
-            android:exported="false" />
 
         <activity
             android:name=".activity.CameraScanActivity"
