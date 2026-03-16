@@ -16,7 +16,6 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Diafarms">
 
-
         <!-- ❌ LauncherScreen = plus launcher, juste une activity -->
         <activity
             android:name=".activity.LauncherScreen"
