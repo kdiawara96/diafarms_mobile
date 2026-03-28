@@ -3,7 +3,9 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.CAMERA" />
+
     <uses-feature android:name="android.hardware.camera" />
+
     <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
@@ -15,31 +17,51 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Diafarms">
-
-        <!-- ❌ LauncherScreen = plus launcher, juste une activity -->
         <activity
-            android:name=".activity.LauncherScreen"
-            android:exported="true"
-            android:theme="@style/Theme.Diafarms">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-
+            android:name=".ui.saisie.SaisieSortieActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ui.saisie.SaisieSoinsActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ui.saisie.SaisieOeufsActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ui.saisie.SaisieMortaliteActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ui.saisie.SaisieEntreeActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ui.saisie.SaisieAlimentActivity"
+            android:exported="false" /> <!-- ❌ LauncherScreen = plus launcher, juste une activity -->
+        <!-- <activity -->
+        <!-- android:name=".activity.LauncherScreen" -->
+        <!-- android:exported="true" -->
+        <!-- android:theme="@style/Theme.Diafarms"> -->
+        <!-- <intent-filter> -->
+        <!-- <action android:name="android.intent.action.MAIN" /> -->
+        <!-- <category android:name="android.intent.category.LAUNCHER" /> -->
+        <!-- </intent-filter> -->
+        <!-- </activity> -->
         <activity
             android:name=".activity.CameraScanActivity"
             android:exported="false" />
         <activity
             android:name=".activity.HomeActivity"
-            android:exported="false" />
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
         <activity
             android:name=".activity.ScannerActivity"
             android:exported="false" />
         <activity
             android:name=".activity.LoginActivity"
             android:exported="false" />
-
     </application>
 
 </manifest>

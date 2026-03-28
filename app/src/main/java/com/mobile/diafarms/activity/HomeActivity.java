@@ -24,6 +24,12 @@ import com.mobile.diafarms.data.LocalDatabase;
 import com.mobile.diafarms.data.SessionManager;
 import com.mobile.diafarms.models.Projet;
 import com.mobile.diafarms.models.User;
+import com.mobile.diafarms.ui.saisie.SaisieAlimentActivity;
+import com.mobile.diafarms.ui.saisie.SaisieEntreeActivity;
+import com.mobile.diafarms.ui.saisie.SaisieMortaliteActivity;
+import com.mobile.diafarms.ui.saisie.SaisieOeufsActivity;
+import com.mobile.diafarms.ui.saisie.SaisieSoinsActivity;
+import com.mobile.diafarms.ui.saisie.SaisieSortieActivity;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -275,14 +281,14 @@ public class HomeActivity extends AppCompatActivity {
 
     private void setupClickListeners() {
         // Production
-//        btnCollecteOeufs.setOnClickListener(v -> openSaisie(SaisieOeufsActivity.class));
-//        btnAlimentation.setOnClickListener(v -> openSaisie(SaisieAlimentActivity.class));
-//        btnSoins.setOnClickListener(v -> openSaisie(SaisieSoinsActivity.class));
-//        btnMortalite.setOnClickListener(v -> openSaisie(SaisieMortaliteActivity.class));
-//
-//        // Finance
-//        btnEntreeArgent.setOnClickListener(v -> openSaisie(SaisieEntreeActivity.class));
-//        btnSortieArgent.setOnClickListener(v -> openSaisie(SaisieSortieActivity.class));
+        btnCollecteOeufs.setOnClickListener(v -> openSaisie(SaisieOeufsActivity.class));
+        btnAlimentation.setOnClickListener(v -> openSaisie(SaisieAlimentActivity.class));
+        btnSoins.setOnClickListener(v -> openSaisie(SaisieSoinsActivity.class));
+        btnMortalite.setOnClickListener(v -> openSaisie(SaisieMortaliteActivity.class));
+
+        // Finance
+        btnEntreeArgent.setOnClickListener(v -> openSaisie(SaisieEntreeActivity.class));
+        btnSortieArgent.setOnClickListener(v -> openSaisie(SaisieSortieActivity.class));
 
         // Sync
         btnSync.setOnClickListener(v -> forceSync());

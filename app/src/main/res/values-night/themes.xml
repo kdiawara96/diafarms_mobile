@@ -17,7 +17,7 @@
         <item name="android:navigationBarColor">@color/white</item>
 
         <!-- Status bar color. -->
-        <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
+        <!-- S <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>-->
         <!-- Customize your theme here. -->
     </style>
 
