@@ -48,7 +48,7 @@ public class HomeActivity extends AppCompatActivity {
     private LinearLayout llRoles;
     private TextView badgeProduction;
     private TextView badgeFinance;
-    private ImageButton btnSync;
+    private FrameLayout btnSync;
     private View indicatorSync;
     private FrameLayout flAvatar;
 

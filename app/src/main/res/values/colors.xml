@@ -11,4 +11,24 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
     <color name="ic_launcher_background">#FFFFFF</color>
+
+    <!-- Couleur principale Diafarms - Vert ferme/avicole -->
+    <color name="green_primary">#2E7D32</color>
+    <color name="green_primary_dark">#1B5E20</color>
+    <color name="green_primary_light">#4CAF50</color>
+    <color name="green_accent">#81C784</color>
+
+    <!-- Couleurs secondaires -->
+    <color name="gray_light">#F5F5F5</color>
+    <color name="gray">#9E9E9E</color>
+    <color name="gray_dark">#616161</color>
+
+    <!-- Couleurs fonctionnelles -->
+    <color name="red_error">#C62828</color>
+    <color name="orange_warning">#EF6C00</color>
+    <color name="blue_info">#1565C0</color>
+
+    <!-- Spécifique œufs/alimentation -->
+    <color name="egg_yellow">#FFC107</color>
+    <color name="feed_brown">#8D6E63</color>
 </resources>

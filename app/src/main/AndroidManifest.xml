@@ -35,27 +35,21 @@
         <activity
             android:name=".ui.saisie.SaisieAlimentActivity"
             android:exported="false" /> <!-- ❌ LauncherScreen = plus launcher, juste une activity -->
-        <!-- <activity -->
-        <!-- android:name=".activity.LauncherScreen" -->
-        <!-- android:exported="true" -->
-        <!-- android:theme="@style/Theme.Diafarms"> -->
-        <!-- <intent-filter> -->
-        <!-- <action android:name="android.intent.action.MAIN" /> -->
-        <!-- <category android:name="android.intent.category.LAUNCHER" /> -->
-        <!-- </intent-filter> -->
-        <!-- </activity> -->
+         <activity
+         android:name=".activity.LauncherScreen"
+         android:exported="true"
+         android:theme="@style/Theme.Diafarms">
+         <intent-filter>
+         <action android:name="android.intent.action.MAIN" />
+         <category android:name="android.intent.category.LAUNCHER" />
+         </intent-filter>
+         </activity>
         <activity
             android:name=".activity.CameraScanActivity"
             android:exported="false" />
         <activity
             android:name=".activity.HomeActivity"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+            android:exported="false"/>
         <activity
             android:name=".activity.ScannerActivity"
             android:exported="false" />

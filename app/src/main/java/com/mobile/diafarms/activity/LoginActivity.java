@@ -76,7 +76,7 @@ public class LoginActivity extends AppCompatActivity {
                 Intent intent = new Intent(LoginActivity.this, HomeActivity.class);
                 startActivity(intent);
 
-            }, 5000); // 5 secondes
+            }, 1000); // 1 secondes
 
 
 
