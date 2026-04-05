@@ -18,7 +18,11 @@ import androidx.core.view.WindowInsetsCompat;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
 import com.mobile.diafarms.R;
+import com.mobile.diafarms.data.SessionManager;
+import com.mobile.diafarms.models.User;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 public class LoginActivity extends AppCompatActivity {
@@ -29,6 +33,7 @@ public class LoginActivity extends AppCompatActivity {
     private ImageButton btnBack;
     private ProgressBar progressBar;
     private boolean isLoading = false;
+    private SessionManager sessionManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,7 +57,8 @@ public class LoginActivity extends AppCompatActivity {
             return insets;
         });
 
-
+        // Initialisation SessionManager
+        sessionManager = new SessionManager(this);
 
         // Clic Connexion
         btnLogin.setOnClickListener(v -> {
@@ -72,6 +78,11 @@ public class LoginActivity extends AppCompatActivity {
 
                 isLoading = false;
                 updateLoadingState();
+
+                // Création d'un utilisateur par défaut pour la session
+                User defaultUser = createDefaultUser();
+                sessionManager.createSession(defaultUser, "default_token_" + System.currentTimeMillis());
+
                 // TODO: Appel API login
                 Intent intent = new Intent(LoginActivity.this, HomeActivity.class);
                 startActivity(intent);
@@ -94,6 +105,38 @@ public class LoginActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * Crée un utilisateur par défaut avec tous les rôles et projets
+     */
+    private User createDefaultUser() {
+        User user = new User();
+        user.setId("user_default_001");
+        user.setNom("Agent Test");
+        user.setTelephone("+225 0123456789");
+        user.setEmail("agent@test.com");
+
+        // Tous les rôles activés
+        List<String> roles = new ArrayList<>();
+        roles.add("production");
+        roles.add("finance");
+//        roles.add("admin");
+        user.setRoles(roles);
+
+        // Projets assignés par défaut
+        List<String> projets = new ArrayList<>();
+        projets.add("proj_001");
+        projets.add("proj_002");
+        user.setProjetsAssignes(projets);
+
+        // QR Code valide pour 24h
+        user.setQrCode("DEFAULT_QR_" + System.currentTimeMillis());
+        user.setQrExpiry(System.currentTimeMillis() + (24 * 60 * 60 * 1000)); // +24h
+
+        user.setActif(true);
+        user.setPhotoUrl(null); // Pas de photo par défaut
+
+        return user;
+    }
 
     private void updateLoadingState() {
         btnLogin.setEnabled(!isLoading);

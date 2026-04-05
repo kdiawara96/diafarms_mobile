@@ -105,14 +105,14 @@ public class HomeActivity extends AppCompatActivity {
 
         // Vérifier session
         if (!sessionManager.isLoggedIn() || !sessionManager.isQRValid()) {
-            redirectToLogin();
-            return;
+//            redirectToLogin();
+//            return;
         }
 
         currentUser = sessionManager.getCurrentUser();
         if (currentUser == null) {
-            redirectToLogin();
-            return;
+//            redirectToLogin();
+//            return;
         }
 
         // Binding vues
