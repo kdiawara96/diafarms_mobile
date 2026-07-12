@@ -21,6 +21,7 @@ public class DebugLog {
     private static final String FILE_NAME = "diafarms_debug.log";
     private static final String ERROR_FILE_NAME = "diafarms_errors.log";
     private static final int MAX_ERROR_BODY_CHARS = 2000;
+    private static final String SEPARATOR = "-------------------------------------------------------------";
     private static final SimpleDateFormat TIMESTAMP = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.FRANCE);
 
     public static synchronized void log(Context context, String tag, String message) {
@@ -37,17 +38,22 @@ public class DebugLog {
     }
 
     /**
-     * Journal dédié et curaté des erreurs HTTP 401/5xx (voir ApiClient.ErrorCaptureInterceptor),
+     * Journal dédié et curaté de TOUTE erreur réseau — réponses HTTP non 2xx et échecs
+     * bas niveau (timeout, hôte injoignable...), voir ApiClient.ErrorCaptureInterceptor —
      * séparé du journal de debug général pour rester lisible/partageable tel quel par
-     * quelqu'un qui n'a pas besoin de tout le bruit des requêtes réussies.
+     * quelqu'un qui n'a pas besoin de tout le bruit des requêtes réussies. Un long
+     * séparateur entre chaque entrée pour repérer facilement où commence/finit chaque
+     * erreur en lisant le fichier brut (partagé tel quel, pas de visionneuse structurée).
      */
     public static synchronized void captureHttpError(Context context, String method, String url, int code, String bodySnippet) {
         String snippet = bodySnippet == null ? "" : bodySnippet;
         if (snippet.length() > MAX_ERROR_BODY_CHARS) {
             snippet = snippet.substring(0, MAX_ERROR_BODY_CHARS) + "... (tronqué)";
         }
-        String entry = TIMESTAMP.format(new Date()) + " HTTP " + code + " " + method + " " + url
-                + "\n  Corps : " + snippet + "\n";
+        String codeLabel = code == 0 ? "ÉCHEC RÉSEAU (pas de réponse HTTP)" : "HTTP " + code;
+        String entry = SEPARATOR + "\n"
+                + TIMESTAMP.format(new Date()) + " " + codeLabel + " " + method + " " + url
+                + "\n  Détail : " + snippet;
         log(context, "HTTP-ERROR", entry);
         try {
             File dir = context.getApplicationContext().getExternalFilesDir(null);

@@ -125,11 +125,12 @@ public class ApiClient {
         }
     }
 
-    /** Capture systématiquement les 401 et toute erreur serveur (5xx) pour l'écran
-     * Diagnostics — l'objectif est de pouvoir demander à un utilisateur sur le terrain
-     * de partager ce journal sans avoir besoin d'un accès adb/ordinateur. Utilise
-     * peekBody() plutôt que body() pour ne pas consommer le flux dont Retrofit a
-     * encore besoin pour parser la réponse en aval. */
+    /** Capture TOUTE erreur — réponse HTTP non 2xx (400, 401, 403, 404, 5xx...) ET échec
+     * réseau bas niveau (timeout, hôte injoignable, DNS...) — pour l'écran Diagnostics :
+     * l'objectif est de pouvoir demander à un utilisateur sur le terrain de partager ce
+     * journal sans avoir besoin d'un accès adb/ordinateur, quelle que soit la nature du
+     * problème. Utilise peekBody() plutôt que body() pour ne pas consommer le flux dont
+     * Retrofit a encore besoin pour parser la réponse en aval. */
     private static class ErrorCaptureInterceptor implements Interceptor {
         private static final long MAX_PEEK_BYTES = 4096;
         private final Context context;
@@ -142,16 +143,26 @@ public class ApiClient {
         @Override
         public Response intercept(@NonNull Chain chain) throws IOException {
             Request request = chain.request();
-            Response response = chain.proceed(request);
 
-            int code = response.code();
-            if (code == 401 || code >= 500) {
+            Response response;
+            try {
+                response = chain.proceed(request);
+            } catch (IOException e) {
+                // Pas de réponse HTTP du tout : timeout, connexion refusée, hôte
+                // injoignable, DNS... On journalise puis on relance, Retrofit doit
+                // toujours voir l'exception pour déclencher onFailure() côté appelant.
+                DebugLog.captureHttpError(context, request.method(), request.url().toString(), 0,
+                        e.getClass().getSimpleName() + ": " + e.getMessage());
+                throw e;
+            }
+
+            if (!response.isSuccessful()) {
                 String bodySnippet = "";
                 try (ResponseBody peeked = response.peekBody(MAX_PEEK_BYTES)) {
                     bodySnippet = peeked.string();
                 } catch (IOException ignored) {
                 }
-                DebugLog.captureHttpError(context, request.method(), request.url().toString(), code, bodySnippet);
+                DebugLog.captureHttpError(context, request.method(), request.url().toString(), response.code(), bodySnippet);
             }
 
             return response;
