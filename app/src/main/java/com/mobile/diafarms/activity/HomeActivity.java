@@ -7,7 +7,6 @@ import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.FrameLayout;
 import android.widget.GridLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -60,7 +59,6 @@ public class HomeActivity extends AppCompatActivity {
     private TextView tvAgentName;
     private TextView badgeProduction;
     private TextView badgeFinance;
-    private FrameLayout btnSync;
     private View indicatorSync;
 
     // Vues Projet
@@ -141,9 +139,12 @@ public class HomeActivity extends AppCompatActivity {
         tvAgentName = findViewById(R.id.tvAgentName);
         badgeProduction = findViewById(R.id.badgeProduction);
         badgeFinance = findViewById(R.id.badgeFinance);
-        btnSync = findViewById(R.id.btnSync);
         indicatorSync = findViewById(R.id.indicatorSync);
-        findViewById(R.id.btnDiagnostics).setOnClickListener(v -> startActivity(new Intent(this, DiagnosticsActivity.class)));
+        // Le clic est posé sur l'ImageButton interne, pas sur le FrameLayout englobant :
+        // un ImageButton est cliquable par défaut et absorbe le tap avant qu'il
+        // n'atteigne un OnClickListener posé sur son parent (aucun listener dessus ==
+        // rien ne se passe visuellement à part le ripple).
+        findViewById(R.id.imgBtnDiagnostics).setOnClickListener(v -> startActivity(new Intent(this, DiagnosticsActivity.class)));
 
         spinnerProjets = findViewById(R.id.spinnerProjets);
         tvPoulesCount = findViewById(R.id.tvPoulesCount);
@@ -410,8 +411,8 @@ public class HomeActivity extends AppCompatActivity {
         btnEntreeArgent.setOnClickListener(v -> openSaisie(SaisieType.TRANSACTION_ENTREE));
         btnSortieArgent.setOnClickListener(v -> openSaisie(SaisieType.TRANSACTION_SORTIE));
 
-        // Sync
-        btnSync.setOnClickListener(v -> forceSync());
+        // Sync — écouteur sur l'ImageButton interne, même raison que btnDiagnostics ci-dessus.
+        findViewById(R.id.imgBtnSync).setOnClickListener(v -> forceSync());
         btnSyncNow.setOnClickListener(v -> forceSync());
 
         // Mes saisies

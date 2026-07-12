@@ -108,6 +108,7 @@
                 app:layout_constraintBottom_toBottomOf="parent">
 
                 <ImageButton
+                    android:id="@+id/imgBtnDiagnostics"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:contentDescription="Diagnostics"
@@ -125,6 +126,7 @@
                 app:layout_constraintBottom_toBottomOf="parent">
 
                 <ImageButton
+                    android:id="@+id/imgBtnSync"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:contentDescription="TODO"
