@@ -266,11 +266,22 @@ public class CameraScanActivity extends AppCompatActivity {
                     public void onResponse(Call<ApiEnvelope<UtilisateurResponse>> call, Response<ApiEnvelope<UtilisateurResponse>> response) {
                         loading.dismiss();
 
-                        UtilisateurResponse profile = response.isSuccessful() && response.body() != null
-                                ? response.body().getData() : null;
+                        // Distingue un vrai refus serveur (401/403 : QR expiré/révoqué,
+                        // compte suspendu) d'une simple absence de réseau, au lieu du
+                        // message générique d'avant qui rendait les deux indiscernables.
+                        if (!response.isSuccessful()) {
+                            String serverMessage = readErrorMessage(response);
+                            String detail = "HTTP " + response.code()
+                                    + (serverMessage != null ? " : " + serverMessage : "")
+                                    + "\n(QR probablement expiré, révoqué, ou compte suspendu — régénérez-le depuis le site web)";
+                            Log.e(TAG, "Réponse serveur refusée pour /auth/me : " + detail);
+                            showMessage(getString(R.string.error), detail);
+                            return;
+                        }
 
+                        UtilisateurResponse profile = response.body() != null ? response.body().getData() : null;
                         if (profile == null || profile.getUniqueId() == null) {
-                            showMessage(getString(R.string.error), getString(R.string.qr_revoked_or_network_error));
+                            showMessage(getString(R.string.error), "Réponse du serveur incomplète (HTTP " + response.code() + ").");
                             return;
                         }
 
@@ -280,10 +291,27 @@ public class CameraScanActivity extends AppCompatActivity {
                     @Override
                     public void onFailure(Call<ApiEnvelope<UtilisateurResponse>> call, Throwable t) {
                         loading.dismiss();
-                        Log.e(TAG, "Erreur réseau lors de la vérification du QR", t);
-                        showMessage(getString(R.string.error), getString(R.string.qr_revoked_or_network_error));
+                        String detail = t.getClass().getSimpleName() + (t.getMessage() != null ? " : " + t.getMessage() : "");
+                        Log.e(TAG, "Erreur réseau lors de la vérification du QR : " + detail, t);
+                        showMessage(getString(R.string.error), "Impossible de contacter le serveur.\n" + detail);
                     }
                 });
+    }
+
+    /** Extrait le message d'erreur du corps de réponse s'il suit l'enveloppe ApiResponse habituelle. */
+    private String readErrorMessage(Response<ApiEnvelope<UtilisateurResponse>> response) {
+        try {
+            if (response.errorBody() != null) {
+                ApiEnvelope<?> envelope = new Gson().fromJson(response.errorBody().charStream(), ApiEnvelope.class);
+                if (envelope != null && envelope.getMessage() != null) {
+                    return envelope.getMessage();
+                }
+            }
+        } catch (Exception ignored) {
+            // Le corps d'erreur ne suit pas forcément notre enveloppe JSON (ex: rejet direct
+            // par Spring Security avant d'atteindre nos contrôleurs) — on se rabat sur le code HTTP seul.
+        }
+        return null;
     }
 
     private void onQrLoginSuccess(UtilisateurResponse profile, String token) {
