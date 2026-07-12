@@ -145,9 +145,9 @@ public class DiagnosticsActivity extends AppCompatActivity {
     private void confirmDeconnexion() {
         int pending = localDatabase.countPending();
         String message = pending > 0
-                ? "Cette action supprime la session en cours (et le code d'accès rapide s'il y en a un). "
+                ? "Cette action supprime la session en cours (et le mot de passe hors ligne s'il y en a un). "
                     + pending + " saisie(s) non encore synchronisée(s) resteront en attente localement."
-                : "Cette action supprime la session en cours (et le code d'accès rapide s'il y en a un).";
+                : "Cette action supprime la session en cours (et le mot de passe hors ligne s'il y en a un).";
 
         new MaterialAlertDialogBuilder(this)
                 .setTitle("Se déconnecter ?")

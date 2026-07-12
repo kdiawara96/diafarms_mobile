@@ -400,13 +400,14 @@ public class CameraScanActivity extends AppCompatActivity {
 
         btnOk.setOnClickListener(v -> {
             dialog.dismiss();
-            // Propose un code d'accès rapide pour la prochaine ouverture (offline, sans
-            // re-scanner). Le PIN local n'occupe qu'un seul emplacement par appareil : on
-            // ne le repropose que si aucun n'est défini, ou si le compte scanné diffère de
-            // celui déjà enregistré (sinon on écraserait silencieusement le PIN d'un autre
-            // utilisateur au prochain scan sans jamais le lui redemander).
-            if (!sessionManager.hasLocalPin() || !identifiant.equals(sessionManager.getLocalPinIdentifiant())) {
-                showSetPinDialog(identifiant);
+            // Le mot de passe local est CE QUI permet l'accès hors ligne ensuite (via le
+            // formulaire identifiant/mot de passe classique, voir LoginActivity.tryOfflineLogin) —
+            // pas un simple raccourci de confort, donc pas d'option "plus tard". Un seul
+            // emplacement par appareil : on ne le repropose que si aucun n'est défini, ou si
+            // le compte scanné diffère de celui déjà enregistré (sinon on écraserait
+            // silencieusement le mot de passe d'un autre utilisateur sans jamais le lui redemander).
+            if (!sessionManager.hasLocalPassword() || !identifiant.equals(sessionManager.getLocalPasswordIdentifiant())) {
+                showSetPasswordDialog(identifiant);
             } else {
                 goHome();
             }
@@ -421,39 +422,33 @@ public class CameraScanActivity extends AppCompatActivity {
         }
     }
 
-    private void showSetPinDialog(String identifiant) {
+    private void showSetPasswordDialog(String identifiant) {
         MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this);
-        View view = LayoutInflater.from(this).inflate(R.layout.dialog_set_local_pin, null);
+        View view = LayoutInflater.from(this).inflate(R.layout.dialog_set_local_password, null);
         builder.setView(view);
 
-        com.google.android.material.textfield.TextInputEditText etPin = view.findViewById(R.id.etPin);
-        com.google.android.material.textfield.TextInputEditText etPinConfirm = view.findViewById(R.id.etPinConfirm);
-        MaterialButton btnDefinir = view.findViewById(R.id.btnDefinirPin);
-        MaterialButton btnPlusTard = view.findViewById(R.id.btnPlusTardPin);
+        com.google.android.material.textfield.TextInputEditText etPassword = view.findViewById(R.id.etPassword);
+        com.google.android.material.textfield.TextInputEditText etPasswordConfirm = view.findViewById(R.id.etPasswordConfirm);
+        MaterialButton btnDefinir = view.findViewById(R.id.btnDefinirPassword);
 
         AlertDialog dialog = builder.create();
         dialog.setCancelable(false);
 
-        btnPlusTard.setOnClickListener(v -> {
-            dialog.dismiss();
-            goHome();
-        });
-
         btnDefinir.setOnClickListener(v -> {
-            String pin = etPin.getText() != null ? etPin.getText().toString().trim() : "";
-            String confirm = etPinConfirm.getText() != null ? etPinConfirm.getText().toString().trim() : "";
+            String password = etPassword.getText() != null ? etPassword.getText().toString() : "";
+            String confirm = etPasswordConfirm.getText() != null ? etPasswordConfirm.getText().toString() : "";
 
-            if (pin.length() < 4) {
-                Toast.makeText(this, "Le code doit contenir au moins 4 chiffres", Toast.LENGTH_SHORT).show();
+            if (password.length() < 4) {
+                Toast.makeText(this, "Le mot de passe doit contenir au moins 4 caractères", Toast.LENGTH_SHORT).show();
                 return;
             }
-            if (!pin.equals(confirm)) {
-                Toast.makeText(this, "Les deux codes ne correspondent pas", Toast.LENGTH_SHORT).show();
+            if (!password.equals(confirm)) {
+                Toast.makeText(this, "Les deux mots de passe ne correspondent pas", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            sessionManager.setLocalPin(identifiant, pin);
-            Toast.makeText(this, "Code d'accès enregistré", Toast.LENGTH_SHORT).show();
+            sessionManager.setLocalPassword(identifiant, password);
+            Toast.makeText(this, "Mot de passe hors ligne enregistré", Toast.LENGTH_SHORT).show();
             dialog.dismiss();
             goHome();
         });

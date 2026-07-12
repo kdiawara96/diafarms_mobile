@@ -9,7 +9,7 @@ import androidx.security.crypto.EncryptedSharedPreferences;
 import androidx.security.crypto.MasterKeys;
 
 import com.google.gson.Gson;
-import com.mobile.diafarms.crypto.PinHasher;
+import com.mobile.diafarms.crypto.LocalPasswordHasher;
 import com.mobile.diafarms.models.User;
 
 import java.security.GeneralSecurityException;
@@ -28,8 +28,8 @@ public class SessionManager {
     private static final String KEY_REFRESH_TOKEN = "refresh_token";
     private static final String KEY_IS_LOGGED_IN = "is_logged_in";
     private static final String KEY_CURRENT_PROJET = "current_projet";
-    private static final String KEY_LOCAL_PIN_HASH = "local_pin_hash";
-    private static final String KEY_LOCAL_PIN_IDENTIFIANT = "local_pin_identifiant";
+    private static final String KEY_LOCAL_PASSWORD_HASH = "local_password_hash";
+    private static final String KEY_LOCAL_PASSWORD_IDENTIFIANT = "local_password_identifiant";
 
     private final SharedPreferences pref;
     private final Gson gson;
@@ -113,32 +113,35 @@ public class SessionManager {
         return System.currentTimeMillis() < user.getQrExpiry();
     }
 
-    // ===== CODE D'ACCÈS RAPIDE LOCAL =====
-    // Déverrouille l'app instantanément (sans réseau, sans re-scanner de QR) tant que la
-    // session en cours (token) reste valide côté serveur — ce n'est pas un mot de passe
-    // de compte, juste un verrou de confort sur cet appareil, inspiré de BioEnroll.
+    // ===== MOT DE PASSE LOCAL (accès hors ligne) =====
+    // Défini juste après un scan QR réussi (voir CameraScanActivity) : c'est ce mot de
+    // passe, vérifié uniquement sur l'appareil, qui permet ensuite de se reconnecter par
+    // le formulaire identifiant/mot de passe classique quand le réseau est indisponible,
+    // en réutilisant la session déjà stockée (token). Toute l'app est pensée pour un
+    // usage hors ligne : ce mot de passe local EST le moyen d'accès hors ligne, pas un
+    // simple raccourci de confort.
 
-    public void setLocalPin(String identifiant, String pin) {
+    public void setLocalPassword(String identifiant, String password) {
         pref.edit()
-                .putString(KEY_LOCAL_PIN_HASH, PinHasher.hash(pin))
-                .putString(KEY_LOCAL_PIN_IDENTIFIANT, identifiant)
+                .putString(KEY_LOCAL_PASSWORD_HASH, LocalPasswordHasher.hash(password))
+                .putString(KEY_LOCAL_PASSWORD_IDENTIFIANT, identifiant)
                 .apply();
     }
 
-    public boolean hasLocalPin() {
-        return pref.getString(KEY_LOCAL_PIN_HASH, null) != null;
+    public boolean hasLocalPassword() {
+        return pref.getString(KEY_LOCAL_PASSWORD_HASH, null) != null;
     }
 
-    public boolean verifyLocalPin(String pin) {
-        String hash = pref.getString(KEY_LOCAL_PIN_HASH, null);
-        return hash != null && PinHasher.matches(pin, hash);
+    public boolean verifyLocalPassword(String password) {
+        String hash = pref.getString(KEY_LOCAL_PASSWORD_HASH, null);
+        return hash != null && LocalPasswordHasher.matches(password, hash);
     }
 
-    public String getLocalPinIdentifiant() {
-        return pref.getString(KEY_LOCAL_PIN_IDENTIFIANT, null);
+    public String getLocalPasswordIdentifiant() {
+        return pref.getString(KEY_LOCAL_PASSWORD_IDENTIFIANT, null);
     }
 
-    public void clearLocalPin() {
-        pref.edit().remove(KEY_LOCAL_PIN_HASH).remove(KEY_LOCAL_PIN_IDENTIFIANT).apply();
+    public void clearLocalPassword() {
+        pref.edit().remove(KEY_LOCAL_PASSWORD_HASH).remove(KEY_LOCAL_PASSWORD_IDENTIFIANT).apply();
     }
 }

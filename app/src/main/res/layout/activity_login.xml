@@ -226,31 +226,6 @@
 
                     </LinearLayout>
 
-                    <!-- Déverrouillage rapide avec le code local (défini après un scan QR).
-                         Masqué tant qu'aucun code n'a été défini sur cet appareil. -->
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnUnlockPin"
-                        style="@style/Widget.MaterialComponents.Button.TextButton"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="🔒 Déverrouiller avec mon code"
-                        android:textColor="@color/primary"
-                        android:textSize="13sp"
-                        android:visibility="gone" />
-
-                    <!-- Toujours visible : c'est précisément quand la connexion échoue
-                         (serveur injoignable, 401...) qu'on a besoin d'y accéder. -->
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnDiagnostics"
-                        style="@style/Widget.MaterialComponents.Button.TextButton"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="⚙ Diagnostics de connexion"
-                        android:textColor="@android:color/darker_gray"
-                        android:textSize="12sp" />
-
                 </LinearLayout>
 
             </androidx.cardview.widget.CardView>

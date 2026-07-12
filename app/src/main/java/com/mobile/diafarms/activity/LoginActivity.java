@@ -4,23 +4,19 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.ImageButton;
 import android.widget.PopupMenu;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.google.android.material.button.MaterialButton;
-import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -48,7 +44,7 @@ public class LoginActivity extends AppCompatActivity {
     private static final String TAG = "LoginActivity";
     private TextInputEditText editIdentifiant;
     private TextInputEditText editPassword;
-    private MaterialButton btnLogin, btnQrCode, btnUnlockPin, btnDiagnostics;
+    private MaterialButton btnLogin, btnQrCode;
     private ImageButton btnBack;
     private ProgressBar progressBar;
     private boolean isLoading = false;
@@ -66,8 +62,6 @@ public class LoginActivity extends AppCompatActivity {
         editPassword = findViewById(R.id.editPassword);
         btnLogin = findViewById(R.id.btnLogin);
         btnQrCode = findViewById(R.id.btnQrCode);
-        btnUnlockPin = findViewById(R.id.btnUnlockPin);
-        btnDiagnostics = findViewById(R.id.btnDiagnostics);
         btnBack = findViewById(R.id.btnBack);
         progressBar = findViewById(R.id.progressBar);
 
@@ -87,52 +81,6 @@ public class LoginActivity extends AppCompatActivity {
         btnQrCode.setOnClickListener(v -> startActivity(new Intent(this, ScannerActivity.class)));
 
         btnBack.setOnClickListener(v -> finish());
-
-        btnDiagnostics.setOnClickListener(v -> startActivity(new Intent(this, DiagnosticsActivity.class)));
-
-        // Déverrouillage rapide (code local défini après un scan QR) : réutilise la
-        // session déjà stockée sans réseau ni re-scan, tant que le token n'a pas expiré.
-        if (sessionManager.hasLocalPin() && sessionManager.isLoggedIn()) {
-            btnUnlockPin.setVisibility(View.VISIBLE);
-            btnUnlockPin.setOnClickListener(v -> showUnlockPinDialog());
-        }
-    }
-
-    private void showUnlockPinDialog() {
-        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this);
-        View view = LayoutInflater.from(this).inflate(R.layout.dialog_unlock_pin, null);
-        builder.setView(view);
-
-        android.widget.TextView tvIdentifiant = view.findViewById(R.id.tvUnlockIdentifiant);
-        TextInputEditText etPin = view.findViewById(R.id.etUnlockPin);
-        MaterialButton btnUnlock = view.findViewById(R.id.btnUnlock);
-        MaterialButton btnCancel = view.findViewById(R.id.btnUnlockCancel);
-
-        String identifiant = sessionManager.getLocalPinIdentifiant();
-        tvIdentifiant.setText(identifiant != null ? identifiant : "");
-
-        AlertDialog dialog = builder.create();
-
-        btnCancel.setOnClickListener(v -> dialog.dismiss());
-
-        btnUnlock.setOnClickListener(v -> {
-            String pin = etPin.getText() != null ? etPin.getText().toString().trim() : "";
-            if (sessionManager.verifyLocalPin(pin)) {
-                dialog.dismiss();
-                startActivity(new Intent(this, HomeActivity.class));
-                finish();
-            } else {
-                Toast.makeText(this, "Code incorrect", Toast.LENGTH_SHORT).show();
-            }
-        });
-
-        dialog.show();
-        if (dialog.getWindow() != null) {
-            dialog.getWindow().setLayout(
-                    (int) (getResources().getDisplayMetrics().widthPixels * 0.9),
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-            );
-        }
     }
 
     /**
@@ -219,9 +167,31 @@ public class LoginActivity extends AppCompatActivity {
                         isLoading = false;
                         updateLoadingState();
                         Log.e(TAG, "Erreur réseau lors de la connexion", t);
+
+                        if (tryOfflineLogin(identifiant, password)) {
+                            return;
+                        }
                         Toast.makeText(LoginActivity.this, getString(R.string.login_error_network), Toast.LENGTH_LONG).show();
                     }
                 });
+    }
+
+    /**
+     * Toute l'app est pensée pour un usage hors ligne : quand le réseau est indisponible,
+     * on ne bloque pas sur l'échec réseau — on vérifie le mot de passe local défini après
+     * le dernier scan QR (voir CameraScanActivity.showSetPasswordDialog) et, s'il
+     * correspond, on rouvre la session déjà stockée (token du dernier scan/connexion)
+     * sans tenter de renégocier un token frais, impossible sans réseau.
+     */
+    private boolean tryOfflineLogin(String identifiant, String password) {
+        if (!sessionManager.hasLocalPassword() || !sessionManager.isLoggedIn()) return false;
+        if (!identifiant.equals(sessionManager.getLocalPasswordIdentifiant())) return false;
+        if (!sessionManager.verifyLocalPassword(password)) return false;
+
+        Toast.makeText(this, "Connexion hors ligne", Toast.LENGTH_SHORT).show();
+        startActivity(new Intent(this, HomeActivity.class));
+        finish();
+        return true;
     }
 
     private ApiEnvelope<AuthResponse> parseErrorEnvelope(ResponseBody errorBody) {
