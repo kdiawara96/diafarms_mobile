@@ -29,10 +29,11 @@ import com.mobile.diafarms.models.SaisieType;
 import com.mobile.diafarms.network.ApiClient;
 import com.mobile.diafarms.network.dto.AlimentationCreateRequest;
 import com.mobile.diafarms.network.dto.ApiEnvelope;
-import com.mobile.diafarms.network.dto.BatimentSelectResponse;
 import com.mobile.diafarms.network.dto.CollecteOeufsCreateRequest;
 import com.mobile.diafarms.network.dto.ConsommationAlimentCreateRequest;
 import com.mobile.diafarms.network.dto.MortaliteCreateRequest;
+import com.mobile.diafarms.network.dto.OccupationBatimentResponse;
+import com.mobile.diafarms.network.dto.ProjetDetailResponse;
 import com.mobile.diafarms.network.dto.SoinsCreateRequest;
 import com.mobile.diafarms.network.dto.StockAlimentResponse;
 import com.mobile.diafarms.network.dto.TransactionCreateRequest;
@@ -75,7 +76,7 @@ public class SaisieFormActivity extends AppCompatActivity {
     private final Calendar dateCal = Calendar.getInstance();
     private Calendar heureCal; // null tant que l'heure n'est pas choisie (optionnelle)
 
-    private List<BatimentSelectResponse> batiments = new ArrayList<>();
+    private List<OccupationBatimentResponse> batiments = new ArrayList<>();
 
     // Vues communes
     private TextView tvTitreForm, tvProjetForm, tvStockInfo;
@@ -261,18 +262,36 @@ public class SaisieFormActivity extends AppCompatActivity {
         tvResumeCollecte.setTextColor(getColor(tauxCasseEleve ? android.R.color.holo_red_dark : R.color.green_primary));
     }
 
+    /**
+     * Ne propose que les bâtiments occupés par le projet en cours (via son
+     * occupationBatiment), pas tous les bâtiments de la ferme — inutile et source
+     * d'erreur de saisir une collecte/soin/mortalité dans un bâtiment qui n'a rien
+     * à voir avec ce projet.
+     */
     private void loadBatiments() {
-        ApiClient.dataApi(this).getBatimentsSelect().enqueue(new Callback<ApiEnvelope<List<BatimentSelectResponse>>>() {
+        if (projetUniqueId == null || projetUniqueId.isEmpty()) {
+            populateBatimentSpinner();
+            return;
+        }
+
+        ApiClient.dataApi(this).getProjetDetail(projetUniqueId).enqueue(new Callback<ApiEnvelope<ProjetDetailResponse>>() {
             @Override
-            public void onResponse(Call<ApiEnvelope<List<BatimentSelectResponse>>> call, Response<ApiEnvelope<List<BatimentSelectResponse>>> response) {
-                if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
-                    batiments = response.body().getData();
+            public void onResponse(Call<ApiEnvelope<ProjetDetailResponse>> call, Response<ApiEnvelope<ProjetDetailResponse>> response) {
+                ProjetDetailResponse detail = response.isSuccessful() && response.body() != null
+                        ? response.body().getData() : null;
+                if (detail != null && detail.getOccupationBatiment() != null) {
+                    batiments = new ArrayList<>();
+                    for (OccupationBatimentResponse occ : detail.getOccupationBatiment()) {
+                        if (occ.getDateSortie() == null) { // occupation encore active
+                            batiments.add(occ);
+                        }
+                    }
                 }
                 populateBatimentSpinner();
             }
 
             @Override
-            public void onFailure(Call<ApiEnvelope<List<BatimentSelectResponse>>> call, Throwable t) {
+            public void onFailure(Call<ApiEnvelope<ProjetDetailResponse>> call, Throwable t) {
                 // Hors ligne : le bâtiment est optionnel partout côté backend, on continue sans bloquer.
                 populateBatimentSpinner();
             }
@@ -282,8 +301,8 @@ public class SaisieFormActivity extends AppCompatActivity {
     private void populateBatimentSpinner() {
         List<String> labels = new ArrayList<>();
         labels.add("Aucun bâtiment précis");
-        for (BatimentSelectResponse b : batiments) {
-            labels.add(b.getNom());
+        for (OccupationBatimentResponse b : batiments) {
+            labels.add(b.getNomBatiment());
         }
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, labels);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
@@ -293,13 +312,13 @@ public class SaisieFormActivity extends AppCompatActivity {
     private String getSelectedBatimentUniqueId() {
         int position = spinnerBatiment.getSelectedItemPosition();
         if (position <= 0 || position - 1 >= batiments.size()) return null;
-        return batiments.get(position - 1).getUniqueId();
+        return batiments.get(position - 1).getBatimentUniqueId();
     }
 
     private void selectBatimentByUniqueId(String uniqueId) {
         if (uniqueId == null) return;
         for (int i = 0; i < batiments.size(); i++) {
-            if (uniqueId.equals(batiments.get(i).getUniqueId())) {
+            if (uniqueId.equals(batiments.get(i).getBatimentUniqueId())) {
                 spinnerBatiment.setSelection(i + 1);
                 return;
             }
