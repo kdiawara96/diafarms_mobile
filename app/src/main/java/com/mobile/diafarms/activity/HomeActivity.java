@@ -78,7 +78,6 @@ public class HomeActivity extends AppCompatActivity {
     private CardView btnAlimentation;
     private CardView btnSoins;
     private CardView btnMortalite;
-    private CardView btnAchatAliment;
 
     // Vues Finance
     private TextView tvSectionFinance;
@@ -153,7 +152,6 @@ public class HomeActivity extends AppCompatActivity {
         btnAlimentation = findViewById(R.id.btnAlimentation);
         btnSoins = findViewById(R.id.btnSoins);
         btnMortalite = findViewById(R.id.btnMortalite);
-        btnAchatAliment = findViewById(R.id.btnAchatAliment);
 
         tvSectionFinance = findViewById(R.id.tvSectionFinance);
         gridFinance = findViewById(R.id.gridFinance);
@@ -260,10 +258,9 @@ public class HomeActivity extends AppCompatActivity {
     private void setupClickListeners() {
         // Production
         btnCollecteOeufs.setOnClickListener(v -> openSaisie(SaisieType.COLLECTE_OEUFS));
-        btnAlimentation.setOnClickListener(v -> openSaisie(SaisieType.ALIMENTATION_CONSOMMATION));
+        btnAlimentation.setOnClickListener(v -> showChoixAlimentation());
         btnSoins.setOnClickListener(v -> openSaisie(SaisieType.SOINS));
         btnMortalite.setOnClickListener(v -> openSaisie(SaisieType.MORTALITE));
-        btnAchatAliment.setOnClickListener(v -> openSaisie(SaisieType.ALIMENTATION_ACHAT));
 
         // Finance
         btnEntreeArgent.setOnClickListener(v -> openSaisie(SaisieType.TRANSACTION_ENTREE));
@@ -292,6 +289,17 @@ public class HomeActivity extends AppCompatActivity {
             intent.putExtra(SaisieFormActivity.EXTRA_PROJET_LABEL, currentProjet.getLabel());
         }
         startActivity(intent);
+    }
+
+    /** La carte "Alimentation" couvre les deux flux (achat = entrant, consommation =
+     * sortant) : on demande lequel plutôt que d'avoir une carte séparée sur l'accueil. */
+    private void showChoixAlimentation() {
+        new android.app.AlertDialog.Builder(this)
+                .setTitle("Alimentation")
+                .setItems(new CharSequence[]{"Achat (entrant)", "Consommation (sortant)"}, (dialog, which) -> {
+                    openSaisie(which == 0 ? SaisieType.ALIMENTATION_ACHAT : SaisieType.ALIMENTATION_CONSOMMATION);
+                })
+                .show();
     }
 
     private void setupSyncStatus() {
