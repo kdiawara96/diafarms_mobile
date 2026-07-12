@@ -2,14 +2,13 @@ package com.mobile.diafarms.activity;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.GridLayout;
-import android.widget.ImageButton;
-import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -19,42 +18,49 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.google.gson.Gson;
 import com.mobile.diafarms.R;
 import com.mobile.diafarms.data.LocalDatabase;
 import com.mobile.diafarms.data.SessionManager;
-import com.mobile.diafarms.models.Projet;
+import com.mobile.diafarms.data.SyncManager;
+import com.mobile.diafarms.models.SaisieLocale;
+import com.mobile.diafarms.models.SaisieType;
 import com.mobile.diafarms.models.User;
-import com.mobile.diafarms.ui.saisie.SaisieAlimentActivity;
-import com.mobile.diafarms.ui.saisie.SaisieEntreeActivity;
-import com.mobile.diafarms.ui.saisie.SaisieMortaliteActivity;
-import com.mobile.diafarms.ui.saisie.SaisieOeufsActivity;
-import com.mobile.diafarms.ui.saisie.SaisieSoinsActivity;
-import com.mobile.diafarms.ui.saisie.SaisieSortieActivity;
+import com.mobile.diafarms.network.ApiClient;
+import com.mobile.diafarms.network.dto.ApiEnvelope;
+import com.mobile.diafarms.network.dto.ProjetSelectResponse;
+import com.mobile.diafarms.network.dto.TransactionCreateRequest;
+import com.mobile.diafarms.ui.saisie.SaisieFormActivity;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class HomeActivity extends AppCompatActivity {
+
+    private static final String TAG = "HomeActivity";
 
     // Session et données
     private SessionManager sessionManager;
     private LocalDatabase localDatabase;
     private User currentUser;
-    private Projet currentProjet;
-    private List<Projet> projetsList;
+    private ProjetSelectResponse currentProjet;
+    private List<ProjetSelectResponse> projetsList = new ArrayList<>();
 
     // Vues Header
     private TextView tvAgentName;
-    private LinearLayout llRoles;
     private TextView badgeProduction;
     private TextView badgeFinance;
     private FrameLayout btnSync;
     private View indicatorSync;
-    private FrameLayout flAvatar;
 
     // Vues Projet
     private Spinner spinnerProjets;
-    private androidx.constraintlayout.widget.ConstraintLayout clProjetResume;
     private TextView tvPoulesCount;
     private TextView tvTauxPonte;
     private TextView tvJoursRestants;
@@ -72,6 +78,7 @@ public class HomeActivity extends AppCompatActivity {
     private CardView btnAlimentation;
     private CardView btnSoins;
     private CardView btnMortalite;
+    private CardView btnAchatAliment;
 
     // Vues Finance
     private TextView tvSectionFinance;
@@ -99,77 +106,55 @@ public class HomeActivity extends AppCompatActivity {
             return insets;
         });
 
-        // Initialisation
         sessionManager = new SessionManager(this);
         localDatabase = new LocalDatabase(this);
 
-        // Vérifier session
-        if (!sessionManager.isLoggedIn() || !sessionManager.isQRValid()) {
-//            redirectToLogin();
-//            return;
+        if (!sessionManager.isLoggedIn()) {
+            redirectToLogin();
+            return;
         }
 
         currentUser = sessionManager.getCurrentUser();
         if (currentUser == null) {
-//            redirectToLogin();
-//            return;
+            redirectToLogin();
+            return;
         }
 
-        // Binding vues
         bindViews();
-
-        // Configuration selon rôle
         setupHeader();
         setupVisibilityByRole();
-        setupProjetSelector();
         setupClickListeners();
         setupSyncStatus();
-
-        // Chargement données
         loadProjets();
         loadLastEntry();
         updateFinanceStats();
     }
 
     private void bindViews() {
-
-        // Vérifier que setContentView a été appelé
-        if (findViewById(android.R.id.content) == null) {
-            android.util.Log.e("HomeActivity", "ERREUR: setContentView non appelé !");
-            return;
-        }
-
-        // Header
         tvAgentName = findViewById(R.id.tvAgentName);
-        llRoles = findViewById(R.id.llRoles);
         badgeProduction = findViewById(R.id.badgeProduction);
         badgeFinance = findViewById(R.id.badgeFinance);
         btnSync = findViewById(R.id.btnSync);
         indicatorSync = findViewById(R.id.indicatorSync);
-        flAvatar = findViewById(R.id.flAvatar);
 
-        // Projet
         spinnerProjets = findViewById(R.id.spinnerProjets);
-        clProjetResume = findViewById(R.id.clProjetResume);
         tvPoulesCount = findViewById(R.id.tvPoulesCount);
         tvTauxPonte = findViewById(R.id.tvTauxPonte);
         tvJoursRestants = findViewById(R.id.tvJoursRestants);
 
-        // Dernière saisie
         cardLastEntry = findViewById(R.id.cardLastEntry);
         tvLastEntryTitle = findViewById(R.id.tvLastEntryTitle);
         tvLastEntryDetail = findViewById(R.id.tvLastEntryDetail);
         tvLastEntryTime = findViewById(R.id.tvLastEntryTime);
 
-        // Production
         tvSectionProduction = findViewById(R.id.tvSectionProduction);
         gridProduction = findViewById(R.id.gridProduction);
         btnCollecteOeufs = findViewById(R.id.btnCollecteOeufs);
         btnAlimentation = findViewById(R.id.btnAlimentation);
         btnSoins = findViewById(R.id.btnSoins);
         btnMortalite = findViewById(R.id.btnMortalite);
+        btnAchatAliment = findViewById(R.id.btnAchatAliment);
 
-        // Finance
         tvSectionFinance = findViewById(R.id.tvSectionFinance);
         gridFinance = findViewById(R.id.gridFinance);
         btnEntreeArgent = findViewById(R.id.btnEntreeArgent);
@@ -178,24 +163,14 @@ public class HomeActivity extends AppCompatActivity {
         tvMesEntrees = findViewById(R.id.tvMesEntrees);
         tvMesSorties = findViewById(R.id.tvMesSorties);
 
-        // Bottom
         indicatorConnection = findViewById(R.id.indicatorConnection);
         tvConnectionStatus = findViewById(R.id.tvConnectionStatus);
         tvPendingCount = findViewById(R.id.tvPendingCount);
         btnSyncNow = findViewById(R.id.btnSyncNow);
-
-
-        // LOG de vérification
-        android.util.Log.d("HomeActivity", "bindViews() OK");
-        android.util.Log.d("HomeActivity", "  indicatorConnection = " + (indicatorConnection != null ? "OK" : "NULL"));
-        android.util.Log.d("HomeActivity", "  tvConnectionStatus = " + (tvConnectionStatus != null ? "OK" : "NULL"));
     }
 
     private void setupHeader() {
-        // Nom agent
         tvAgentName.setText(currentUser.getNom());
-
-        // Badges rôles
         badgeProduction.setVisibility(currentUser.isProduction() ? View.VISIBLE : View.GONE);
         badgeFinance.setVisibility(currentUser.isFinance() ? View.VISIBLE : View.GONE);
     }
@@ -204,46 +179,44 @@ public class HomeActivity extends AppCompatActivity {
         boolean isProduction = currentUser.isProduction();
         boolean isFinance = currentUser.isFinance();
 
-        // Section Production
         tvSectionProduction.setVisibility(isProduction ? View.VISIBLE : View.GONE);
         gridProduction.setVisibility(isProduction ? View.VISIBLE : View.GONE);
 
-        // Section Finance
         tvSectionFinance.setVisibility(isFinance ? View.VISIBLE : View.GONE);
         gridFinance.setVisibility(isFinance ? View.VISIBLE : View.GONE);
         cardStatsFinance.setVisibility(isFinance ? View.VISIBLE : View.GONE);
+    }
 
-        // Si double rôle, ajuster espacement
-        if (isProduction && isFinance) {
-            // Les deux sections visibles
-        }
+    /** Charge les projets réels de la ferme (GET /projets/select) pour peupler le sélecteur. */
+    private void loadProjets() {
+        ApiClient.dataApi(this).getProjetsSelect().enqueue(new Callback<ApiEnvelope<List<ProjetSelectResponse>>>() {
+            @Override
+            public void onResponse(Call<ApiEnvelope<List<ProjetSelectResponse>>> call, Response<ApiEnvelope<List<ProjetSelectResponse>>> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
+                    projetsList = response.body().getData();
+                } else {
+                    projetsList = new ArrayList<>();
+                }
+                setupProjetSelector();
+            }
+
+            @Override
+            public void onFailure(Call<ApiEnvelope<List<ProjetSelectResponse>>> call, Throwable t) {
+                Log.e(TAG, "Impossible de charger les projets", t);
+                Toast.makeText(HomeActivity.this, "Impossible de charger les projets (hors ligne ?)", Toast.LENGTH_SHORT).show();
+                projetsList = new ArrayList<>();
+                setupProjetSelector();
+            }
+        });
     }
 
     private void setupProjetSelector() {
-        // Mock données projets
-        projetsList = new ArrayList<>();
-
-        Projet p1 = new Projet();
-        p1.setId("proj_001");
-        p1.setNumero("P-001");
-        p1.setTitre("Poussins Oct 2025");
-        p1.setNbPoulesActuelles(980);
-        p1.setTauxPonteActuel(85);
-
-        Projet p2 = new Projet();
-        p2.setId("proj_002");
-        p2.setNumero("P-002");
-        p2.setTitre("Poussins Fév 2026");
-        p2.setNbPoulesActuelles(1480);
-        p2.setTauxPonteActuel(22);
-
-        projetsList.add(p1);
-        projetsList.add(p2);
-
-        // Adapter spinner
         List<String> projetLabels = new ArrayList<>();
-        for (Projet p : projetsList) {
-            projetLabels.add(p.getNumero() + " - " + p.getTitre());
+        for (ProjetSelectResponse p : projetsList) {
+            projetLabels.add(p.getLabel());
+        }
+        if (projetLabels.isEmpty()) {
+            projetLabels.add("Aucun projet disponible");
         }
 
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this,
@@ -251,82 +224,82 @@ public class HomeActivity extends AppCompatActivity {
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinnerProjets.setAdapter(adapter);
 
-        // Sélection
         spinnerProjets.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                currentProjet = projetsList.get(position);
-                sessionManager.setCurrentProjetId(currentProjet.getId());
-                updateProjetDisplay();
+                if (position < projetsList.size()) {
+                    currentProjet = projetsList.get(position);
+                    sessionManager.setCurrentProjetId(currentProjet.getUniqueId());
+                    updateProjetDisplay();
+                }
             }
 
             @Override
             public void onNothingSelected(AdapterView<?> parent) {}
         });
 
-        // Sélectionner premier par défaut
         if (!projetsList.isEmpty()) {
             currentProjet = projetsList.get(0);
             updateProjetDisplay();
+        } else {
+            currentProjet = null;
+            tvPoulesCount.setText("—");
+            tvTauxPonte.setText("—");
+            tvJoursRestants.setText("—");
         }
     }
 
     private void updateProjetDisplay() {
-        if (currentProjet == null) return;
-
-        tvPoulesCount.setText(String.valueOf(currentProjet.getNbPoulesActuelles()));
-        tvTauxPonte.setText((int)currentProjet.getTauxPonteActuel() + "%");
-        tvJoursRestants.setText(currentProjet.getJoursRestants() + "j");
+        // Le sélecteur /projets/select renvoie uniquement code/titre (pas les stats
+        // d'élevage) : ces indicateurs nécessiteraient l'endpoint /projets/list complet.
+        tvPoulesCount.setText("—");
+        tvTauxPonte.setText("—");
+        tvJoursRestants.setText("—");
     }
 
     private void setupClickListeners() {
         // Production
-        btnCollecteOeufs.setOnClickListener(v -> openSaisie(SaisieOeufsActivity.class));
-        btnAlimentation.setOnClickListener(v -> openSaisie(SaisieAlimentActivity.class));
-        btnSoins.setOnClickListener(v -> openSaisie(SaisieSoinsActivity.class));
-        btnMortalite.setOnClickListener(v -> openSaisie(SaisieMortaliteActivity.class));
+        btnCollecteOeufs.setOnClickListener(v -> openSaisie(SaisieType.COLLECTE_OEUFS));
+        btnAlimentation.setOnClickListener(v -> openSaisie(SaisieType.ALIMENTATION_CONSOMMATION));
+        btnSoins.setOnClickListener(v -> openSaisie(SaisieType.SOINS));
+        btnMortalite.setOnClickListener(v -> openSaisie(SaisieType.MORTALITE));
+        btnAchatAliment.setOnClickListener(v -> openSaisie(SaisieType.ALIMENTATION_ACHAT));
 
         // Finance
-        btnEntreeArgent.setOnClickListener(v -> openSaisie(SaisieEntreeActivity.class));
-        btnSortieArgent.setOnClickListener(v -> openSaisie(SaisieSortieActivity.class));
+        btnEntreeArgent.setOnClickListener(v -> openSaisie(SaisieType.TRANSACTION_ENTREE));
+        btnSortieArgent.setOnClickListener(v -> openSaisie(SaisieType.TRANSACTION_SORTIE));
 
         // Sync
         btnSync.setOnClickListener(v -> forceSync());
         btnSyncNow.setOnClickListener(v -> forceSync());
+
+        // Mes saisies
+        cardLastEntry.setOnClickListener(v -> startActivity(new Intent(this, MesSaisiesActivity.class)));
+        tvPendingCount.setOnClickListener(v -> startActivity(new Intent(this, MesSaisiesActivity.class)));
     }
 
-    private void openSaisie(Class<?> activityClass) {
-        if (currentProjet == null) {
+    private void openSaisie(SaisieType type) {
+        boolean needsProjet = type != SaisieType.TRANSACTION_ENTREE && type != SaisieType.TRANSACTION_SORTIE;
+        if (needsProjet && currentProjet == null) {
             Toast.makeText(this, "Veuillez sélectionner un projet", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        Intent intent = new Intent(this, activityClass);
-        intent.putExtra("projet_id", currentProjet.getId());
-        intent.putExtra("projet_titre", currentProjet.getTitre());
-        intent.putExtra("user_id", currentUser.getId());
+        Intent intent = new Intent(this, SaisieFormActivity.class);
+        intent.putExtra(SaisieFormActivity.EXTRA_TYPE, type.name());
+        if (currentProjet != null) {
+            intent.putExtra(SaisieFormActivity.EXTRA_PROJET_ID, currentProjet.getUniqueId());
+            intent.putExtra(SaisieFormActivity.EXTRA_PROJET_LABEL, currentProjet.getLabel());
+        }
         startActivity(intent);
     }
 
     private void setupSyncStatus() {
-        // Vérifier connexion (simplifié)
-        boolean isOnline = true; // TODO: vérifier réellement
-
-        if (isOnline) {
-            indicatorConnection.setBackgroundResource(R.drawable.circle_green);
-            tvConnectionStatus.setText("En ligne • Sync auto");
-        } else {
-            indicatorConnection.setBackgroundResource(R.drawable.circle_red);
-            tvConnectionStatus.setText("Hors ligne");
-        }
-
-        // Compter données en attente
-        int pending = localDatabase.getEnregistrementsNonSync().size()
-                + localDatabase.getTransactionsNonSync().size();
+        int pending = localDatabase.countPending();
 
         if (pending > 0) {
             tvPendingCount.setVisibility(View.VISIBLE);
-            tvPendingCount.setText(pending + " saisies");
+            tvPendingCount.setText(pending + " saisie(s)");
             btnSyncNow.setVisibility(View.VISIBLE);
             indicatorSync.setBackgroundResource(R.drawable.circle_orange);
         } else {
@@ -336,53 +309,97 @@ public class HomeActivity extends AppCompatActivity {
         }
     }
 
-    private void loadProjets() {
-        // Déjà chargé dans setupProjetSelector
-    }
-
     private void loadLastEntry() {
-        // Mock dernière saisie
-        tvLastEntryTitle.setText("Dernière collecte");
-        tvLastEntryDetail.setText("850 œufs • 27 alvéoles • 06:30");
-        tvLastEntryTime.setText("Il y a 2h");
+        List<SaisieLocale> all = localDatabase.getAllSaisies();
+        if (all.isEmpty()) {
+            tvLastEntryTitle.setText("Dernière saisie");
+            tvLastEntryDetail.setText("Aucune saisie pour l'instant");
+            tvLastEntryTime.setText("--");
+            return;
+        }
+
+        SaisieLocale last = all.get(0); // triées par created_at DESC
+        tvLastEntryTitle.setText(last.getType().getLabel());
+        tvLastEntryDetail.setText(last.getDisplaySummary());
+        tvLastEntryTime.setText(relativeTime(last.getCreatedAt()));
     }
 
+    private String relativeTime(long timestampMs) {
+        long diffMinutes = (System.currentTimeMillis() - timestampMs) / 60000;
+        if (diffMinutes < 1) return "À l'instant";
+        if (diffMinutes < 60) return "Il y a " + diffMinutes + "min";
+        long diffHours = diffMinutes / 60;
+        if (diffHours < 24) return "Il y a " + diffHours + "h";
+        return "Il y a " + (diffHours / 24) + "j";
+    }
+
+    /** Additionne les transactions locales (LOCAL + SYNCED) du jour, saisies par cet agent. */
     private void updateFinanceStats() {
         if (!currentUser.isFinance()) return;
 
-        double entrees = localDatabase.getTotalEntreesAujourdhui(currentUser.getId());
-        double sorties = localDatabase.getTotalSortiesAujourdhui(currentUser.getId());
+        Gson gson = new Gson();
+        String today = new SimpleDateFormat("yyyy-MM-dd", Locale.FRANCE).format(new java.util.Date());
+
+        double entrees = 0;
+        double sorties = 0;
+
+        for (SaisieLocale s : localDatabase.getSaisiesByType(SaisieType.TRANSACTION_ENTREE)) {
+            TransactionCreateRequest req = gson.fromJson(s.getPayloadJson(), TransactionCreateRequest.class);
+            if (req.montant != null && today.equals(req.date)) entrees += req.montant;
+        }
+        for (SaisieLocale s : localDatabase.getSaisiesByType(SaisieType.TRANSACTION_SORTIE)) {
+            TransactionCreateRequest req = gson.fromJson(s.getPayloadJson(), TransactionCreateRequest.class);
+            if (req.montant != null && today.equals(req.date)) sorties += req.montant;
+        }
 
         tvMesEntrees.setText(formatMontant(entrees));
         tvMesSorties.setText(formatMontant(sorties));
     }
 
     private String formatMontant(double montant) {
-        return String.format("%,.0f FCFA", montant);
+        return String.format(Locale.FRANCE, "%,.0f FCFA", montant);
     }
 
     private void forceSync() {
-        Toast.makeText(this, "Synchronisation...", Toast.LENGTH_SHORT).show();
-        // TODO: implémenter sync réseau
-        setupSyncStatus();
+        int pending = localDatabase.countPending();
+        if (pending == 0) {
+            Toast.makeText(this, "Rien à synchroniser", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        btnSyncNow.setEnabled(false);
+        Toast.makeText(this, "Synchronisation de " + pending + " saisie(s)...", Toast.LENGTH_SHORT).show();
+
+        new SyncManager(this).syncAll(new SyncManager.SyncCallback() {
+            @Override
+            public void onComplete(int success, int failed) {
+                runOnUiThread(() -> {
+                    btnSyncNow.setEnabled(true);
+                    String message = failed == 0
+                            ? success + " saisie(s) synchronisée(s) avec succès"
+                            : success + " synchronisée(s), " + failed + " en échec (réessayez plus tard)";
+                    Toast.makeText(HomeActivity.this, message, Toast.LENGTH_LONG).show();
+                    setupSyncStatus();
+                    loadLastEntry();
+                    updateFinanceStats();
+                });
+            }
+        });
     }
 
     private void redirectToLogin() {
-//        Intent intent = new Intent(this, LoginQRActivity.class);
-//        startActivity(intent);
-//        finish();
+        Intent intent = new Intent(this, LoginActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+        finish();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-
-        // VÉRIFICATION CRITIQUE : ne rien faire si pas encore initialisé
         if (indicatorConnection == null || tvConnectionStatus == null) {
-            android.util.Log.w("HomeActivity", "onResume: vues non initialisées, on ignore");
-            return;
+            return; // pas encore initialisé (premier onCreate en cours)
         }
-        // Rafraîchir à chaque retour
         setupSyncStatus();
         updateFinanceStats();
         loadLastEntry();

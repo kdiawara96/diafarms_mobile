@@ -24,6 +24,10 @@ public class ApiClient {
         return getRetrofit(context).create(AuthApi.class);
     }
 
+    public static DataApi dataApi(Context context) {
+        return getRetrofit(context).create(DataApi.class);
+    }
+
     private static Retrofit getRetrofit(Context context) {
         if (retrofit == null) {
             synchronized (ApiClient.class) {

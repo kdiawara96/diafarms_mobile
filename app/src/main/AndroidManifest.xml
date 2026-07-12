@@ -63,6 +63,12 @@
         <activity
             android:name=".activity.LoginActivity"
             android:exported="false" />
+        <activity
+            android:name=".ui.saisie.SaisieFormActivity"
+            android:exported="false" />
+        <activity
+            android:name=".activity.MesSaisiesActivity"
+            android:exported="false" />
     </application>
 
 </manifest>

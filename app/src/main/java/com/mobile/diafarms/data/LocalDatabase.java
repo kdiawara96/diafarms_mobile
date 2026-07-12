@@ -7,51 +7,40 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 
-import com.mobile.diafarms.models.Enregistrement;
-import com.mobile.diafarms.models.Transaction;
+import com.mobile.diafarms.models.SaisieLocale;
+import com.mobile.diafarms.models.SaisieType;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 public class LocalDatabase extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "diafarms.db";
-    private static final int DATABASE_VERSION = 2;
+    private static final int DATABASE_VERSION = 3;
 
     // Tables
-    private static final String TABLE_ENREGISTREMENTS = "enregistrements";
-    private static final String TABLE_TRANSACTIONS = "transactions";
     private static final String TABLE_ACCOUNTS = "accounts";
+    private static final String TABLE_SAISIES = "saisies_locales";
 
     // Colonnes accounts (comptes déjà utilisés pour se connecter sur cet appareil,
     // afin de proposer l'identifiant en sélection plutôt qu'en ressaisie systématique)
     private static final String COL_IDENTIFIANT = "identifiant";
     private static final String COL_LAST_USED = "last_used";
 
-    // Colonnes communes
-    private static final String COL_ID = "id";
-    private static final String COL_PROJET_ID = "projet_id";
+    // Colonnes saisies_locales : une ligne = une saisie (soins, mortalité, collecte,
+    // aliment, transaction...) en attente de synchronisation ou déjà synchronisée.
+    // Le détail métier (quantités, montant...) est porté par payload_json, qui
+    // correspond exactement au *Create DTO backend du type concerné.
+    private static final String COL_LOCAL_ID = "local_id";
     private static final String COL_TYPE = "type";
-    private static final String COL_DATE = "date";
-    private static final String COL_HEURE = "heure";
-    private static final String COL_SAISI_PAR = "saisi_par";
+    private static final String COL_PROJET_UNIQUE_ID = "projet_unique_id";
+    private static final String COL_PROJET_LABEL = "projet_label";
+    private static final String COL_PAYLOAD_JSON = "payload_json";
+    private static final String COL_DISPLAY_SUMMARY = "display_summary";
     private static final String COL_SYNC_STATUS = "sync_status";
-
-    // Colonnes enregistrements
-    private static final String COL_NB_OEUFS_TOTAL = "nb_oeufs_total";
-    private static final String COL_NB_OEUFS_CASSES = "nb_oeufs_casses";
-    private static final String COL_NB_ALVEOLES = "nb_alveoles";
-    private static final String COL_TYPE_ALIMENT = "type_aliment";
-    private static final String COL_QTE_ALIMENT = "qte_aliment_kg";
-    private static final String COL_NB_POULES_MORTES = "nb_poules_mortes";
-    private static final String COL_CAUSE_MORT = "cause_mort";
-    private static final String COL_PHOTOS = "photos";
-
-    // Colonnes transactions
-    private static final String COL_MONTANT = "montant";
-    private static final String COL_CATEGORIE = "categorie";
-    private static final String COL_DESCRIPTION = "description";
-    private static final String COL_CLIENT_ID = "client_id";
-    private static final String COL_MODE_PAIEMENT = "mode_paiement";
+    private static final String COL_SERVER_UNIQUE_ID = "server_unique_id";
+    private static final String COL_ERROR_MESSAGE = "error_message";
+    private static final String COL_CREATED_AT = "created_at";
 
     public LocalDatabase(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -59,53 +48,34 @@ public class LocalDatabase extends SQLiteOpenHelper {
 
     @Override
     public void onCreate(SQLiteDatabase db) {
-        String createEnregistrements = "CREATE TABLE " + TABLE_ENREGISTREMENTS + "("
-                + COL_ID + " TEXT PRIMARY KEY,"
-                + COL_PROJET_ID + " TEXT,"
-                + COL_TYPE + " TEXT,"
-                + COL_DATE + " TEXT,"
-                + COL_HEURE + " TEXT,"
-                + COL_SAISI_PAR + " TEXT,"
-                + COL_SYNC_STATUS + " TEXT,"
-                + COL_NB_OEUFS_TOTAL + " INTEGER,"
-                + COL_NB_OEUFS_CASSES + " INTEGER,"
-                + COL_NB_ALVEOLES + " INTEGER,"
-                + COL_TYPE_ALIMENT + " TEXT,"
-                + COL_QTE_ALIMENT + " INTEGER,"
-                + COL_NB_POULES_MORTES + " INTEGER,"
-                + COL_CAUSE_MORT + " TEXT,"
-                + COL_PHOTOS + " TEXT"
-                + ")";
-
-        String createTransactions = "CREATE TABLE " + TABLE_TRANSACTIONS + "("
-                + COL_ID + " TEXT PRIMARY KEY,"
-                + COL_PROJET_ID + " TEXT,"
-                + COL_TYPE + " TEXT,"
-                + COL_CATEGORIE + " TEXT,"
-                + COL_MONTANT + " REAL,"
-                + COL_DATE + " TEXT,"
-                + COL_DESCRIPTION + " TEXT,"
-                + COL_CLIENT_ID + " TEXT,"
-                + COL_MODE_PAIEMENT + " TEXT,"
-                + COL_SAISI_PAR + " TEXT,"
-                + COL_SYNC_STATUS + " TEXT"
-                + ")";
-
         String createAccounts = "CREATE TABLE " + TABLE_ACCOUNTS + "("
                 + COL_IDENTIFIANT + " TEXT PRIMARY KEY,"
                 + COL_LAST_USED + " INTEGER"
                 + ")";
 
-        db.execSQL(createEnregistrements);
-        db.execSQL(createTransactions);
+        String createSaisies = "CREATE TABLE " + TABLE_SAISIES + "("
+                + COL_LOCAL_ID + " TEXT PRIMARY KEY,"
+                + COL_TYPE + " TEXT NOT NULL,"
+                + COL_PROJET_UNIQUE_ID + " TEXT,"
+                + COL_PROJET_LABEL + " TEXT,"
+                + COL_PAYLOAD_JSON + " TEXT NOT NULL,"
+                + COL_DISPLAY_SUMMARY + " TEXT,"
+                + COL_SYNC_STATUS + " TEXT NOT NULL,"
+                + COL_SERVER_UNIQUE_ID + " TEXT,"
+                + COL_ERROR_MESSAGE + " TEXT,"
+                + COL_CREATED_AT + " INTEGER"
+                + ")";
+
         db.execSQL(createAccounts);
+        db.execSQL(createSaisies);
     }
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        db.execSQL("DROP TABLE IF EXISTS " + TABLE_ENREGISTREMENTS);
-        db.execSQL("DROP TABLE IF EXISTS " + TABLE_TRANSACTIONS);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_ACCOUNTS);
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_SAISIES);
+        db.execSQL("DROP TABLE IF EXISTS enregistrements");
+        db.execSQL("DROP TABLE IF EXISTS transactions");
         onCreate(db);
     }
 
@@ -139,156 +109,124 @@ public class LocalDatabase extends SQLiteOpenHelper {
         return identifiants;
     }
 
-    // ===== ENREGISTREMENTS =====
+    // ===== SAISIES LOCALES =====
 
-    public long insertEnregistrement(Enregistrement e) {
+    /** Crée une nouvelle saisie locale (statut LOCAL) et retourne son localId généré. */
+    public String insertSaisie(SaisieType type, String projetUniqueId, String projetLabel,
+                                String payloadJson, String displaySummary) {
+        String localId = UUID.randomUUID().toString();
+
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
+        values.put(COL_LOCAL_ID, localId);
+        values.put(COL_TYPE, type.name());
+        values.put(COL_PROJET_UNIQUE_ID, projetUniqueId);
+        values.put(COL_PROJET_LABEL, projetLabel);
+        values.put(COL_PAYLOAD_JSON, payloadJson);
+        values.put(COL_DISPLAY_SUMMARY, displaySummary);
+        values.put(COL_SYNC_STATUS, SaisieLocale.STATUT_LOCAL);
+        values.put(COL_CREATED_AT, System.currentTimeMillis());
 
-        values.put(COL_ID, e.getId());
-        values.put(COL_PROJET_ID, e.getProjetId());
-        values.put(COL_TYPE, e.getType());
-        values.put(COL_DATE, e.getDate());
-        values.put(COL_HEURE, e.getHeure());
-        values.put(COL_SAISI_PAR, e.getSaisiPar());
-        values.put(COL_SYNC_STATUS, e.getSyncStatus());
-        values.put(COL_NB_OEUFS_TOTAL, e.getNbOeufsTotal());
-        values.put(COL_NB_OEUFS_CASSES, e.getNbOeufsCasses());
-        values.put(COL_NB_ALVEOLES, e.getNbAlveoles());
-        values.put(COL_TYPE_ALIMENT, e.getTypeAliment());
-        values.put(COL_QTE_ALIMENT, e.getQuantiteAlimentKg());
-        values.put(COL_NB_POULES_MORTES, e.getNbPoulesMortes());
-        values.put(COL_CAUSE_MORT, e.getCauseMort());
-        values.put(COL_PHOTOS, e.getPhotos());
-
-        return db.insert(TABLE_ENREGISTREMENTS, null, values);
+        db.insert(TABLE_SAISIES, null, values);
+        return localId;
     }
 
-    public List<Enregistrement> getEnregistrementsByProjet(String projetId) {
-        List<Enregistrement> list = new ArrayList<>();
-        SQLiteDatabase db = this.getReadableDatabase();
-
-        Cursor cursor = db.query(TABLE_ENREGISTREMENTS, null,
-                COL_PROJET_ID + "=?", new String[]{projetId},
-                null, null, COL_DATE + " DESC, " + COL_HEURE + " DESC");
-
-        if (cursor.moveToFirst()) {
-            do {
-                Enregistrement e = cursorToEnregistrement(cursor);
-                list.add(e);
-            } while (cursor.moveToNext());
-        }
-        cursor.close();
-        return list;
+    /** Met à jour le contenu d'une saisie encore LOCAL/ERROR (repasse à LOCAL après modification). */
+    public void updateSaisie(String localId, String projetUniqueId, String projetLabel,
+                              String payloadJson, String displaySummary) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COL_PROJET_UNIQUE_ID, projetUniqueId);
+        values.put(COL_PROJET_LABEL, projetLabel);
+        values.put(COL_PAYLOAD_JSON, payloadJson);
+        values.put(COL_DISPLAY_SUMMARY, displaySummary);
+        values.put(COL_SYNC_STATUS, SaisieLocale.STATUT_LOCAL);
+        values.putNull(COL_ERROR_MESSAGE);
+        db.update(TABLE_SAISIES, values, COL_LOCAL_ID + "=?", new String[]{localId});
     }
 
-    public List<Enregistrement> getEnregistrementsNonSync() {
-        List<Enregistrement> list = new ArrayList<>();
-        SQLiteDatabase db = this.getReadableDatabase();
+    public void deleteSaisie(String localId) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.delete(TABLE_SAISIES, COL_LOCAL_ID + "=?", new String[]{localId});
+    }
 
-        Cursor cursor = db.query(TABLE_ENREGISTREMENTS, null,
-                COL_SYNC_STATUS + "=?", new String[]{"local"},
+    public void markSynced(String localId, String serverUniqueId) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COL_SYNC_STATUS, SaisieLocale.STATUT_SYNCED);
+        values.put(COL_SERVER_UNIQUE_ID, serverUniqueId);
+        values.putNull(COL_ERROR_MESSAGE);
+        db.update(TABLE_SAISIES, values, COL_LOCAL_ID + "=?", new String[]{localId});
+    }
+
+    public void markError(String localId, String errorMessage) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COL_SYNC_STATUS, SaisieLocale.STATUT_ERROR);
+        values.put(COL_ERROR_MESSAGE, errorMessage);
+        db.update(TABLE_SAISIES, values, COL_LOCAL_ID + "=?", new String[]{localId});
+    }
+
+    public SaisieLocale getSaisieById(String localId) {
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = db.query(TABLE_SAISIES, null, COL_LOCAL_ID + "=?", new String[]{localId},
                 null, null, null);
-
+        SaisieLocale result = null;
         if (cursor.moveToFirst()) {
-            do {
-                Enregistrement e = cursorToEnregistrement(cursor);
-                list.add(e);
-            } while (cursor.moveToNext());
+            result = cursorToSaisie(cursor);
         }
         cursor.close();
-        return list;
+        return result;
     }
 
-    public int updateSyncStatus(String id, String status) {
-        SQLiteDatabase db = this.getWritableDatabase();
-        ContentValues values = new ContentValues();
-        values.put(COL_SYNC_STATUS, status);
-        return db.update(TABLE_ENREGISTREMENTS, values, COL_ID + "=?", new String[]{id});
+    /** Toutes les saisies, les plus récentes d'abord. */
+    public List<SaisieLocale> getAllSaisies() {
+        return querySaisies(null, null);
     }
 
-    private Enregistrement cursorToEnregistrement(Cursor c) {
-        Enregistrement e = new Enregistrement();
-        e.setId(c.getString(c.getColumnIndexOrThrow(COL_ID)));
-        e.setProjetId(c.getString(c.getColumnIndexOrThrow(COL_PROJET_ID)));
-        e.setType(c.getString(c.getColumnIndexOrThrow(COL_TYPE)));
-        e.setDate(c.getString(c.getColumnIndexOrThrow(COL_DATE)));
-        e.setHeure(c.getString(c.getColumnIndexOrThrow(COL_HEURE)));
-        e.setSaisiPar(c.getString(c.getColumnIndexOrThrow(COL_SAISI_PAR)));
-        e.setSyncStatus(c.getString(c.getColumnIndexOrThrow(COL_SYNC_STATUS)));
-        e.setNbOeufsTotal(c.getInt(c.getColumnIndexOrThrow(COL_NB_OEUFS_TOTAL)));
-        e.setNbOeufsCasses(c.getInt(c.getColumnIndexOrThrow(COL_NB_OEUFS_CASSES)));
-        e.setNbAlveoles(c.getInt(c.getColumnIndexOrThrow(COL_NB_ALVEOLES)));
-        e.setTypeAliment(c.getString(c.getColumnIndexOrThrow(COL_TYPE_ALIMENT)));
-        e.setQuantiteAlimentKg(c.getInt(c.getColumnIndexOrThrow(COL_QTE_ALIMENT)));
-        e.setNbPoulesMortes(c.getInt(c.getColumnIndexOrThrow(COL_NB_POULES_MORTES)));
-        e.setCauseMort(c.getString(c.getColumnIndexOrThrow(COL_CAUSE_MORT)));
-        e.setPhotos(c.getString(c.getColumnIndexOrThrow(COL_PHOTOS)));
-        return e;
+    /** Saisies d'un type donné (ex: pour filtrer l'écran "Mes saisies"). */
+    public List<SaisieLocale> getSaisiesByType(SaisieType type) {
+        return querySaisies(COL_TYPE + "=?", new String[]{type.name()});
     }
 
-    // ===== TRANSACTIONS =====
-
-    public long insertTransaction(Transaction t) {
-        SQLiteDatabase db = this.getWritableDatabase();
-        ContentValues values = new ContentValues();
-
-        values.put(COL_ID, t.getId());
-        values.put(COL_PROJET_ID, t.getProjetId());
-        values.put(COL_TYPE, t.getType());
-        values.put(COL_CATEGORIE, t.getCategorie());
-        values.put(COL_MONTANT, t.getMontant());
-        values.put(COL_DATE, t.getDate());
-        values.put(COL_DESCRIPTION, t.getDescription());
-        values.put(COL_CLIENT_ID, t.getClientId());
-        values.put(COL_MODE_PAIEMENT, t.getModePaiement());
-        values.put(COL_SAISI_PAR, t.getSaisiPar());
-        values.put(COL_SYNC_STATUS, t.getSyncStatus());
-
-        return db.insert(TABLE_TRANSACTIONS, null, values);
+    /** Saisies pas encore synchronisées (LOCAL ou en erreur), toutes catégories confondues. */
+    public List<SaisieLocale> getPendingSaisies() {
+        return querySaisies(COL_SYNC_STATUS + " IN (?,?)",
+                new String[]{SaisieLocale.STATUT_LOCAL, SaisieLocale.STATUT_ERROR});
     }
 
-    public List<Transaction> getTransactionsNonSync() {
-        List<Transaction> list = new ArrayList<>();
+    public int countPending() {
+        return getPendingSaisies().size();
+    }
+
+    private List<SaisieLocale> querySaisies(String selection, String[] selectionArgs) {
+        List<SaisieLocale> list = new ArrayList<>();
         SQLiteDatabase db = this.getReadableDatabase();
 
-        Cursor cursor = db.query(TABLE_TRANSACTIONS, null,
-                COL_SYNC_STATUS + "=?", new String[]{"local"},
-                null, null, null);
+        Cursor cursor = db.query(TABLE_SAISIES, null, selection, selectionArgs,
+                null, null, COL_CREATED_AT + " DESC");
 
         if (cursor.moveToFirst()) {
             do {
-                Transaction t = cursorToTransaction(cursor);
-                list.add(t);
+                list.add(cursorToSaisie(cursor));
             } while (cursor.moveToNext());
         }
         cursor.close();
         return list;
     }
 
-    public double getTotalEntreesAujourdhui(String userId) {
-        // Simplifié - à compléter avec date du jour
-        return 245000; // Mock
-    }
-
-    public double getTotalSortiesAujourdhui(String userId) {
-        // Simplifié - à compléter avec date du jour
-        return 120000; // Mock
-    }
-
-    private Transaction cursorToTransaction(Cursor c) {
-        Transaction t = new Transaction();
-        t.setId(c.getString(c.getColumnIndexOrThrow(COL_ID)));
-        t.setProjetId(c.getString(c.getColumnIndexOrThrow(COL_PROJET_ID)));
-        t.setType(c.getString(c.getColumnIndexOrThrow(COL_TYPE)));
-        t.setCategorie(c.getString(c.getColumnIndexOrThrow(COL_CATEGORIE)));
-        t.setMontant(c.getDouble(c.getColumnIndexOrThrow(COL_MONTANT)));
-        t.setDate(c.getString(c.getColumnIndexOrThrow(COL_DATE)));
-        t.setDescription(c.getString(c.getColumnIndexOrThrow(COL_DESCRIPTION)));
-        t.setClientId(c.getString(c.getColumnIndexOrThrow(COL_CLIENT_ID)));
-        t.setModePaiement(c.getString(c.getColumnIndexOrThrow(COL_MODE_PAIEMENT)));
-        t.setSaisiPar(c.getString(c.getColumnIndexOrThrow(COL_SAISI_PAR)));
-        t.setSyncStatus(c.getString(c.getColumnIndexOrThrow(COL_SYNC_STATUS)));
-        return t;
+    private SaisieLocale cursorToSaisie(Cursor c) {
+        SaisieLocale s = new SaisieLocale();
+        s.setLocalId(c.getString(c.getColumnIndexOrThrow(COL_LOCAL_ID)));
+        s.setType(SaisieType.valueOf(c.getString(c.getColumnIndexOrThrow(COL_TYPE))));
+        s.setProjetUniqueId(c.getString(c.getColumnIndexOrThrow(COL_PROJET_UNIQUE_ID)));
+        s.setProjetLabel(c.getString(c.getColumnIndexOrThrow(COL_PROJET_LABEL)));
+        s.setPayloadJson(c.getString(c.getColumnIndexOrThrow(COL_PAYLOAD_JSON)));
+        s.setDisplaySummary(c.getString(c.getColumnIndexOrThrow(COL_DISPLAY_SUMMARY)));
+        s.setSyncStatus(c.getString(c.getColumnIndexOrThrow(COL_SYNC_STATUS)));
+        s.setServerUniqueId(c.getString(c.getColumnIndexOrThrow(COL_SERVER_UNIQUE_ID)));
+        s.setErrorMessage(c.getString(c.getColumnIndexOrThrow(COL_ERROR_MESSAGE)));
+        s.setCreatedAt(c.getLong(c.getColumnIndexOrThrow(COL_CREATED_AT)));
+        return s;
     }
 }
