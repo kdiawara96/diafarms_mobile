@@ -263,6 +263,15 @@
                             android:textColor="#6B7280"/>
                     </LinearLayout>
                 </androidx.constraintlayout.widget.ConstraintLayout>
+
+                <TextView
+                    android:id="@+id/tvBatimentsOccupes"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="Bâtiments : —"
+                    android:textSize="11sp"
+                    android:textColor="#6B7280"/>
             </LinearLayout>
         </androidx.cardview.widget.CardView>
     </com.google.android.material.appbar.AppBarLayout>

@@ -28,6 +28,8 @@ import com.mobile.diafarms.models.SaisieType;
 import com.mobile.diafarms.models.User;
 import com.mobile.diafarms.network.ApiClient;
 import com.mobile.diafarms.network.dto.ApiEnvelope;
+import com.mobile.diafarms.network.dto.OccupationBatimentResponse;
+import com.mobile.diafarms.network.dto.ProjetDetailResponse;
 import com.mobile.diafarms.network.dto.ProjetSelectResponse;
 import com.mobile.diafarms.network.dto.TransactionCreateRequest;
 import com.mobile.diafarms.ui.saisie.SaisieFormActivity;
@@ -36,6 +38,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.stream.Collectors;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -64,6 +67,7 @@ public class HomeActivity extends AppCompatActivity {
     private TextView tvPoulesCount;
     private TextView tvTauxPonte;
     private TextView tvJoursRestants;
+    private TextView tvBatimentsOccupes;
 
     // Vues Dernière saisie
     private CardView cardLastEntry;
@@ -140,6 +144,7 @@ public class HomeActivity extends AppCompatActivity {
         tvPoulesCount = findViewById(R.id.tvPoulesCount);
         tvTauxPonte = findViewById(R.id.tvTauxPonte);
         tvJoursRestants = findViewById(R.id.tvJoursRestants);
+        tvBatimentsOccupes = findViewById(R.id.tvBatimentsOccupes);
 
         cardLastEntry = findViewById(R.id.cardLastEntry);
         tvLastEntryTitle = findViewById(R.id.tvLastEntryTitle);
@@ -241,18 +246,80 @@ public class HomeActivity extends AppCompatActivity {
             updateProjetDisplay();
         } else {
             currentProjet = null;
-            tvPoulesCount.setText("—");
-            tvTauxPonte.setText("—");
-            tvJoursRestants.setText("—");
+            clearProjetDisplay();
         }
     }
 
-    private void updateProjetDisplay() {
-        // Le sélecteur /projets/select renvoie uniquement code/titre (pas les stats
-        // d'élevage) : ces indicateurs nécessiteraient l'endpoint /projets/list complet.
+    private void clearProjetDisplay() {
         tvPoulesCount.setText("—");
         tvTauxPonte.setText("—");
         tvJoursRestants.setText("—");
+        tvBatimentsOccupes.setText("Bâtiments : —");
+    }
+
+    /** /projets/select ne renvoie que code/titre : le détail (effectif, taux de ponte,
+     * fin prévue, bâtiments occupés) vient de /projets/findbyUniqueId/{uniqueId}. */
+    private void updateProjetDisplay() {
+        if (currentProjet == null) {
+            clearProjetDisplay();
+            return;
+        }
+        clearProjetDisplay();
+
+        ApiClient.dataApi(this).getProjetDetail(currentProjet.getUniqueId())
+                .enqueue(new Callback<ApiEnvelope<ProjetDetailResponse>>() {
+                    @Override
+                    public void onResponse(Call<ApiEnvelope<ProjetDetailResponse>> call, Response<ApiEnvelope<ProjetDetailResponse>> response) {
+                        ProjetDetailResponse detail = response.isSuccessful() && response.body() != null
+                                ? response.body().getData() : null;
+                        if (detail == null) return;
+
+                        tvPoulesCount.setText(detail.getNbSujets() != null ? String.valueOf(detail.getNbSujets()) : "—");
+                        tvTauxPonte.setText(detail.getTauxPonte() != null
+                                ? String.format(Locale.FRANCE, "%.0f%%", detail.getTauxPonte()) : "—");
+                        tvJoursRestants.setText(joursRestants(detail.getFinPrevue()));
+
+                        List<OccupationBatimentResponse> occupations = detail.getOccupationBatiment();
+                        if (occupations == null || occupations.isEmpty()) {
+                            tvBatimentsOccupes.setText("Bâtiments : aucun bâtiment assigné");
+                        } else {
+                            String noms = occupations.stream()
+                                    .filter(o -> o.getDateSortie() == null) // occupations encore actives
+                                    .map(o -> o.getNomBatiment() + (o.getNbSujetsDansBatiment() != null
+                                            ? " (" + o.getNbSujetsDansBatiment() + ")" : ""))
+                                    .collect(Collectors.joining(", "));
+                            tvBatimentsOccupes.setText("Bâtiments : " + (noms.isEmpty() ? "aucun actif" : noms));
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<ApiEnvelope<ProjetDetailResponse>> call, Throwable t) {
+                        Log.e(TAG, "Impossible de charger le détail du projet", t);
+                    }
+                });
+    }
+
+    private String joursRestants(String finPrevueIso) {
+        // SimpleDateFormat/Calendar plutôt que java.time : minSdk 24 sans core library
+        // desugaring, java.time planterait (NoClassDefFoundError) sous Android 7/7.1.
+        if (finPrevueIso == null || finPrevueIso.isEmpty()) return "—";
+        try {
+            SimpleDateFormat isoFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.FRANCE);
+            java.util.Date finPrevue = isoFormat.parse(finPrevueIso);
+            if (finPrevue == null) return "—";
+
+            java.util.Calendar today = java.util.Calendar.getInstance();
+            today.set(java.util.Calendar.HOUR_OF_DAY, 0);
+            today.set(java.util.Calendar.MINUTE, 0);
+            today.set(java.util.Calendar.SECOND, 0);
+            today.set(java.util.Calendar.MILLISECOND, 0);
+
+            long diffMs = finPrevue.getTime() - today.getTimeInMillis();
+            long jours = diffMs / (24L * 60 * 60 * 1000);
+            return jours >= 0 ? jours + "j" : "Terminé";
+        } catch (Exception e) {
+            return "—";
+        }
     }
 
     private void setupClickListeners() {

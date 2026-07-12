@@ -9,6 +9,7 @@ import androidx.security.crypto.EncryptedSharedPreferences;
 import androidx.security.crypto.MasterKeys;
 
 import com.google.gson.Gson;
+import com.mobile.diafarms.crypto.PinHasher;
 import com.mobile.diafarms.models.User;
 
 import java.security.GeneralSecurityException;
@@ -27,6 +28,8 @@ public class SessionManager {
     private static final String KEY_REFRESH_TOKEN = "refresh_token";
     private static final String KEY_IS_LOGGED_IN = "is_logged_in";
     private static final String KEY_CURRENT_PROJET = "current_projet";
+    private static final String KEY_LOCAL_PIN_HASH = "local_pin_hash";
+    private static final String KEY_LOCAL_PIN_IDENTIFIANT = "local_pin_identifiant";
 
     private final SharedPreferences pref;
     private final Gson gson;
@@ -108,5 +111,34 @@ public class SessionManager {
         User user = getCurrentUser();
         if (user == null || user.getQrExpiry() == 0) return false;
         return System.currentTimeMillis() < user.getQrExpiry();
+    }
+
+    // ===== CODE D'ACCÈS RAPIDE LOCAL =====
+    // Déverrouille l'app instantanément (sans réseau, sans re-scanner de QR) tant que la
+    // session en cours (token) reste valide côté serveur — ce n'est pas un mot de passe
+    // de compte, juste un verrou de confort sur cet appareil, inspiré de BioEnroll.
+
+    public void setLocalPin(String identifiant, String pin) {
+        pref.edit()
+                .putString(KEY_LOCAL_PIN_HASH, PinHasher.hash(pin))
+                .putString(KEY_LOCAL_PIN_IDENTIFIANT, identifiant)
+                .apply();
+    }
+
+    public boolean hasLocalPin() {
+        return pref.getString(KEY_LOCAL_PIN_HASH, null) != null;
+    }
+
+    public boolean verifyLocalPin(String pin) {
+        String hash = pref.getString(KEY_LOCAL_PIN_HASH, null);
+        return hash != null && PinHasher.matches(pin, hash);
+    }
+
+    public String getLocalPinIdentifiant() {
+        return pref.getString(KEY_LOCAL_PIN_IDENTIFIANT, null);
+    }
+
+    public void clearLocalPin() {
+        pref.edit().remove(KEY_LOCAL_PIN_HASH).remove(KEY_LOCAL_PIN_IDENTIFIANT).apply();
     }
 }

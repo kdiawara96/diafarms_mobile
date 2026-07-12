@@ -226,6 +226,19 @@
 
                     </LinearLayout>
 
+                    <!-- Déverrouillage rapide avec le code local (défini après un scan QR).
+                         Masqué tant qu'aucun code n'a été défini sur cet appareil. -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnUnlockPin"
+                        style="@style/Widget.MaterialComponents.Button.TextButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="🔒 Déverrouiller avec mon code"
+                        android:textColor="@color/primary"
+                        android:textSize="13sp"
+                        android:visibility="gone" />
+
                     <!-- Mode test : contourne le réseau avec des données fictives.
                          Masqué automatiquement en dehors des builds debug (voir LoginActivity). -->
                     <com.google.android.material.button.MaterialButton

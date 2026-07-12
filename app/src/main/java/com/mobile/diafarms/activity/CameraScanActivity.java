@@ -363,15 +363,16 @@ public class CameraScanActivity extends AppCompatActivity {
         user.setRoles(roleNames);
 
         sessionManager.createSession(user, token);
-        if (profile.getUsername() != null) {
-            localDatabase.saveAccountIdentifiant(profile.getUsername());
+        String identifiant = profile.getUsername();
+        if (identifiant != null) {
+            localDatabase.saveAccountIdentifiant(identifiant);
         }
 
-        showSuccessDialog(user);
+        showSuccessDialog(user, identifiant);
     }
 
     /** Popup de succès uniquement informative : jamais d'identifiant ni de mot de passe affichés. */
-    private void showSuccessDialog(User user) {
+    private void showSuccessDialog(User user, String identifiant) {
         MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this);
         View view = LayoutInflater.from(this).inflate(R.layout.dialog_qr_result, null);
         builder.setView(view);
@@ -399,8 +400,13 @@ public class CameraScanActivity extends AppCompatActivity {
 
         btnOk.setOnClickListener(v -> {
             dialog.dismiss();
-            startActivity(new Intent(this, HomeActivity.class));
-            finish();
+            // Propose un code d'accès rapide pour la prochaine ouverture (offline, sans
+            // re-scanner) uniquement s'il n'y en a pas déjà un sur cet appareil.
+            if (!sessionManager.hasLocalPin()) {
+                showSetPinDialog(identifiant);
+            } else {
+                goHome();
+            }
         });
 
         dialog.show();
@@ -410,6 +416,57 @@ public class CameraScanActivity extends AppCompatActivity {
                     ViewGroup.LayoutParams.WRAP_CONTENT
             );
         }
+    }
+
+    private void showSetPinDialog(String identifiant) {
+        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this);
+        View view = LayoutInflater.from(this).inflate(R.layout.dialog_set_local_pin, null);
+        builder.setView(view);
+
+        com.google.android.material.textfield.TextInputEditText etPin = view.findViewById(R.id.etPin);
+        com.google.android.material.textfield.TextInputEditText etPinConfirm = view.findViewById(R.id.etPinConfirm);
+        MaterialButton btnDefinir = view.findViewById(R.id.btnDefinirPin);
+        MaterialButton btnPlusTard = view.findViewById(R.id.btnPlusTardPin);
+
+        AlertDialog dialog = builder.create();
+        dialog.setCancelable(false);
+
+        btnPlusTard.setOnClickListener(v -> {
+            dialog.dismiss();
+            goHome();
+        });
+
+        btnDefinir.setOnClickListener(v -> {
+            String pin = etPin.getText() != null ? etPin.getText().toString().trim() : "";
+            String confirm = etPinConfirm.getText() != null ? etPinConfirm.getText().toString().trim() : "";
+
+            if (pin.length() < 4) {
+                Toast.makeText(this, "Le code doit contenir au moins 4 chiffres", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (!pin.equals(confirm)) {
+                Toast.makeText(this, "Les deux codes ne correspondent pas", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            sessionManager.setLocalPin(identifiant, pin);
+            Toast.makeText(this, "Code d'accès enregistré", Toast.LENGTH_SHORT).show();
+            dialog.dismiss();
+            goHome();
+        });
+
+        dialog.show();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setLayout(
+                    (int) (getResources().getDisplayMetrics().widthPixels * 0.9),
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+        }
+    }
+
+    private void goHome() {
+        startActivity(new Intent(this, HomeActivity.class));
+        finish();
     }
 
     private void showMessage(String title, String message) {

@@ -4,19 +4,23 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.ImageButton;
 import android.widget.PopupMenu;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -45,7 +49,7 @@ public class LoginActivity extends AppCompatActivity {
     private static final String TAG = "LoginActivity";
     private TextInputEditText editIdentifiant;
     private TextInputEditText editPassword;
-    private MaterialButton btnLogin, btnQrCode, btnTestMode;
+    private MaterialButton btnLogin, btnQrCode, btnTestMode, btnUnlockPin;
     private ImageButton btnBack;
     private ProgressBar progressBar;
     private boolean isLoading = false;
@@ -64,6 +68,7 @@ public class LoginActivity extends AppCompatActivity {
         btnLogin = findViewById(R.id.btnLogin);
         btnQrCode = findViewById(R.id.btnQrCode);
         btnTestMode = findViewById(R.id.btnTestMode);
+        btnUnlockPin = findViewById(R.id.btnUnlockPin);
         btnBack = findViewById(R.id.btnBack);
         progressBar = findViewById(R.id.progressBar);
 
@@ -89,6 +94,50 @@ public class LoginActivity extends AppCompatActivity {
         if (BuildConfig.DEBUG) {
             btnTestMode.setVisibility(View.VISIBLE);
             btnTestMode.setOnClickListener(v -> loginWithFakeData());
+        }
+
+        // Déverrouillage rapide (code local défini après un scan QR) : réutilise la
+        // session déjà stockée sans réseau ni re-scan, tant que le token n'a pas expiré.
+        if (sessionManager.hasLocalPin() && sessionManager.isLoggedIn()) {
+            btnUnlockPin.setVisibility(View.VISIBLE);
+            btnUnlockPin.setOnClickListener(v -> showUnlockPinDialog());
+        }
+    }
+
+    private void showUnlockPinDialog() {
+        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this);
+        View view = LayoutInflater.from(this).inflate(R.layout.dialog_unlock_pin, null);
+        builder.setView(view);
+
+        android.widget.TextView tvIdentifiant = view.findViewById(R.id.tvUnlockIdentifiant);
+        TextInputEditText etPin = view.findViewById(R.id.etUnlockPin);
+        MaterialButton btnUnlock = view.findViewById(R.id.btnUnlock);
+        MaterialButton btnCancel = view.findViewById(R.id.btnUnlockCancel);
+
+        String identifiant = sessionManager.getLocalPinIdentifiant();
+        tvIdentifiant.setText(identifiant != null ? identifiant : "");
+
+        AlertDialog dialog = builder.create();
+
+        btnCancel.setOnClickListener(v -> dialog.dismiss());
+
+        btnUnlock.setOnClickListener(v -> {
+            String pin = etPin.getText() != null ? etPin.getText().toString().trim() : "";
+            if (sessionManager.verifyLocalPin(pin)) {
+                dialog.dismiss();
+                startActivity(new Intent(this, HomeActivity.class));
+                finish();
+            } else {
+                Toast.makeText(this, "Code incorrect", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        dialog.show();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setLayout(
+                    (int) (getResources().getDisplayMetrics().widthPixels * 0.9),
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+            );
         }
     }
 
