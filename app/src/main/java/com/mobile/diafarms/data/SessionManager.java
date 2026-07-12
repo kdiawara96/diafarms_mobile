@@ -2,7 +2,6 @@ package com.mobile.diafarms.data;
 
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.security.keystore.KeyGenParameterSpec;
 import android.util.Log;
 
 import androidx.security.crypto.EncryptedSharedPreferences;
@@ -19,6 +18,14 @@ import java.io.IOException;
  * Stocke le token de session et le profil utilisateur dans des SharedPreferences
  * chiffrées (EncryptedSharedPreferences) : le token JWT et les infos de compte ne
  * doivent jamais rester en clair sur le disque, contrairement à ce qui existait avant.
+ *
+ * Sur certains appareils (Samsung notamment), la clé Android Keystore protégeant ces
+ * préférences peut devenir indécryptable après un événement système (mise à jour,
+ * changement de verrouillage d'écran...), ce qui faisait planter l'app en
+ * SecurityException sur le moindre accès à la session — observé en conditions réelles.
+ * Tous les accès passent donc par des méthodes "safe" qui, en cas d'échec de
+ * déchiffrement, réinitialisent les préférences plutôt que de planter : ça équivaut à
+ * une déconnexion forcée (perte de la session locale), mais l'app reste utilisable.
  */
 public class SessionManager {
     private static final String TAG = "SessionManager";
@@ -31,11 +38,13 @@ public class SessionManager {
     private static final String KEY_LOCAL_PASSWORD_HASH = "local_password_hash";
     private static final String KEY_LOCAL_PASSWORD_IDENTIFIANT = "local_password_identifiant";
 
-    private final SharedPreferences pref;
+    private final Context context;
+    private SharedPreferences pref;
     private final Gson gson;
 
     public SessionManager(Context context) {
-        pref = buildEncryptedPrefs(context.getApplicationContext());
+        this.context = context.getApplicationContext();
+        pref = buildEncryptedPrefs(this.context);
         gson = new Gson();
     }
 
@@ -57,26 +66,90 @@ public class SessionManager {
         }
     }
 
+    /** Efface le fichier de prefs corrompu et en recrée un vide — dernier recours quand
+     * le Keystore ne peut plus déchiffrer les données déjà écrites. */
+    private void recoverFromCorruptedPrefs(Exception cause) {
+        Log.e(TAG, "Préférences chiffrées corrompues (Keystore), réinitialisation forcée", cause);
+        context.deleteSharedPreferences(PREF_NAME);
+        resetMasterKeyIfNeeded();
+        pref = buildEncryptedPrefs(context);
+    }
+
+    /** Sur certains appareils (Samsung notamment), c'est la clé Keystore elle-même qui
+     * devient inutilisable après un événement système, pas seulement les données déjà
+     * chiffrées avec elle — effacer le fichier de prefs ne suffirait pas, la prochaine
+     * écriture échouerait pareil avec la même clé cassée. On supprime l'entrée pour
+     * forcer sa régénération complète (MasterKeys.getOrCreate en recrée une neuve). */
+    private void resetMasterKeyIfNeeded() {
+        try {
+            java.security.KeyStore keyStore = java.security.KeyStore.getInstance("AndroidKeyStore");
+            keyStore.load(null);
+            String alias = "_androidx_security_master_key_"; // alias interne de MasterKeys, non exposé publiquement
+            if (keyStore.containsAlias(alias)) {
+                keyStore.deleteEntry(alias);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Impossible de réinitialiser la clé Keystore", e);
+        }
+    }
+
+    private String safeGetString(String key, String defValue) {
+        try {
+            return pref.getString(key, defValue);
+        } catch (SecurityException | IllegalStateException e) {
+            recoverFromCorruptedPrefs(e);
+            return defValue;
+        }
+    }
+
+    private boolean safeGetBoolean(String key, boolean defValue) {
+        try {
+            return pref.getBoolean(key, defValue);
+        } catch (SecurityException | IllegalStateException e) {
+            recoverFromCorruptedPrefs(e);
+            return defValue;
+        }
+    }
+
+    /** Applique l'édition ; en cas d'échec de déchiffrement (clé Keystore corrompue),
+     * réinitialise les prefs puis réapplique une seule fois sur la base fraîche. */
+    private void safeEdit(EditFn editFn) {
+        try {
+            SharedPreferences.Editor editor = pref.edit();
+            editFn.apply(editor);
+            editor.apply();
+        } catch (SecurityException | IllegalStateException e) {
+            recoverFromCorruptedPrefs(e);
+            SharedPreferences.Editor editor = pref.edit();
+            editFn.apply(editor);
+            editor.apply();
+        }
+    }
+
+    private interface EditFn {
+        void apply(SharedPreferences.Editor editor);
+    }
+
     public void createSession(User user, String token) {
         createSession(user, token, null);
     }
 
     public void createSession(User user, String token, String refreshToken) {
-        SharedPreferences.Editor editor = pref.edit();
-        editor.putBoolean(KEY_IS_LOGGED_IN, true);
-        editor.putString(KEY_USER, gson.toJson(user));
-        editor.putString(KEY_TOKEN, token);
-        if (refreshToken != null) {
-            editor.putString(KEY_REFRESH_TOKEN, refreshToken);
-        }
-        if (user.getProjetsAssignes() != null && !user.getProjetsAssignes().isEmpty()) {
-            editor.putString(KEY_CURRENT_PROJET, user.getProjetsAssignes().get(0));
-        }
-        editor.apply();
+        safeEdit(editor -> {
+            editor.putBoolean(KEY_IS_LOGGED_IN, true);
+            editor.putString(KEY_USER, gson.toJson(user));
+            editor.putString(KEY_TOKEN, token);
+            if (refreshToken != null) {
+                editor.putString(KEY_REFRESH_TOKEN, refreshToken);
+            }
+            if (user.getProjetsAssignes() != null && !user.getProjetsAssignes().isEmpty()) {
+                editor.putString(KEY_CURRENT_PROJET, user.getProjetsAssignes().get(0));
+            }
+        });
     }
 
     public User getCurrentUser() {
-        String userJson = pref.getString(KEY_USER, null);
+        String userJson = safeGetString(KEY_USER, null);
         if (userJson != null) {
             return gson.fromJson(userJson, User.class);
         }
@@ -84,27 +157,27 @@ public class SessionManager {
     }
 
     public boolean isLoggedIn() {
-        return pref.getBoolean(KEY_IS_LOGGED_IN, false);
+        return safeGetBoolean(KEY_IS_LOGGED_IN, false);
     }
 
     public String getToken() {
-        return pref.getString(KEY_TOKEN, null);
+        return safeGetString(KEY_TOKEN, null);
     }
 
     public String getRefreshToken() {
-        return pref.getString(KEY_REFRESH_TOKEN, null);
+        return safeGetString(KEY_REFRESH_TOKEN, null);
     }
 
     public String getCurrentProjetId() {
-        return pref.getString(KEY_CURRENT_PROJET, null);
+        return safeGetString(KEY_CURRENT_PROJET, null);
     }
 
     public void setCurrentProjetId(String projetId) {
-        pref.edit().putString(KEY_CURRENT_PROJET, projetId).apply();
+        safeEdit(editor -> editor.putString(KEY_CURRENT_PROJET, projetId));
     }
 
     public void clearSession() {
-        pref.edit().clear().apply();
+        safeEdit(SharedPreferences.Editor::clear);
     }
 
     public boolean isQRValid() {
@@ -122,26 +195,29 @@ public class SessionManager {
     // simple raccourci de confort.
 
     public void setLocalPassword(String identifiant, String password) {
-        pref.edit()
-                .putString(KEY_LOCAL_PASSWORD_HASH, LocalPasswordHasher.hash(password))
-                .putString(KEY_LOCAL_PASSWORD_IDENTIFIANT, identifiant)
-                .apply();
+        safeEdit(editor -> {
+            editor.putString(KEY_LOCAL_PASSWORD_HASH, LocalPasswordHasher.hash(password));
+            editor.putString(KEY_LOCAL_PASSWORD_IDENTIFIANT, identifiant);
+        });
     }
 
     public boolean hasLocalPassword() {
-        return pref.getString(KEY_LOCAL_PASSWORD_HASH, null) != null;
+        return safeGetString(KEY_LOCAL_PASSWORD_HASH, null) != null;
     }
 
     public boolean verifyLocalPassword(String password) {
-        String hash = pref.getString(KEY_LOCAL_PASSWORD_HASH, null);
+        String hash = safeGetString(KEY_LOCAL_PASSWORD_HASH, null);
         return hash != null && LocalPasswordHasher.matches(password, hash);
     }
 
     public String getLocalPasswordIdentifiant() {
-        return pref.getString(KEY_LOCAL_PASSWORD_IDENTIFIANT, null);
+        return safeGetString(KEY_LOCAL_PASSWORD_IDENTIFIANT, null);
     }
 
     public void clearLocalPassword() {
-        pref.edit().remove(KEY_LOCAL_PASSWORD_HASH).remove(KEY_LOCAL_PASSWORD_IDENTIFIANT).apply();
+        safeEdit(editor -> {
+            editor.remove(KEY_LOCAL_PASSWORD_HASH);
+            editor.remove(KEY_LOCAL_PASSWORD_IDENTIFIANT);
+        });
     }
 }
