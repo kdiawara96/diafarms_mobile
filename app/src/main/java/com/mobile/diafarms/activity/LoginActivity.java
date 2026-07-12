@@ -5,8 +5,8 @@ import android.graphics.Color;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
-import android.widget.ArrayAdapter;
 import android.widget.ImageButton;
+import android.widget.PopupMenu;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
@@ -17,7 +17,6 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.google.android.material.button.MaterialButton;
-import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -44,7 +43,7 @@ import retrofit2.Response;
 public class LoginActivity extends AppCompatActivity {
 
     private static final String TAG = "LoginActivity";
-    private MaterialAutoCompleteTextView editIdentifiant;
+    private TextInputEditText editIdentifiant;
     private TextInputEditText editPassword;
     private MaterialButton btnLogin, btnQrCode, btnTestMode;
     private ImageButton btnBack;
@@ -115,8 +114,10 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     /**
-     * Propose en autocomplétion les identifiants déjà utilisés avec succès sur cet
-     * appareil : sélectif dès qu'il y en a plusieurs, pré-rempli s'il n'y en a qu'un.
+     * Propose les identifiants déjà utilisés avec succès sur cet appareil : un menu au
+     * clic dès qu'il y en a plusieurs, pré-rempli directement s'il n'y en a qu'un. Le
+     * champ reste un TextInputEditText classique (identique au mot de passe) — pas
+     * d'AutoCompleteTextView, dont le style de boîte ne matchait pas le reste du formulaire.
      */
     private void setupIdentifiantSuggestions() {
         List<String> savedIdentifiants = localDatabase.getSavedIdentifiants();
@@ -124,14 +125,33 @@ public class LoginActivity extends AppCompatActivity {
             return;
         }
 
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(
-                this, android.R.layout.simple_dropdown_item_1line, savedIdentifiants);
-        editIdentifiant.setAdapter(adapter);
-        editIdentifiant.setThreshold(0);
-
         if (savedIdentifiants.size() == 1) {
             editIdentifiant.setText(savedIdentifiants.get(0));
+            return;
         }
+
+        editIdentifiant.setFocusable(false);
+        editIdentifiant.setOnClickListener(v -> {
+            PopupMenu popup = new PopupMenu(this, editIdentifiant);
+            for (String identifiant : savedIdentifiants) {
+                popup.getMenu().add(identifiant);
+            }
+            popup.getMenu().add(getString(R.string.login_other_account));
+            popup.setOnMenuItemClickListener(item -> {
+                String choice = item.getTitle().toString();
+                if (choice.equals(getString(R.string.login_other_account))) {
+                    editIdentifiant.setFocusable(true);
+                    editIdentifiant.setFocusableInTouchMode(true);
+                    editIdentifiant.setText("");
+                    editIdentifiant.requestFocus();
+                } else {
+                    editIdentifiant.setText(choice);
+                    editPassword.requestFocus();
+                }
+                return true;
+            });
+            popup.show();
+        });
     }
 
     private void attemptLogin() {

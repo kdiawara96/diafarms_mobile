@@ -7,6 +7,7 @@
     <string name="login_error_generic">Identifiant ou mot de passe incorrect</string>
     <string name="login_error_network">Impossible de contacter le serveur. Vérifiez votre connexion.</string>
     <string name="login_must_change_password">Pensez à changer votre mot de passe temporaire dès que possible</string>
+    <string name="login_other_account">Autre compte…</string>
 
     <!-- QR code -->
     <string name="qr_checking_server">Vérification auprès du serveur…</string>
