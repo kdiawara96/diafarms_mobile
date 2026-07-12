@@ -305,6 +305,62 @@
             android:orientation="vertical"
             android:padding="16dp">
 
+            <!-- Alertes actives du projet (tap = voir la liste complète). Masquée s'il n'y en a pas. -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/cardAlertes"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="20dp"
+                android:clickable="true"
+                android:foreground="?attr/selectableItemBackground"
+                android:visibility="gone"
+                app:cardCornerRadius="10dp"
+                app:cardBackgroundColor="#FEF2F2"
+                app:strokeWidth="1dp"
+                app:strokeColor="#FECACA">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:padding="14dp"
+                    android:gravity="center_vertical">
+
+                    <ImageView
+                        android:layout_width="28dp"
+                        android:layout_height="28dp"
+                        android:src="@android:drawable/ic_dialog_alert"
+                        app:tint="#DC2626"/>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:layout_marginStart="12dp">
+
+                        <TextView
+                            android:id="@+id/tvAlertesTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Alertes"
+                            android:textSize="12sp"
+                            android:textColor="#B91C1C"
+                            android:textStyle="bold"/>
+
+                        <TextView
+                            android:id="@+id/tvAlertesDetail"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text=""
+                            android:textSize="14sp"
+                            android:textColor="#374151"
+                            android:maxLines="2"
+                            android:ellipsize="end"/>
+                    </LinearLayout>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
             <!-- Dernière saisie (tap = voir toutes mes saisies) -->
             <androidx.cardview.widget.CardView
                 android:id="@+id/cardLastEntry"

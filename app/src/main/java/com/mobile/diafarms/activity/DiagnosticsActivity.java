@@ -17,6 +17,8 @@ import com.mobile.diafarms.BuildConfig;
 import com.mobile.diafarms.R;
 import com.mobile.diafarms.data.AppSettings;
 import com.mobile.diafarms.data.LocalDatabase;
+import com.mobile.diafarms.data.SessionManager;
+import com.mobile.diafarms.models.User;
 import com.mobile.diafarms.network.ApiClient;
 import com.mobile.diafarms.network.dto.ApiEnvelope;
 import com.mobile.diafarms.util.DebugLog;
@@ -37,6 +39,7 @@ public class DiagnosticsActivity extends AppCompatActivity {
 
     private AppSettings appSettings;
     private LocalDatabase localDatabase;
+    private SessionManager sessionManager;
 
     private EditText etServerUrl;
     private TextView tvConnectiviteResult;
@@ -52,8 +55,16 @@ public class DiagnosticsActivity extends AppCompatActivity {
 
         appSettings = new AppSettings(this);
         localDatabase = new LocalDatabase(this);
+        sessionManager = new SessionManager(this);
 
         findViewById(R.id.btnBackDiagnostics).setOnClickListener(v -> finish());
+
+        TextView tvCompteIdentifiant = findViewById(R.id.tvCompteIdentifiant);
+        User currentUser = sessionManager.getCurrentUser();
+        tvCompteIdentifiant.setText(currentUser != null && currentUser.getNom() != null
+                ? "Connecté en tant que " + currentUser.getNom()
+                : "Non connecté");
+        findViewById(R.id.btnDeconnexion).setOnClickListener(v -> confirmDeconnexion());
 
         etServerUrl = findViewById(R.id.etServerUrl);
         tvConnectiviteResult = findViewById(R.id.tvConnectiviteResult);
@@ -129,6 +140,28 @@ public class DiagnosticsActivity extends AppCompatActivity {
                 tvConnectiviteResult.setTextColor(0xFFDC2626);
             }
         });
+    }
+
+    private void confirmDeconnexion() {
+        int pending = localDatabase.countPending();
+        String message = pending > 0
+                ? "Cette action supprime la session en cours (et le code d'accès rapide s'il y en a un). "
+                    + pending + " saisie(s) non encore synchronisée(s) resteront en attente localement."
+                : "Cette action supprime la session en cours (et le code d'accès rapide s'il y en a un).";
+
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("Se déconnecter ?")
+                .setMessage(message)
+                .setPositiveButton("Se déconnecter", (dialog, which) -> {
+                    sessionManager.clearSession();
+                    ApiClient.reset();
+                    Intent intent = new Intent(this, LoginActivity.class);
+                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                    startActivity(intent);
+                    finish();
+                })
+                .setNegativeButton("Annuler", null)
+                .show();
     }
 
     private void confirmViderBase() {

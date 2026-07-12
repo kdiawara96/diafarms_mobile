@@ -24,7 +24,6 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import com.mobile.diafarms.BuildConfig;
 import com.mobile.diafarms.R;
 import com.mobile.diafarms.data.LocalDatabase;
 import com.mobile.diafarms.data.SessionManager;
@@ -49,7 +48,7 @@ public class LoginActivity extends AppCompatActivity {
     private static final String TAG = "LoginActivity";
     private TextInputEditText editIdentifiant;
     private TextInputEditText editPassword;
-    private MaterialButton btnLogin, btnQrCode, btnTestMode, btnUnlockPin, btnDiagnostics;
+    private MaterialButton btnLogin, btnQrCode, btnUnlockPin, btnDiagnostics;
     private ImageButton btnBack;
     private ProgressBar progressBar;
     private boolean isLoading = false;
@@ -67,7 +66,6 @@ public class LoginActivity extends AppCompatActivity {
         editPassword = findViewById(R.id.editPassword);
         btnLogin = findViewById(R.id.btnLogin);
         btnQrCode = findViewById(R.id.btnQrCode);
-        btnTestMode = findViewById(R.id.btnTestMode);
         btnUnlockPin = findViewById(R.id.btnUnlockPin);
         btnDiagnostics = findViewById(R.id.btnDiagnostics);
         btnBack = findViewById(R.id.btnBack);
@@ -91,13 +89,6 @@ public class LoginActivity extends AppCompatActivity {
         btnBack.setOnClickListener(v -> finish());
 
         btnDiagnostics.setOnClickListener(v -> startActivity(new Intent(this, DiagnosticsActivity.class)));
-
-        // Porte de secours pour tester l'appli même si le backend n'est pas joignable :
-        // uniquement visible en build debug, jamais en release.
-        if (BuildConfig.DEBUG) {
-            btnTestMode.setVisibility(View.VISIBLE);
-            btnTestMode.setOnClickListener(v -> loginWithFakeData());
-        }
 
         // Déverrouillage rapide (code local défini après un scan QR) : réutilise la
         // session déjà stockée sans réseau ni re-scan, tant que le token n'a pas expiré.
@@ -142,27 +133,6 @@ public class LoginActivity extends AppCompatActivity {
                     ViewGroup.LayoutParams.WRAP_CONTENT
             );
         }
-    }
-
-    /** Crée une session locale avec un utilisateur fictif (tous rôles) sans passer par le réseau. */
-    private void loginWithFakeData() {
-        User user = new User();
-        user.setId("test-user-local");
-        user.setNom("Agent Test");
-        user.setTelephone("+225 0123456789");
-        user.setEmail("test@diafarms.local");
-        user.setActif(true);
-
-        List<String> roles = new ArrayList<>();
-        roles.add("PRODUCTEUR");
-        roles.add("FINANCIER");
-        user.setRoles(roles);
-
-        sessionManager.createSession(user, "fake-token-test-mode");
-
-        Toast.makeText(this, "Mode test : données fictives, aucun serveur contacté", Toast.LENGTH_LONG).show();
-        startActivity(new Intent(this, HomeActivity.class));
-        finish();
     }
 
     /**

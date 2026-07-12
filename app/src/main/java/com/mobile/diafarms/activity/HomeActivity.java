@@ -28,6 +28,7 @@ import com.mobile.diafarms.models.SaisieType;
 import com.mobile.diafarms.models.User;
 import com.mobile.diafarms.network.ApiClient;
 import com.mobile.diafarms.network.dto.ApiEnvelope;
+import com.mobile.diafarms.network.dto.NotificationResponse;
 import com.mobile.diafarms.network.dto.OccupationBatimentResponse;
 import com.mobile.diafarms.network.dto.ProjetDetailResponse;
 import com.mobile.diafarms.network.dto.ProjetSelectResponse;
@@ -71,6 +72,9 @@ public class HomeActivity extends AppCompatActivity {
 
     // Vues Dernière saisie
     private CardView cardLastEntry;
+    private CardView cardAlertes;
+    private TextView tvAlertesDetail;
+    private List<NotificationResponse> alertesList = new ArrayList<>();
     private TextView tvLastEntryTitle;
     private TextView tvLastEntryDetail;
     private TextView tvLastEntryTime;
@@ -148,6 +152,9 @@ public class HomeActivity extends AppCompatActivity {
         tvBatimentsOccupes = findViewById(R.id.tvBatimentsOccupes);
 
         cardLastEntry = findViewById(R.id.cardLastEntry);
+        cardAlertes = findViewById(R.id.cardAlertes);
+        tvAlertesDetail = findViewById(R.id.tvAlertesDetail);
+        cardAlertes.setOnClickListener(v -> showAlertesDialog());
         tvLastEntryTitle = findViewById(R.id.tvLastEntryTitle);
         tvLastEntryDetail = findViewById(R.id.tvLastEntryDetail);
         tvLastEntryTime = findViewById(R.id.tvLastEntryTime);
@@ -256,6 +263,74 @@ public class HomeActivity extends AppCompatActivity {
         tvTauxPonte.setText("—");
         tvJoursRestants.setText("—");
         tvBatimentsOccupes.setText("Bâtiments : —");
+        alertesList = new ArrayList<>();
+        cardAlertes.setVisibility(View.GONE);
+    }
+
+    /** Alertes recalculées côté serveur (stock, mortalité, transactions en attente...) —
+     * même logique/endpoint que le tableau de bord web, jamais de seuils recalculés côté mobile. */
+    private void loadAlertes() {
+        if (currentProjet == null) return;
+        ApiClient.dataApi(this).getNotificationsForProjet(currentProjet.getUniqueId())
+                .enqueue(new Callback<ApiEnvelope<List<NotificationResponse>>>() {
+                    @Override
+                    public void onResponse(Call<ApiEnvelope<List<NotificationResponse>>> call, Response<ApiEnvelope<List<NotificationResponse>>> response) {
+                        alertesList = response.isSuccessful() && response.body() != null && response.body().getData() != null
+                                ? response.body().getData() : new ArrayList<>();
+                        updateAlertesCard();
+                    }
+
+                    @Override
+                    public void onFailure(Call<ApiEnvelope<List<NotificationResponse>>> call, Throwable t) {
+                        alertesList = new ArrayList<>();
+                        updateAlertesCard();
+                    }
+                });
+    }
+
+    private void updateAlertesCard() {
+        List<NotificationResponse> nonLues = new ArrayList<>();
+        for (NotificationResponse n : alertesList) {
+            if (!n.isRead()) nonLues.add(n);
+        }
+        if (nonLues.isEmpty()) {
+            cardAlertes.setVisibility(View.GONE);
+            return;
+        }
+        cardAlertes.setVisibility(View.VISIBLE);
+        NotificationResponse first = nonLues.get(0);
+        String suffix = nonLues.size() > 1 ? " (+" + (nonLues.size() - 1) + " autre" + (nonLues.size() > 2 ? "s" : "") + ")" : "";
+        tvAlertesDetail.setText(first.getMessage() + suffix);
+    }
+
+    private void showAlertesDialog() {
+        if (alertesList.isEmpty()) return;
+        StringBuilder sb = new StringBuilder();
+        for (NotificationResponse n : alertesList) {
+            if (n.isRead()) continue;
+            String niveau = "CRITIQUE".equalsIgnoreCase(n.getLevel()) ? "🔴" : "🟠";
+            sb.append(niveau).append(" ").append(n.getMessage()).append("\n\n");
+        }
+        new android.app.AlertDialog.Builder(this)
+                .setTitle("Alertes du projet")
+                .setMessage(sb.toString().trim())
+                .setPositiveButton("Marquer tout comme lu", (dialog, which) -> markAllAlertesRead())
+                .setNegativeButton("Fermer", null)
+                .show();
+    }
+
+    private void markAllAlertesRead() {
+        for (NotificationResponse n : alertesList) {
+            if (n.isRead()) continue;
+            ApiClient.dataApi(this).markNotificationRead(n.getKey()).enqueue(new Callback<ApiEnvelope<String>>() {
+                @Override
+                public void onResponse(Call<ApiEnvelope<String>> call, Response<ApiEnvelope<String>> response) { }
+                @Override
+                public void onFailure(Call<ApiEnvelope<String>> call, Throwable t) { }
+            });
+        }
+        cardAlertes.setVisibility(View.GONE);
+        alertesList = new ArrayList<>();
     }
 
     /** /projets/select ne renvoie que code/titre : le détail (effectif, taux de ponte,
@@ -266,6 +341,7 @@ public class HomeActivity extends AppCompatActivity {
             return;
         }
         clearProjetDisplay();
+        loadAlertes();
 
         ApiClient.dataApi(this).getProjetDetail(currentProjet.getUniqueId())
                 .enqueue(new Callback<ApiEnvelope<ProjetDetailResponse>>() {

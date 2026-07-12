@@ -239,19 +239,6 @@
                         android:textSize="13sp"
                         android:visibility="gone" />
 
-                    <!-- Mode test : contourne le réseau avec des données fictives.
-                         Masqué automatiquement en dehors des builds debug (voir LoginActivity). -->
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnTestMode"
-                        style="@style/Widget.MaterialComponents.Button.TextButton"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:text="🧪 Continuer avec des données de test"
-                        android:textColor="@android:color/darker_gray"
-                        android:textSize="12sp"
-                        android:visibility="gone" />
-
                     <!-- Toujours visible : c'est précisément quand la connexion échoue
                          (serveur injoignable, 401...) qu'on a besoin d'y accéder. -->
                     <com.google.android.material.button.MaterialButton

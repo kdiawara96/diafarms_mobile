@@ -7,6 +7,7 @@ import com.mobile.diafarms.network.dto.ConsommationAlimentCreateRequest;
 import com.mobile.diafarms.network.dto.CreatedEntityResponse;
 import com.mobile.diafarms.network.dto.AlimentationCreateRequest;
 import com.mobile.diafarms.network.dto.MortaliteCreateRequest;
+import com.mobile.diafarms.network.dto.NotificationResponse;
 import com.mobile.diafarms.network.dto.ProjetDetailResponse;
 import com.mobile.diafarms.network.dto.ProjetSelectResponse;
 import com.mobile.diafarms.network.dto.SoinsCreateRequest;
@@ -18,6 +19,7 @@ import java.util.List;
 import retrofit2.Call;
 import retrofit2.http.Body;
 import retrofit2.http.GET;
+import retrofit2.http.PUT;
 import retrofit2.http.POST;
 import retrofit2.http.Path;
 
@@ -61,4 +63,12 @@ public interface DataApi {
     // ============== TRANSACTIONS (finance) ==============
     @POST("transactions/create")
     Call<ApiEnvelope<CreatedEntityResponse>> createTransaction(@Body TransactionCreateRequest request);
+
+    // ============== ALERTES (recalculées côté serveur, jamais mockées côté client —
+    // même logique que le web, voir NotificationServiceImpl) ==============
+    @GET("notifications/projet/{projetUniqueId}")
+    Call<ApiEnvelope<List<NotificationResponse>>> getNotificationsForProjet(@Path("projetUniqueId") String projetUniqueId);
+
+    @PUT("notifications/{key}/read")
+    Call<ApiEnvelope<String>> markNotificationRead(@Path("key") String key);
 }
