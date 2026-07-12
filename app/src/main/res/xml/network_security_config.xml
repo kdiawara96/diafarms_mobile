@@ -1,14 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <!-- Par défaut : HTTPS obligatoire (prod, api.diafarms.com) -->
-    <base-config cleartextTrafficPermitted="false" />
-
-    <!-- Backend local en dev : IP LAN de la machine de dev (voir CORS dans
-         SecurityConfiguration.java côté back) et 10.0.2.2 = alias de l'hôte
-         depuis l'émulateur Android. À ajuster selon ton réseau de test. -->
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="false">192.168.1.18</domain>
-        <domain includeSubdomains="false">10.0.2.2</domain>
-        <domain includeSubdomains="false">localhost</domain>
-    </domain-config>
+    <!-- L'adresse du serveur est configurable en direct depuis l'écran Diagnostics
+         (AppSettings.setServerUrl) et reste en HTTP tant qu'il n'y a pas de backend
+         HTTPS — un allowlist d'IP fixe (comme avant) empêcherait ce champ de
+         fonctionner pour toute IP autre que celle codée en dur au moment du build.
+         À resserrer (repasser cleartextTrafficPermitted à false) une fois un domaine
+         HTTPS réel en place pour la prod. -->
+    <base-config cleartextTrafficPermitted="true" />
 </network-security-config>

@@ -4,6 +4,7 @@ import android.content.Context;
 
 import androidx.annotation.NonNull;
 
+import com.mobile.diafarms.data.AppSettings;
 import com.mobile.diafarms.data.SessionManager;
 import com.mobile.diafarms.util.DebugLog;
 
@@ -14,12 +15,14 @@ import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+import okhttp3.ResponseBody;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
 public class ApiClient {
 
     private static volatile Retrofit retrofit;
+    private static volatile String retrofitBaseUrl;
 
     public static AuthApi authApi(Context context) {
         return getRetrofit(context).create(AuthApi.class);
@@ -29,10 +32,21 @@ public class ApiClient {
         return getRetrofit(context).create(DataApi.class);
     }
 
+    /** Force la reconstruction du client au prochain appel — nécessaire après un
+     * changement d'adresse serveur depuis l'écran Diagnostics, le Retrofit existant
+     * gardant sinon l'ancienne baseUrl en cache pour toute la durée du process. */
+    public static void reset() {
+        synchronized (ApiClient.class) {
+            retrofit = null;
+            retrofitBaseUrl = null;
+        }
+    }
+
     private static Retrofit getRetrofit(Context context) {
-        if (retrofit == null) {
+        String currentBaseUrl = new AppSettings(context.getApplicationContext()).getServerUrl();
+        if (retrofit == null || !currentBaseUrl.equals(retrofitBaseUrl)) {
             synchronized (ApiClient.class) {
-                if (retrofit == null) {
+                if (retrofit == null || !currentBaseUrl.equals(retrofitBaseUrl)) {
                     SessionManager sessionManager = new SessionManager(context.getApplicationContext());
 
                     OkHttpClient client = new OkHttpClient.Builder()
@@ -40,13 +54,15 @@ public class ApiClient {
                             .readTimeout(15, TimeUnit.SECONDS)
                             .addInterceptor(new AuthInterceptor(sessionManager))
                             .addInterceptor(new RequestLoggingInterceptor(context.getApplicationContext()))
+                            .addInterceptor(new ErrorCaptureInterceptor(context.getApplicationContext()))
                             .build();
 
                     retrofit = new Retrofit.Builder()
-                            .baseUrl(Constants.BASE_URL)
+                            .baseUrl(currentBaseUrl)
                             .client(client)
                             .addConverterFactory(GsonConverterFactory.create())
                             .build();
+                    retrofitBaseUrl = currentBaseUrl;
                 }
             }
         }
@@ -106,6 +122,39 @@ public class ApiClient {
             DebugLog.log(context, "ApiClient", "Requête finale envoyée : " + request.method() + " " + request.url()
                     + " Authorization=" + (auth != null ? DebugLog.reveal(auth) : "(absent)"));
             return chain.proceed(request);
+        }
+    }
+
+    /** Capture systématiquement les 401 et toute erreur serveur (5xx) pour l'écran
+     * Diagnostics — l'objectif est de pouvoir demander à un utilisateur sur le terrain
+     * de partager ce journal sans avoir besoin d'un accès adb/ordinateur. Utilise
+     * peekBody() plutôt que body() pour ne pas consommer le flux dont Retrofit a
+     * encore besoin pour parser la réponse en aval. */
+    private static class ErrorCaptureInterceptor implements Interceptor {
+        private static final long MAX_PEEK_BYTES = 4096;
+        private final Context context;
+
+        ErrorCaptureInterceptor(Context context) {
+            this.context = context;
+        }
+
+        @NonNull
+        @Override
+        public Response intercept(@NonNull Chain chain) throws IOException {
+            Request request = chain.request();
+            Response response = chain.proceed(request);
+
+            int code = response.code();
+            if (code == 401 || code >= 500) {
+                String bodySnippet = "";
+                try (ResponseBody peeked = response.peekBody(MAX_PEEK_BYTES)) {
+                    bodySnippet = peeked.string();
+                } catch (IOException ignored) {
+                }
+                DebugLog.captureHttpError(context, request.method(), request.url().toString(), code, bodySnippet);
+            }
+
+            return response;
         }
     }
 

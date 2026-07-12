@@ -31,4 +31,9 @@ public interface AuthApi {
     // encore créée (sinon l'intercepteur Authorization d'ApiClient n'a rien à ajouter).
     @GET("auth/me")
     Call<ApiEnvelope<UtilisateurResponse>> me(@Header("Authorization") String bearerToken);
+
+    // Endpoint public (pas de JWT requis) utilisé uniquement pour le test de
+    // connectivité de l'écran Diagnostics.
+    @GET("test")
+    Call<ApiEnvelope<Object>> ping();
 }

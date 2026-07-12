@@ -199,6 +199,20 @@ public class LocalDatabase extends SQLiteOpenHelper {
         return getPendingSaisies().size();
     }
 
+    /**
+     * Vide toutes les données locales (saisies en attente/synchronisées/en erreur et
+     * comptes mémorisés) — utilisé par l'écran Diagnostics pour repartir d'une base
+     * propre en cas d'incohérence sur le terrain. Retourne le nombre de saisies non
+     * synchronisées qui seront perdues, pour que l'appelant puisse avertir avant confirmation.
+     */
+    public int clearAllLocalData() {
+        int pendingCount = countPending();
+        SQLiteDatabase db = getWritableDatabase();
+        db.delete(TABLE_SAISIES, null, null);
+        db.delete(TABLE_ACCOUNTS, null, null);
+        return pendingCount;
+    }
+
     private List<SaisieLocale> querySaisies(String selection, String[] selectionArgs) {
         List<SaisieLocale> list = new ArrayList<>();
         SQLiteDatabase db = this.getReadableDatabase();

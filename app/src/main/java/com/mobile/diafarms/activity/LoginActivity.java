@@ -49,7 +49,7 @@ public class LoginActivity extends AppCompatActivity {
     private static final String TAG = "LoginActivity";
     private TextInputEditText editIdentifiant;
     private TextInputEditText editPassword;
-    private MaterialButton btnLogin, btnQrCode, btnTestMode, btnUnlockPin;
+    private MaterialButton btnLogin, btnQrCode, btnTestMode, btnUnlockPin, btnDiagnostics;
     private ImageButton btnBack;
     private ProgressBar progressBar;
     private boolean isLoading = false;
@@ -69,6 +69,7 @@ public class LoginActivity extends AppCompatActivity {
         btnQrCode = findViewById(R.id.btnQrCode);
         btnTestMode = findViewById(R.id.btnTestMode);
         btnUnlockPin = findViewById(R.id.btnUnlockPin);
+        btnDiagnostics = findViewById(R.id.btnDiagnostics);
         btnBack = findViewById(R.id.btnBack);
         progressBar = findViewById(R.id.progressBar);
 
@@ -88,6 +89,8 @@ public class LoginActivity extends AppCompatActivity {
         btnQrCode.setOnClickListener(v -> startActivity(new Intent(this, ScannerActivity.class)));
 
         btnBack.setOnClickListener(v -> finish());
+
+        btnDiagnostics.setOnClickListener(v -> startActivity(new Intent(this, DiagnosticsActivity.class)));
 
         // Porte de secours pour tester l'appli même si le backend n'est pas joignable :
         // uniquement visible en build debug, jamais en release.

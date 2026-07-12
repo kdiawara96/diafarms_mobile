@@ -139,6 +139,7 @@ public class HomeActivity extends AppCompatActivity {
         badgeFinance = findViewById(R.id.badgeFinance);
         btnSync = findViewById(R.id.btnSync);
         indicatorSync = findViewById(R.id.indicatorSync);
+        findViewById(R.id.btnDiagnostics).setOnClickListener(v -> startActivity(new Intent(this, DiagnosticsActivity.class)));
 
         spinnerProjets = findViewById(R.id.spinnerProjets);
         tvPoulesCount = findViewById(R.id.tvPoulesCount);
