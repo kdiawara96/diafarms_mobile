@@ -37,9 +37,18 @@
                 android:scaleType="fitCenter"
                 android:src="@drawable/entete" />
 
+            <!-- Illustration (même asset que l'écran d'accueil, pour la continuité visuelle) -->
+            <ImageView
+                android:layout_width="160dp"
+                android:layout_height="160dp"
+                android:layout_marginTop="4dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/banner"
+                android:contentDescription="@null" />
+
             <View
                 android:layout_width="match_parent"
-                android:layout_height="40dp" />
+                android:layout_height="24dp" />
 
             <!-- Carte principale -->
             <androidx.cardview.widget.CardView
@@ -127,6 +136,22 @@
                         app:iconGravity="textStart"
                         app:iconPadding="8dp" />
 
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="12dp" />
+
+                    <!-- Bouton Importer depuis la galerie -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnGallery"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="56dp"
+                        android:text="Importer depuis la galerie"
+                        android:textSize="14sp"
+                        android:textColor="@color/primary"
+                        app:strokeColor="@color/primary"
+                        app:cornerRadius="12dp" />
+
                 </LinearLayout>
 
             </androidx.cardview.widget.CardView>
@@ -154,7 +179,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="1. Demandez un QR code à votre administrateur\n2. Votre admin génère le code depuis son interface\n3. Scannez le QR code reçu avec cette application"
+                    android:text="1. Demandez un QR code à votre administrateur\n2. Votre admin génère le code depuis son interface\n3. Scannez-le avec cette application, ou importez-le depuis votre galerie"
                     android:textColor="#B3000000"
                     android:textSize="14sp"
                     android:lineSpacingMultiplier="1.3" />

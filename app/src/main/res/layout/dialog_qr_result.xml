@@ -2,6 +2,7 @@
 <androidx.cardview.widget.CardView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     app:cardCornerRadius="20dp"
@@ -12,13 +13,13 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
+        android:gravity="center_horizontal"
         android:padding="24dp">
 
         <!-- Icône succès -->
         <ImageView
             android:layout_width="64dp"
             android:layout_height="64dp"
-            android:layout_gravity="center_horizontal"
             android:src="@drawable/ic_success_circle" />
 
         <View
@@ -27,125 +28,51 @@
 
         <!-- Titre -->
         <TextView
+            android:id="@+id/tvQrSuccessTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-            android:text="Connexion réussie !"
+            android:text="@string/qr_welcome_title"
             android:textColor="@color/primary"
             android:textSize="22sp"
             android:textStyle="bold" />
 
         <View
             android:layout_width="match_parent"
-            android:layout_height="24dp" />
+            android:layout_height="12dp" />
 
-        <!-- Identifiant -->
+        <!-- Nom de l'utilisateur connecté -->
         <TextView
+            android:id="@+id/tvQrUserName"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Identifiant"
-            android:textColor="@android:color/darker_gray"
-            android:textSize="14sp" />
-
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-            app:boxStrokeColor="@color/primary"
-            app:hintEnabled="false">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/editIdentifiant"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="admin@diafarms.com"
-                android:textColor="@android:color/black"
-                android:textSize="16sp"
-                android:focusable="false"
-                android:clickable="true"
-                android:longClickable="true"
-                android:textIsSelectable="true" />
-
-        </com.google.android.material.textfield.TextInputLayout>
+            android:textColor="@android:color/black"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            tools:text="Agent Test" />
 
         <View
             android:layout_width="match_parent"
-            android:layout_height="16dp" />
+            android:layout_height="8dp" />
 
-        <!-- Mot de passe -->
+        <!-- Rôles de l'utilisateur -->
         <TextView
+            android:id="@+id/tvQrUserRoles"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Mot de passe"
             android:textColor="@android:color/darker_gray"
-            android:textSize="14sp" />
-
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-            app:boxStrokeColor="@color/primary"
-            app:endIconMode="password_toggle"
-            app:hintEnabled="false">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/editPassword"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="DiaFarms2024!"
-                android:textColor="@android:color/black"
-                android:textSize="16sp"
-                android:inputType="textPassword"
-                android:focusable="false"
-                android:clickable="true"
-                android:longClickable="true"
-                android:textIsSelectable="true" />
-
-        </com.google.android.material.textfield.TextInputLayout>
+            android:textSize="13sp"
+            tools:text="Production · Finance" />
 
         <View
             android:layout_width="match_parent"
-            android:layout_height="20dp" />
-
-        <!-- Message warning -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@drawable/bg_warning"
-            android:padding="12dp"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
-
-            <ImageView
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:src="@drawable/ic_warning"
-                app:tint="#FF9800" />
-
-            <View
-                android:layout_width="12dp"
-                android:layout_height="match_parent" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Bien retenir ces informations ! En cas d'oubli, contactez votre administrateur."
-                android:textColor="#FF9800"
-                android:textSize="13sp"
-                android:lineSpacingMultiplier="1.1" />
-
-        </LinearLayout>
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="24dp" />
+            android:layout_height="28dp" />
 
         <!-- Bouton OK -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnOk"
             android:layout_width="match_parent"
             android:layout_height="56dp"
-            android:text="OK, j'ai compris"
+            android:text="@string/qr_continue"
             android:textSize="16sp"
             android:textStyle="bold"
             android:textColor="@android:color/white"

@@ -2,30 +2,70 @@ package com.mobile.diafarms.data;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.security.keystore.KeyGenParameterSpec;
+import android.util.Log;
+
+import androidx.security.crypto.EncryptedSharedPreferences;
+import androidx.security.crypto.MasterKeys;
+
 import com.google.gson.Gson;
 import com.mobile.diafarms.models.User;
 
+import java.security.GeneralSecurityException;
+import java.io.IOException;
+
+/**
+ * Stocke le token de session et le profil utilisateur dans des SharedPreferences
+ * chiffrées (EncryptedSharedPreferences) : le token JWT et les infos de compte ne
+ * doivent jamais rester en clair sur le disque, contrairement à ce qui existait avant.
+ */
 public class SessionManager {
+    private static final String TAG = "SessionManager";
     private static final String PREF_NAME = "DiaFarmsSession";
     private static final String KEY_USER = "current_user";
     private static final String KEY_TOKEN = "token";
+    private static final String KEY_REFRESH_TOKEN = "refresh_token";
     private static final String KEY_IS_LOGGED_IN = "is_logged_in";
     private static final String KEY_CURRENT_PROJET = "current_projet";
 
-    private SharedPreferences pref;
-    private SharedPreferences.Editor editor;
-    private Gson gson;
+    private final SharedPreferences pref;
+    private final Gson gson;
 
     public SessionManager(Context context) {
-        pref = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
-        editor = pref.edit();
+        pref = buildEncryptedPrefs(context.getApplicationContext());
         gson = new Gson();
     }
 
+    private static SharedPreferences buildEncryptedPrefs(Context context) {
+        try {
+            String masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC);
+            return EncryptedSharedPreferences.create(
+                    PREF_NAME,
+                    masterKeyAlias,
+                    context,
+                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            );
+        } catch (GeneralSecurityException | IOException e) {
+            // Ne devrait pas arriver (Keystore matériel indisponible) ; on retombe sur des
+            // prefs non chiffrées plutôt que de planter l'appli au démarrage.
+            Log.e(TAG, "Impossible d'initialiser le stockage chiffré, repli sur SharedPreferences classiques", e);
+            return context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+        }
+    }
+
     public void createSession(User user, String token) {
+        createSession(user, token, null);
+    }
+
+    public void createSession(User user, String token, String refreshToken) {
+        SharedPreferences.Editor editor = pref.edit();
         editor.putBoolean(KEY_IS_LOGGED_IN, true);
         editor.putString(KEY_USER, gson.toJson(user));
         editor.putString(KEY_TOKEN, token);
+        if (refreshToken != null) {
+            editor.putString(KEY_REFRESH_TOKEN, refreshToken);
+        }
         if (user.getProjetsAssignes() != null && !user.getProjetsAssignes().isEmpty()) {
             editor.putString(KEY_CURRENT_PROJET, user.getProjetsAssignes().get(0));
         }
@@ -48,18 +88,20 @@ public class SessionManager {
         return pref.getString(KEY_TOKEN, null);
     }
 
+    public String getRefreshToken() {
+        return pref.getString(KEY_REFRESH_TOKEN, null);
+    }
+
     public String getCurrentProjetId() {
         return pref.getString(KEY_CURRENT_PROJET, null);
     }
 
     public void setCurrentProjetId(String projetId) {
-        editor.putString(KEY_CURRENT_PROJET, projetId);
-        editor.apply();
+        pref.edit().putString(KEY_CURRENT_PROJET, projetId).apply();
     }
 
     public void clearSession() {
-        editor.clear();
-        editor.apply();
+        pref.edit().clear().apply();
     }
 
     public boolean isQRValid() {

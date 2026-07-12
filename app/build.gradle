@@ -28,6 +28,9 @@ android {
         sourceCompatibility JavaVersion.VERSION_11
         targetCompatibility JavaVersion.VERSION_11
     }
+    buildFeatures {
+        buildConfig true
+    }
 }
 
 dependencies {
@@ -51,4 +54,12 @@ dependencies {
     implementation libs.camera.lifecycle
     implementation libs.camera.view
     implementation libs.gson
+
+    // Réseau (appels vers diafarms_back)
+    implementation libs.retrofit
+    implementation libs.retrofit.converter.gson
+    implementation libs.okhttp
+
+    // Stockage chiffré du token de session (EncryptedSharedPreferences)
+    implementation libs.security.crypto
 }

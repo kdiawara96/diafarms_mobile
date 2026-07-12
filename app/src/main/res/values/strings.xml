@@ -1,3 +1,22 @@
 <resources>
     <string name="app_name">Diafarms</string>
+
+    <!-- Login classique -->
+    <string name="login_submit">Se connecter</string>
+    <string name="login_missing_fields">Veuillez renseigner votre identifiant et votre mot de passe</string>
+    <string name="login_error_generic">Identifiant ou mot de passe incorrect</string>
+    <string name="login_error_network">Impossible de contacter le serveur. Vérifiez votre connexion.</string>
+    <string name="login_must_change_password">Pensez à changer votre mot de passe temporaire dès que possible</string>
+
+    <!-- QR code -->
+    <string name="qr_checking_server">Vérification auprès du serveur…</string>
+    <string name="qr_invalid">QR code invalide ou illisible</string>
+    <string name="qr_expired">Ce QR code a expiré, demandez-en un nouveau</string>
+    <string name="qr_revoked_or_network_error">Impossible de valider ce QR code (accès révoqué ou serveur injoignable)</string>
+    <string name="qr_gallery_not_found">Aucun QR code détecté dans cette image</string>
+    <string name="qr_gallery_read_error">Impossible de lire cette image</string>
+    <string name="qr_welcome_title">Connexion réussie</string>
+    <string name="qr_continue">Continuer</string>
+    <string name="error">Erreur</string>
+    <string name="ok">OK</string>
 </resources>

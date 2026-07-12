@@ -2,7 +2,6 @@ package com.mobile.diafarms.activity;
 
 import android.Manifest;
 import android.animation.ObjectAnimator;
-import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -11,14 +10,18 @@ import android.os.Bundle;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.LinearInterpolator;
+import android.widget.Button;
 import android.widget.ImageButton;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.camera.core.Camera;
 import androidx.camera.core.CameraInfo;
@@ -35,40 +38,64 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.google.android.material.button.MaterialButton;
-import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.gson.Gson;
 import com.google.mlkit.vision.barcode.BarcodeScanner;
 import com.google.mlkit.vision.barcode.BarcodeScanning;
 import com.google.mlkit.vision.barcode.common.Barcode;
 import com.google.mlkit.vision.common.InputImage;
 import com.mobile.diafarms.R;
+import com.mobile.diafarms.crypto.AESHelper;
+import com.mobile.diafarms.crypto.QrPayload;
+import com.mobile.diafarms.data.LocalDatabase;
+import com.mobile.diafarms.data.SessionManager;
+import com.mobile.diafarms.models.User;
+import com.mobile.diafarms.network.ApiClient;
+import com.mobile.diafarms.network.dto.ApiEnvelope;
+import com.mobile.diafarms.network.dto.RoleResponse;
+import com.mobile.diafarms.network.dto.UtilisateurResponse;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class CameraScanActivity extends AppCompatActivity {
 
     private static final String TAG = "CameraScan";
     private static final int REQUEST_CODE_PERMISSIONS = 10;
     private static final String[] REQUIRED_PERMISSIONS = {Manifest.permission.CAMERA};
+    private static final long QR_COOLDOWN_MS = 3000; // délai minimum entre 2 traitements du même QR
 
     private PreviewView previewView;
-    private ImageButton btnBack;
     private ExecutorService cameraExecutor;
     private BarcodeScanner barcodeScanner;
     private ImageButton btnFlash;
     private boolean isFlashOn = false;
     private ProcessCameraProvider cameraProvider;
     private Camera camera;
+    private SessionManager sessionManager;
+    private LocalDatabase localDatabase;
 
+    private boolean isProcessingQr = false;
+    private String lastProcessedQr = null;
+    private long lastProcessTime = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_camera_scan);
+
+        sessionManager = new SessionManager(this);
+        localDatabase = new LocalDatabase(this);
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main_camera_scan), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
@@ -77,43 +104,36 @@ public class CameraScanActivity extends AppCompatActivity {
         });
 
         previewView = findViewById(R.id.previewView);
-        btnBack = findViewById(R.id.btnBack);
-
+        ImageButton btnBack = findViewById(R.id.btnBack);
         btnBack.setOnClickListener(v -> finish());
 
-        // Initialiser ML Kit
         barcodeScanner = BarcodeScanning.getClient();
         cameraExecutor = Executors.newSingleThreadExecutor();
 
-        // Animation ligne de scan
-        // Animation ligne de scan
         View scanLine = findViewById(R.id.scanLine);
         View scanFrame = findViewById(R.id.scanFrame);
-
-       // Attendre que le layout soit mesuré
         scanFrame.post(() -> {
             int frameHeight = scanFrame.getHeight();
-
-            ObjectAnimator animator = ObjectAnimator.ofFloat(
-                    scanLine,
-                    "translationY",
-                    0f,
-                    frameHeight - 16f  // -16f pour la marge
-            );
-
-            animator.setDuration(2500);  // Un peu plus lent pour la hauteur réduite
+            ObjectAnimator animator = ObjectAnimator.ofFloat(scanLine, "translationY", 0f, frameHeight - 16f);
+            animator.setDuration(2500);
             animator.setRepeatCount(ObjectAnimator.INFINITE);
             animator.setRepeatMode(ObjectAnimator.REVERSE);
             animator.setInterpolator(new LinearInterpolator());
             animator.start();
         });
 
-        // Bouton flash
         btnFlash = findViewById(R.id.btnFlash);
         btnFlash.setOnClickListener(v -> toggleFlash());
 
+        // QR déjà décodé depuis une image de galerie (ScannerActivity) : on saute la
+        // caméra et on traite directement le contenu via le même pipeline qu'un scan live.
+        String galleryQrContent = getIntent().getStringExtra("GALLERY_QR_CONTENT");
+        if (galleryQrContent != null && !galleryQrContent.isEmpty()) {
+            isProcessingQr = true;
+            processQr(galleryQrContent);
+            return;
+        }
 
-        // Vérifier permissions
         if (allPermissionsGranted()) {
             startCamera();
         } else {
@@ -123,33 +143,23 @@ public class CameraScanActivity extends AppCompatActivity {
 
     private void toggleFlash() {
         if (camera == null) {
-            Log.e(TAG, "Camera is null");
             Toast.makeText(this, "Caméra non disponible", Toast.LENGTH_SHORT).show();
             return;
         }
-
-        // Vérifie si le flash est disponible
         CameraInfo cameraInfo = camera.getCameraInfo();
         if (!cameraInfo.hasFlashUnit()) {
             Toast.makeText(this, "Flash non disponible", Toast.LENGTH_SHORT).show();
             return;
         }
-
         isFlashOn = !isFlashOn;
-
-        // Utilise ListenableFuture pour gérer l'async
         ListenableFuture<Void> future = camera.getCameraControl().enableTorch(isFlashOn);
-        future.addListener(() -> {
-            runOnUiThread(() -> {
-                btnFlash.setImageResource(isFlashOn ? R.drawable.ic_flash_on : R.drawable.ic_flash_off);
-            });
-        }, ContextCompat.getMainExecutor(this));
+        future.addListener(() -> runOnUiThread(() ->
+                btnFlash.setImageResource(isFlashOn ? R.drawable.ic_flash_on : R.drawable.ic_flash_off)
+        ), ContextCompat.getMainExecutor(this));
     }
 
-    // Modifie startCamera() pour garder la référence camera
     private void startCamera() {
-        ListenableFuture<ProcessCameraProvider> cameraProviderFuture =
-                ProcessCameraProvider.getInstance(this);
+        ListenableFuture<ProcessCameraProvider> cameraProviderFuture = ProcessCameraProvider.getInstance(this);
 
         cameraProviderFuture.addListener(() -> {
             try {
@@ -166,19 +176,19 @@ public class CameraScanActivity extends AppCompatActivity {
                 CameraSelector cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA;
 
                 cameraProvider.unbindAll();
-                // Garde la référence camera
-                camera = cameraProvider.bindToLifecycle(
-                        this, cameraSelector, preview, imageAnalysis
-                );
-
+                camera = cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageAnalysis);
             } catch (ExecutionException | InterruptedException e) {
                 Log.e(TAG, "Erreur démarrage caméra", e);
             }
         }, ContextCompat.getMainExecutor(this));
     }
 
-
     private void analyzeImage(ImageProxy imageProxy) {
+        if (isProcessingQr) {
+            imageProxy.close();
+            return;
+        }
+
         @SuppressWarnings("UnsafeOptInUsageError")
         InputImage image = InputImage.fromMediaImage(
                 Objects.requireNonNull(imageProxy.getImage()),
@@ -190,8 +200,14 @@ public class CameraScanActivity extends AppCompatActivity {
                     for (Barcode barcode : barcodes) {
                         String value = barcode.getRawValue();
                         if (value != null) {
-                            Log.d(TAG, "QR Code trouvé: " + value);
-                            runOnUiThread(() -> onQrCodeDetected(value));
+                            long now = System.currentTimeMillis();
+                            if (value.equals(lastProcessedQr) && (now - lastProcessTime) < QR_COOLDOWN_MS) {
+                                break;
+                            }
+                            isProcessingQr = true;
+                            lastProcessedQr = value;
+                            lastProcessTime = now;
+                            runOnUiThread(() -> processQr(value));
                             break;
                         }
                     }
@@ -200,9 +216,12 @@ public class CameraScanActivity extends AppCompatActivity {
                 .addOnCompleteListener(task -> imageProxy.close());
     }
 
-
-    private void onQrCodeDetected(String qrValue) {
-        // Vibration
+    /**
+     * Déchiffre le QR (même schéma AES/CBC que QRCodeController/AESService côté back),
+     * puis vérifie sa validité auprès du serveur via /auth/me avec le token qu'il contient.
+     * Aucun mot de passe n'est jamais affiché : le token du QR sert directement de session.
+     */
+    private void processQr(String qrContent) {
         Vibrator vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
         if (vibrator != null && vibrator.hasVibrator()) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -212,54 +231,149 @@ public class CameraScanActivity extends AppCompatActivity {
             }
         }
 
-        // Parser le QR (simulé pour test)
-        // Format attendu: "identifiant|motdepasse" ou JSON
-        String identifiant = "admin@diafarms.com";  // Extraire de qrValue
-        String password = "DiaFarms2024!";           // Extraire de qrValue
+        QrPayload payload;
+        try {
+            String decrypted = AESHelper.decrypt(qrContent);
+            payload = new Gson().fromJson(decrypted, QrPayload.class);
+        } catch (Exception e) {
+            Log.e(TAG, "QR illisible/non chiffré avec la bonne clé", e);
+            showMessage(getString(R.string.error), getString(R.string.qr_invalid));
+            return;
+        }
 
-        // Afficher la popup
-        showQrResultDialog(identifiant, password);
+        if (payload == null || !payload.isValid()) {
+            showMessage(getString(R.string.error), getString(R.string.qr_invalid));
+            return;
+        }
+
+        if (payload.isExpired()) {
+            showMessage(getString(R.string.error), getString(R.string.qr_expired));
+            return;
+        }
+
+        verifyWithServer(payload);
     }
 
-    private void showQrResultDialog(String identifiant, String password) {
-        // Créer le dialog
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        View dialogView = getLayoutInflater().inflate(R.layout.dialog_qr_result, null);
-        builder.setView(dialogView);
+    private void verifyWithServer(QrPayload payload) {
+        AlertDialog loading = new MaterialAlertDialogBuilder(this)
+                .setMessage(getString(R.string.qr_checking_server))
+                .setCancelable(false)
+                .show();
+
+        ApiClient.authApi(this).me("Bearer " + payload.getToken())
+                .enqueue(new Callback<ApiEnvelope<UtilisateurResponse>>() {
+                    @Override
+                    public void onResponse(Call<ApiEnvelope<UtilisateurResponse>> call, Response<ApiEnvelope<UtilisateurResponse>> response) {
+                        loading.dismiss();
+
+                        UtilisateurResponse profile = response.isSuccessful() && response.body() != null
+                                ? response.body().getData() : null;
+
+                        if (profile == null || profile.getUniqueId() == null) {
+                            showMessage(getString(R.string.error), getString(R.string.qr_revoked_or_network_error));
+                            return;
+                        }
+
+                        onQrLoginSuccess(profile, payload.getToken());
+                    }
+
+                    @Override
+                    public void onFailure(Call<ApiEnvelope<UtilisateurResponse>> call, Throwable t) {
+                        loading.dismiss();
+                        Log.e(TAG, "Erreur réseau lors de la vérification du QR", t);
+                        showMessage(getString(R.string.error), getString(R.string.qr_revoked_or_network_error));
+                    }
+                });
+    }
+
+    private void onQrLoginSuccess(UtilisateurResponse profile, String token) {
+        User user = new User();
+        user.setId(profile.getUniqueId());
+        user.setNom(profile.getFullName());
+        user.setTelephone(profile.getTelephone());
+        user.setEmail(profile.getEmail());
+        user.setPhotoUrl(profile.getPhoto());
+        user.setActif(profile.isStatut());
+
+        List<String> roleNames = new ArrayList<>();
+        if (profile.getRoles() != null) {
+            for (RoleResponse role : profile.getRoles()) {
+                if (role.getRole() != null) roleNames.add(role.getRole());
+            }
+        }
+        user.setRoles(roleNames);
+
+        sessionManager.createSession(user, token);
+        if (profile.getUsername() != null) {
+            localDatabase.saveAccountIdentifiant(profile.getUsername());
+        }
+
+        showSuccessDialog(user);
+    }
+
+    /** Popup de succès uniquement informative : jamais d'identifiant ni de mot de passe affichés. */
+    private void showSuccessDialog(User user) {
+        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this);
+        View view = LayoutInflater.from(this).inflate(R.layout.dialog_qr_result, null);
+        builder.setView(view);
+
+        TextView tvUserName = view.findViewById(R.id.tvQrUserName);
+        TextView tvUserRoles = view.findViewById(R.id.tvQrUserRoles);
+        MaterialButton btnOk = view.findViewById(R.id.btnOk);
+
+        tvUserName.setText(user.getNom());
+
+        StringBuilder roles = new StringBuilder();
+        if (user.isProduction()) roles.append("Production");
+        if (user.isFinance()) {
+            if (roles.length() > 0) roles.append(" · ");
+            roles.append("Finance");
+        }
+        if (user.isAdmin()) {
+            if (roles.length() > 0) roles.append(" · ");
+            roles.append("Administration");
+        }
+        tvUserRoles.setText(roles.length() > 0 ? roles.toString() : "");
 
         AlertDialog dialog = builder.create();
-        dialog.setCancelable(false);  // Empêche de fermer en cliquant à l'extérieur
+        dialog.setCancelable(false);
 
-        // Récupérer les vues
-        TextInputEditText editIdentifiant = dialogView.findViewById(R.id.editIdentifiant);
-        TextInputEditText editPassword = dialogView.findViewById(R.id.editPassword);
-        MaterialButton btnOk = dialogView.findViewById(R.id.btnOk);
-
-        // Remplir les champs
-        editIdentifiant.setText(identifiant);
-        editPassword.setText(password);
-
-        // Clic OK
         btnOk.setOnClickListener(v -> {
             dialog.dismiss();
-
-            // Aller vers HomeActivity
-            Intent intent = new Intent(this, HomeActivity.class);
-            intent.putExtra("IDENTIFIANT", identifiant);
-            startActivity(intent);
+            startActivity(new Intent(this, HomeActivity.class));
             finish();
         });
 
-        // Afficher
         dialog.show();
-
-        // Adapter la largeur du dialog
         if (dialog.getWindow() != null) {
             dialog.getWindow().setLayout(
                     (int) (getResources().getDisplayMetrics().widthPixels * 0.9),
                     ViewGroup.LayoutParams.WRAP_CONTENT
             );
         }
+    }
+
+    private void showMessage(String title, String message) {
+        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this)
+                .setTitle(title)
+                .setMessage(message)
+                .setPositiveButton(getString(R.string.ok), (dia, which) -> {
+                    dia.dismiss();
+                    resetQrProcessing();
+                })
+                .setCancelable(false);
+
+        AlertDialog dialog = builder.create();
+        dialog.setOnCancelListener(d -> resetQrProcessing());
+        dialog.setOnShowListener(d -> {
+            Button button = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+            button.setTextColor(ContextCompat.getColor(this, R.color.primary));
+        });
+        dialog.show();
+    }
+
+    private void resetQrProcessing() {
+        isProcessingQr = false;
     }
 
     private boolean allPermissionsGranted() {
@@ -272,8 +386,7 @@ public class CameraScanActivity extends AppCompatActivity {
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
-                                           @NonNull int[] grantResults) {
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == REQUEST_CODE_PERMISSIONS) {
             if (allPermissionsGranted()) {
@@ -292,4 +405,3 @@ public class CameraScanActivity extends AppCompatActivity {
         barcodeScanner.close();
     }
 }
-

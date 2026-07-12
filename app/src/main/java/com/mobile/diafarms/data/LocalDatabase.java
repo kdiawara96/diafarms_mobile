@@ -15,11 +15,17 @@ import java.util.List;
 
 public class LocalDatabase extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "diafarms.db";
-    private static final int DATABASE_VERSION = 1;
+    private static final int DATABASE_VERSION = 2;
 
     // Tables
     private static final String TABLE_ENREGISTREMENTS = "enregistrements";
     private static final String TABLE_TRANSACTIONS = "transactions";
+    private static final String TABLE_ACCOUNTS = "accounts";
+
+    // Colonnes accounts (comptes déjà utilisés pour se connecter sur cet appareil,
+    // afin de proposer l'identifiant en sélection plutôt qu'en ressaisie systématique)
+    private static final String COL_IDENTIFIANT = "identifiant";
+    private static final String COL_LAST_USED = "last_used";
 
     // Colonnes communes
     private static final String COL_ID = "id";
@@ -85,15 +91,52 @@ public class LocalDatabase extends SQLiteOpenHelper {
                 + COL_SYNC_STATUS + " TEXT"
                 + ")";
 
+        String createAccounts = "CREATE TABLE " + TABLE_ACCOUNTS + "("
+                + COL_IDENTIFIANT + " TEXT PRIMARY KEY,"
+                + COL_LAST_USED + " INTEGER"
+                + ")";
+
         db.execSQL(createEnregistrements);
         db.execSQL(createTransactions);
+        db.execSQL(createAccounts);
     }
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_ENREGISTREMENTS);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_TRANSACTIONS);
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_ACCOUNTS);
         onCreate(db);
+    }
+
+    // ===== COMPTES LOCAUX (sélecteur d'identifiant) =====
+
+    /** Enregistre/rafraîchit un identifiant utilisé avec succès, pour l'afficher au prochain login. */
+    public void saveAccountIdentifiant(String identifiant) {
+        if (identifiant == null || identifiant.trim().isEmpty()) return;
+
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COL_IDENTIFIANT, identifiant.trim());
+        values.put(COL_LAST_USED, System.currentTimeMillis());
+        db.insertWithOnConflict(TABLE_ACCOUNTS, null, values, SQLiteDatabase.CONFLICT_REPLACE);
+    }
+
+    /** Identifiants déjà utilisés sur cet appareil, du plus récent au plus ancien. */
+    public List<String> getSavedIdentifiants() {
+        List<String> identifiants = new ArrayList<>();
+        SQLiteDatabase db = this.getReadableDatabase();
+
+        Cursor cursor = db.query(TABLE_ACCOUNTS, new String[]{COL_IDENTIFIANT},
+                null, null, null, null, COL_LAST_USED + " DESC");
+
+        if (cursor.moveToFirst()) {
+            do {
+                identifiants.add(cursor.getString(cursor.getColumnIndexOrThrow(COL_IDENTIFIANT)));
+            } while (cursor.moveToNext());
+        }
+        cursor.close();
+        return identifiants;
     }
 
     // ===== ENREGISTREMENTS =====

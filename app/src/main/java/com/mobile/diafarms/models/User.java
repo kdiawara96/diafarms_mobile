@@ -56,15 +56,25 @@ public class User {
 
     // Méthodes utilitaires
     public boolean hasRole(String role) {
-        return roles != null && roles.contains(role);
+        if (roles == null || role == null) return false;
+        for (String r : roles) {
+            if (r != null && r.equalsIgnoreCase(role)) return true;
+        }
+        return false;
     }
 
+    // Le backend nomme les rôles "PRODUCTEUR"/"FINANCIER"/"ADMIN" (voir MlApplication.java
+    // et RoleDTO côté diafarms_back) : on matche les deux formes pour rester tolérant.
     public boolean isProduction() {
-        return hasRole("production");
+        return hasRole("PRODUCTEUR") || hasRole("PRODUCTION");
     }
 
     public boolean isFinance() {
-        return hasRole("finance");
+        return hasRole("FINANCIER") || hasRole("FINANCE");
+    }
+
+    public boolean isAdmin() {
+        return hasRole("ADMIN");
     }
 
     public boolean isDoubleRole() {

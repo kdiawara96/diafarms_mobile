@@ -3,11 +3,12 @@ package com.mobile.diafarms.activity;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
-import android.os.Handler;
 import android.util.Log;
 import android.view.View;
+import android.widget.ArrayAdapter;
 import android.widget.ImageButton;
 import android.widget.ProgressBar;
+import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
@@ -16,24 +17,41 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+import com.mobile.diafarms.BuildConfig;
 import com.mobile.diafarms.R;
+import com.mobile.diafarms.data.LocalDatabase;
 import com.mobile.diafarms.data.SessionManager;
 import com.mobile.diafarms.models.User;
+import com.mobile.diafarms.network.ApiClient;
+import com.mobile.diafarms.network.dto.ApiEnvelope;
+import com.mobile.diafarms.network.dto.AuthResponse;
+import com.mobile.diafarms.network.dto.RoleResponse;
 
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+import okhttp3.ResponseBody;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+
 public class LoginActivity extends AppCompatActivity {
 
-    private String TAG = "tigui_LoginAct";
-    private TextInputEditText editIdentifiant, editPassword;
-    private MaterialButton btnLogin, btnQrCode;
+    private static final String TAG = "LoginActivity";
+    private MaterialAutoCompleteTextView editIdentifiant;
+    private TextInputEditText editPassword;
+    private MaterialButton btnLogin, btnQrCode, btnTestMode;
     private ImageButton btnBack;
     private ProgressBar progressBar;
     private boolean isLoading = false;
     private SessionManager sessionManager;
+    private LocalDatabase localDatabase;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -41,14 +59,13 @@ public class LoginActivity extends AppCompatActivity {
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_login);
 
-
         // Liaison des vues
         editIdentifiant = findViewById(R.id.editIdentifiant);
         editPassword = findViewById(R.id.editPassword);
         btnLogin = findViewById(R.id.btnLogin);
         btnQrCode = findViewById(R.id.btnQrCode);
+        btnTestMode = findViewById(R.id.btnTestMode);
         btnBack = findViewById(R.id.btnBack);
-
         progressBar = findViewById(R.id.progressBar);
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.section_login_act), (v, insets) -> {
@@ -57,96 +74,161 @@ public class LoginActivity extends AppCompatActivity {
             return insets;
         });
 
-        // Initialisation SessionManager
         sessionManager = new SessionManager(this);
+        localDatabase = new LocalDatabase(this);
 
-        // Clic Connexion
-        btnLogin.setOnClickListener(v -> {
-            String identifiant = Objects.requireNonNull(editIdentifiant.getText()).toString().trim();
-            String password = Objects.requireNonNull(editPassword.getText()).toString().trim();
+        setupIdentifiantSuggestions();
 
-            if (identifiant.isEmpty() || password.isEmpty()) {
-                return;
-            }
-            Log.d(TAG, "identifiant: " + identifiant);
-            Log.d(TAG, "password: " + password);
+        btnLogin.setOnClickListener(v -> attemptLogin());
 
-            isLoading = true;
-            updateLoadingState();
+        btnQrCode.setOnClickListener(v -> startActivity(new Intent(this, ScannerActivity.class)));
 
-            new Handler().postDelayed(() -> {
+        btnBack.setOnClickListener(v -> finish());
 
-                isLoading = false;
-                updateLoadingState();
+        // Porte de secours pour tester l'appli même si le backend n'est pas joignable :
+        // uniquement visible en build debug, jamais en release.
+        if (BuildConfig.DEBUG) {
+            btnTestMode.setVisibility(View.VISIBLE);
+            btnTestMode.setOnClickListener(v -> loginWithFakeData());
+        }
+    }
 
-                // Création d'un utilisateur par défaut pour la session
-                User defaultUser = createDefaultUser();
-                sessionManager.createSession(defaultUser, "default_token_" + System.currentTimeMillis());
+    /** Crée une session locale avec un utilisateur fictif (tous rôles) sans passer par le réseau. */
+    private void loginWithFakeData() {
+        User user = new User();
+        user.setId("test-user-local");
+        user.setNom("Agent Test");
+        user.setTelephone("+225 0123456789");
+        user.setEmail("test@diafarms.local");
+        user.setActif(true);
 
-                // TODO: Appel API login
-                Intent intent = new Intent(LoginActivity.this, HomeActivity.class);
-                startActivity(intent);
+        List<String> roles = new ArrayList<>();
+        roles.add("PRODUCTEUR");
+        roles.add("FINANCIER");
+        user.setRoles(roles);
 
-            }, 1000); // 1 secondes
+        sessionManager.createSession(user, "fake-token-test-mode");
 
-
-
-        });
-
-        // Clic QR Code
-        btnQrCode.setOnClickListener(v -> {
-            Intent intent = new Intent(this, ScannerActivity.class);
-            startActivity(intent);
-        });
-
-        // Clic Retour
-        btnBack.setOnClickListener(v -> {
-            finish();
-        });
+        Toast.makeText(this, "Mode test : données fictives, aucun serveur contacté", Toast.LENGTH_LONG).show();
+        startActivity(new Intent(this, HomeActivity.class));
+        finish();
     }
 
     /**
-     * Crée un utilisateur par défaut avec tous les rôles et projets
+     * Propose en autocomplétion les identifiants déjà utilisés avec succès sur cet
+     * appareil : sélectif dès qu'il y en a plusieurs, pré-rempli s'il n'y en a qu'un.
      */
-    private User createDefaultUser() {
-        User user = new User();
-        user.setId("user_default_001");
-        user.setNom("Agent Test");
-        user.setTelephone("+225 0123456789");
-        user.setEmail("agent@test.com");
+    private void setupIdentifiantSuggestions() {
+        List<String> savedIdentifiants = localDatabase.getSavedIdentifiants();
+        if (savedIdentifiants.isEmpty()) {
+            return;
+        }
 
-        // Tous les rôles activés
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(
+                this, android.R.layout.simple_dropdown_item_1line, savedIdentifiants);
+        editIdentifiant.setAdapter(adapter);
+        editIdentifiant.setThreshold(0);
+
+        if (savedIdentifiants.size() == 1) {
+            editIdentifiant.setText(savedIdentifiants.get(0));
+        }
+    }
+
+    private void attemptLogin() {
+        if (isLoading) return;
+
+        String identifiant = Objects.requireNonNull(editIdentifiant.getText()).toString().trim();
+        String password = Objects.requireNonNull(editPassword.getText()).toString().trim();
+
+        if (identifiant.isEmpty() || password.isEmpty()) {
+            Toast.makeText(this, getString(R.string.login_missing_fields), Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        isLoading = true;
+        updateLoadingState();
+
+        ApiClient.authApi(this).login("password", identifiant, password, true, "")
+                .enqueue(new Callback<ApiEnvelope<AuthResponse>>() {
+                    @Override
+                    public void onResponse(Call<ApiEnvelope<AuthResponse>> call, Response<ApiEnvelope<AuthResponse>> response) {
+                        isLoading = false;
+                        updateLoadingState();
+
+                        ApiEnvelope<AuthResponse> envelope = response.body();
+                        if (envelope == null && response.errorBody() != null) {
+                            envelope = parseErrorEnvelope(response.errorBody());
+                        }
+
+                        AuthResponse data = envelope != null ? envelope.getData() : null;
+
+                        if (data != null && data.getAccessToken() != null && data.getUniqueId() != null) {
+                            onLoginSuccess(data, identifiant);
+                        } else {
+                            String message = (data != null && data.getErrorMessage() != null)
+                                    ? data.getErrorMessage()
+                                    : getString(R.string.login_error_generic);
+                            Toast.makeText(LoginActivity.this, message, Toast.LENGTH_LONG).show();
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<ApiEnvelope<AuthResponse>> call, Throwable t) {
+                        isLoading = false;
+                        updateLoadingState();
+                        Log.e(TAG, "Erreur réseau lors de la connexion", t);
+                        Toast.makeText(LoginActivity.this, getString(R.string.login_error_network), Toast.LENGTH_LONG).show();
+                    }
+                });
+    }
+
+    private ApiEnvelope<AuthResponse> parseErrorEnvelope(ResponseBody errorBody) {
+        try {
+            Type type = new TypeToken<ApiEnvelope<AuthResponse>>() {}.getType();
+            return new Gson().fromJson(errorBody.charStream(), type);
+        } catch (Exception e) {
+            Log.e(TAG, "Réponse d'erreur illisible", e);
+            return null;
+        }
+    }
+
+    private void onLoginSuccess(AuthResponse data, String identifiant) {
+        User user = new User();
+        user.setId(data.getUniqueId());
+        user.setNom(data.getFullName());
+        user.setTelephone(data.getTelephone());
+        user.setEmail(data.getEmail());
+        user.setPhotoUrl(data.getPhoto());
+        user.setActif(true);
+
         List<String> roles = new ArrayList<>();
-        roles.add("production");
-        roles.add("finance");
-//        roles.add("admin");
+        if (data.getRoles() != null) {
+            for (RoleResponse role : data.getRoles()) {
+                if (role.getRole() != null) roles.add(role.getRole());
+            }
+        }
         user.setRoles(roles);
 
-        // Projets assignés par défaut
-        List<String> projets = new ArrayList<>();
-        projets.add("proj_001");
-        projets.add("proj_002");
-        user.setProjetsAssignes(projets);
+        sessionManager.createSession(user, data.getAccessToken(), data.getRefreshToken());
+        localDatabase.saveAccountIdentifiant(identifiant);
 
-        // QR Code valide pour 24h
-        user.setQrCode("DEFAULT_QR_" + System.currentTimeMillis());
-        user.setQrExpiry(System.currentTimeMillis() + (24 * 60 * 60 * 1000)); // +24h
+        if (Boolean.TRUE.equals(data.getMustChangePassword())) {
+            Toast.makeText(this, getString(R.string.login_must_change_password), Toast.LENGTH_LONG).show();
+        }
 
-        user.setActif(true);
-        user.setPhotoUrl(null); // Pas de photo par défaut
-
-        return user;
+        startActivity(new Intent(LoginActivity.this, HomeActivity.class));
+        finish();
     }
 
     private void updateLoadingState() {
         btnLogin.setEnabled(!isLoading);
         progressBar.setBackgroundColor(Color.WHITE);
         if (isLoading) {
-            btnLogin.setText("Patiente...");           // Vide le texte du bouton
-            progressBar.setVisibility(View.VISIBLE);  // AFFICHE le loader
+            btnLogin.setText("");
+            progressBar.setVisibility(View.VISIBLE);
         } else {
-            btnLogin.setText("Se connecter");
-            progressBar.setVisibility(View.GONE);     // CACHE le loader
+            btnLogin.setText(getString(R.string.login_submit));
+            progressBar.setVisibility(View.GONE);
         }
     }
 }
