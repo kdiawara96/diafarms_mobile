@@ -55,6 +55,7 @@ import com.mobile.diafarms.network.ApiClient;
 import com.mobile.diafarms.network.dto.ApiEnvelope;
 import com.mobile.diafarms.network.dto.RoleResponse;
 import com.mobile.diafarms.network.dto.UtilisateurResponse;
+import com.mobile.diafarms.util.DebugLog;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -231,22 +232,33 @@ public class CameraScanActivity extends AppCompatActivity {
             }
         }
 
+        DebugLog.log(this, TAG, "=== Nouveau scan === contenu brut lu, longueur=" + qrContent.length());
+
         QrPayload payload;
         try {
             String decrypted = AESHelper.decrypt(qrContent);
+            DebugLog.log(this, TAG, "Déchiffrement AES réussi. JSON déchiffré (longueur=" + decrypted.length() + "): " + decrypted);
             payload = new Gson().fromJson(decrypted, QrPayload.class);
         } catch (Exception e) {
-            Log.e(TAG, "QR illisible/non chiffré avec la bonne clé", e);
+            DebugLog.error(this, TAG, "Échec du déchiffrement/parsing du QR (contenu brut base64 loggé ci-dessous pour comparaison)", e);
+            DebugLog.log(this, TAG, "Contenu brut scanné : " + qrContent);
             showMessage(getString(R.string.error), getString(R.string.qr_invalid));
             return;
         }
 
         if (payload == null || !payload.isValid()) {
+            DebugLog.log(this, TAG, "Payload invalide après parsing : uniqueIdUser=" + (payload != null ? payload.getUniqueIdUser() : "null")
+                    + " token=" + (payload != null ? DebugLog.reveal(payload.getToken()) : "null"));
             showMessage(getString(R.string.error), getString(R.string.qr_invalid));
             return;
         }
 
+        DebugLog.log(this, TAG, "Payload valide : uniqueIdUser=" + payload.getUniqueIdUser()
+                + " qrExpiresAt=" + payload.getQrExpiresAt()
+                + " token=" + DebugLog.reveal(payload.getToken()));
+
         if (payload.isExpired()) {
+            DebugLog.log(this, TAG, "QR jugé expiré côté mobile (qrExpiresAt=" + payload.getQrExpiresAt() + ")");
             showMessage(getString(R.string.error), getString(R.string.qr_expired));
             return;
         }
@@ -260,7 +272,10 @@ public class CameraScanActivity extends AppCompatActivity {
                 .setCancelable(false)
                 .show();
 
-        ApiClient.authApi(this).me("Bearer " + payload.getToken())
+        String bearerHeader = "Bearer " + payload.getToken();
+        DebugLog.log(this, TAG, "Appel GET " + com.mobile.diafarms.network.Constants.BASE_URL + "auth/me avec Authorization=" + DebugLog.reveal(bearerHeader));
+
+        ApiClient.authApi(this).me(bearerHeader)
                 .enqueue(new Callback<ApiEnvelope<UtilisateurResponse>>() {
                     @Override
                     public void onResponse(Call<ApiEnvelope<UtilisateurResponse>> call, Response<ApiEnvelope<UtilisateurResponse>> response) {
@@ -270,16 +285,23 @@ public class CameraScanActivity extends AppCompatActivity {
                         // compte suspendu) d'une simple absence de réseau, au lieu du
                         // message générique d'avant qui rendait les deux indiscernables.
                         if (!response.isSuccessful()) {
-                            String serverMessage = readErrorMessage(response);
+                            // response.errorBody() ne peut être lu qu'une seule fois : on le
+                            // récupère en String une bonne fois, puis on le réutilise partout.
+                            String rawErrorBody = readRawErrorBody(response);
+                            String serverMessage = extractMessage(rawErrorBody);
                             String detail = "HTTP " + response.code()
                                     + (serverMessage != null ? " : " + serverMessage : "")
                                     + "\n(QR probablement expiré, révoqué, ou compte suspendu — régénérez-le depuis le site web)";
-                            Log.e(TAG, "Réponse serveur refusée pour /auth/me : " + detail);
+                            DebugLog.log(CameraScanActivity.this, TAG, "Réponse /auth/me NON réussie : code=" + response.code()
+                                    + " message=\"" + response.message() + "\" errorBody=\"" + rawErrorBody + "\"");
                             showMessage(getString(R.string.error), detail);
                             return;
                         }
 
                         UtilisateurResponse profile = response.body() != null ? response.body().getData() : null;
+                        DebugLog.log(CameraScanActivity.this, TAG, "Réponse /auth/me OK : code=" + response.code()
+                                + " profileUniqueId=" + (profile != null ? profile.getUniqueId() : "null"));
+
                         if (profile == null || profile.getUniqueId() == null) {
                             showMessage(getString(R.string.error), "Réponse du serveur incomplète (HTTP " + response.code() + ").");
                             return;
@@ -292,20 +314,29 @@ public class CameraScanActivity extends AppCompatActivity {
                     public void onFailure(Call<ApiEnvelope<UtilisateurResponse>> call, Throwable t) {
                         loading.dismiss();
                         String detail = t.getClass().getSimpleName() + (t.getMessage() != null ? " : " + t.getMessage() : "");
-                        Log.e(TAG, "Erreur réseau lors de la vérification du QR : " + detail, t);
+                        DebugLog.error(CameraScanActivity.this, TAG, "onFailure appel /auth/me (base URL=" + com.mobile.diafarms.network.Constants.BASE_URL + ")", t);
                         showMessage(getString(R.string.error), "Impossible de contacter le serveur.\n" + detail);
                     }
                 });
     }
 
-    /** Extrait le message d'erreur du corps de réponse s'il suit l'enveloppe ApiResponse habituelle. */
-    private String readErrorMessage(Response<ApiEnvelope<UtilisateurResponse>> response) {
+    /** Lit le corps d'erreur en String une seule fois (errorBody() ne se lit qu'une fois). */
+    private String readRawErrorBody(Response<ApiEnvelope<UtilisateurResponse>> response) {
         try {
             if (response.errorBody() != null) {
-                ApiEnvelope<?> envelope = new Gson().fromJson(response.errorBody().charStream(), ApiEnvelope.class);
-                if (envelope != null && envelope.getMessage() != null) {
-                    return envelope.getMessage();
-                }
+                return response.errorBody().string();
+            }
+        } catch (Exception ignored) {
+        }
+        return "(vide)";
+    }
+
+    /** Extrait le champ "message" si le corps suit l'enveloppe ApiResponse habituelle. */
+    private String extractMessage(String rawBody) {
+        try {
+            ApiEnvelope<?> envelope = new Gson().fromJson(rawBody, ApiEnvelope.class);
+            if (envelope != null && envelope.getMessage() != null) {
+                return envelope.getMessage();
             }
         } catch (Exception ignored) {
             // Le corps d'erreur ne suit pas forcément notre enveloppe JSON (ex: rejet direct
