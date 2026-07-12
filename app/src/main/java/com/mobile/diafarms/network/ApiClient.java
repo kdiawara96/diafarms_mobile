@@ -5,6 +5,7 @@ import android.content.Context;
 import androidx.annotation.NonNull;
 
 import com.mobile.diafarms.data.SessionManager;
+import com.mobile.diafarms.util.DebugLog;
 
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
@@ -38,6 +39,7 @@ public class ApiClient {
                             .connectTimeout(15, TimeUnit.SECONDS)
                             .readTimeout(15, TimeUnit.SECONDS)
                             .addInterceptor(new AuthInterceptor(sessionManager))
+                            .addInterceptor(new RequestLoggingInterceptor(context.getApplicationContext()))
                             .build();
 
                     retrofit = new Retrofit.Builder()
@@ -63,8 +65,18 @@ public class ApiClient {
         @Override
         public Response intercept(@NonNull Chain chain) throws IOException {
             Request original = chain.request();
-            String token = sessionManager.getToken();
 
+            // Ne jamais écraser un header Authorization déjà posé explicitement par
+            // l'appel (ex: vérification du token d'un QR fraîchement scanné, avant
+            // toute session ouverte) : sinon un token de session déjà en mémoire
+            // (mode test, connexion précédente...) prenait le dessus silencieusement
+            // et la requête échouait avec un 401 trompeur, alors que le bon token
+            // avait bien été envoyé... jusqu'à ce que cet intercepteur l'écrase.
+            if (original.header("Authorization") != null) {
+                return chain.proceed(original);
+            }
+
+            String token = sessionManager.getToken();
             if (token == null || token.isEmpty()) {
                 return chain.proceed(original);
             }
@@ -73,6 +85,27 @@ public class ApiClient {
                     .header("Authorization", "Bearer " + token)
                     .build();
             return chain.proceed(authorized);
+        }
+    }
+
+    /** Journalise l'en-tête Authorization réellement envoyé, après AuthInterceptor —
+     * la seule façon de vérifier qu'il n'a pas été substitué en route (voir bug corrigé
+     * dans AuthInterceptor : un token de session existant écrasait un header explicite). */
+    private static class RequestLoggingInterceptor implements Interceptor {
+        private final Context context;
+
+        RequestLoggingInterceptor(Context context) {
+            this.context = context;
+        }
+
+        @NonNull
+        @Override
+        public Response intercept(@NonNull Chain chain) throws IOException {
+            Request request = chain.request();
+            String auth = request.header("Authorization");
+            DebugLog.log(context, "ApiClient", "Requête finale envoyée : " + request.method() + " " + request.url()
+                    + " Authorization=" + (auth != null ? DebugLog.reveal(auth) : "(absent)"));
+            return chain.proceed(request);
         }
     }
 
