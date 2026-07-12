@@ -401,8 +401,11 @@ public class CameraScanActivity extends AppCompatActivity {
         btnOk.setOnClickListener(v -> {
             dialog.dismiss();
             // Propose un code d'accès rapide pour la prochaine ouverture (offline, sans
-            // re-scanner) uniquement s'il n'y en a pas déjà un sur cet appareil.
-            if (!sessionManager.hasLocalPin()) {
+            // re-scanner). Le PIN local n'occupe qu'un seul emplacement par appareil : on
+            // ne le repropose que si aucun n'est défini, ou si le compte scanné diffère de
+            // celui déjà enregistré (sinon on écraserait silencieusement le PIN d'un autre
+            // utilisateur au prochain scan sans jamais le lui redemander).
+            if (!sessionManager.hasLocalPin() || !identifiant.equals(sessionManager.getLocalPinIdentifiant())) {
                 showSetPinDialog(identifiant);
             } else {
                 goHome();
