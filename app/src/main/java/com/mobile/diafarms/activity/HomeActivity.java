@@ -18,6 +18,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import com.mobile.diafarms.R;
 import com.mobile.diafarms.data.LocalDatabase;
 import com.mobile.diafarms.data.SessionManager;
@@ -34,6 +35,7 @@ import com.mobile.diafarms.network.dto.ProjetSelectResponse;
 import com.mobile.diafarms.network.dto.TransactionCreateRequest;
 import com.mobile.diafarms.ui.saisie.SaisieFormActivity;
 
+import java.lang.reflect.Type;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
@@ -48,9 +50,17 @@ public class HomeActivity extends AppCompatActivity {
 
     private static final String TAG = "HomeActivity";
 
+    // Cache local (voir LocalDatabase.putCache/getCache) : permet d'afficher les
+    // dernières données connues quand le réseau est indisponible plutôt qu'un écran
+    // vierge — rafraîchi à chaque appel réseau réussi et après chaque synchronisation.
+    private static final String CACHE_PROJETS_SELECT = "projets_select";
+    private static final String CACHE_PROJET_DETAIL_PREFIX = "projet_detail_";
+    private static final String CACHE_NOTIFICATIONS_PREFIX = "notifications_";
+
     // Session et données
     private SessionManager sessionManager;
     private LocalDatabase localDatabase;
+    private final Gson gson = new Gson();
     private User currentUser;
     private ProjetSelectResponse currentProjet;
     private List<ProjetSelectResponse> projetsList = new ArrayList<>();
@@ -200,26 +210,42 @@ public class HomeActivity extends AppCompatActivity {
     }
 
     /** Charge les projets réels de la ferme (GET /projets/select) pour peupler le sélecteur. */
+    /** Réseau d'abord ; en cas d'échec (hors ligne), retombe sur le cache local plutôt
+     * que d'afficher un écran vierge — voir LocalDatabase.putCache/getCache. Le cache
+     * est rafraîchi à chaque succès réseau et après chaque synchronisation (forceSync). */
     private void loadProjets() {
         ApiClient.dataApi(this).getProjetsSelect().enqueue(new Callback<ApiEnvelope<List<ProjetSelectResponse>>>() {
             @Override
             public void onResponse(Call<ApiEnvelope<List<ProjetSelectResponse>>> call, Response<ApiEnvelope<List<ProjetSelectResponse>>> response) {
                 if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
                     projetsList = response.body().getData();
+                    localDatabase.putCache(CACHE_PROJETS_SELECT, gson.toJson(projetsList));
+                    setupProjetSelector();
                 } else {
-                    projetsList = new ArrayList<>();
+                    loadProjetsFromCache();
                 }
-                setupProjetSelector();
             }
 
             @Override
             public void onFailure(Call<ApiEnvelope<List<ProjetSelectResponse>>> call, Throwable t) {
-                Log.e(TAG, "Impossible de charger les projets", t);
-                Toast.makeText(HomeActivity.this, "Impossible de charger les projets (hors ligne ?)", Toast.LENGTH_SHORT).show();
-                projetsList = new ArrayList<>();
-                setupProjetSelector();
+                Log.e(TAG, "Impossible de charger les projets, repli sur le cache local", t);
+                loadProjetsFromCache();
             }
         });
+    }
+
+    private void loadProjetsFromCache() {
+        String cached = localDatabase.getCache(CACHE_PROJETS_SELECT);
+        if (cached != null) {
+            Type type = new TypeToken<List<ProjetSelectResponse>>() {}.getType();
+            projetsList = gson.fromJson(cached, type);
+            long updatedAt = localDatabase.getCacheUpdatedAt(CACHE_PROJETS_SELECT);
+            Toast.makeText(this, "Hors ligne — projets du " + relativeTime(updatedAt), Toast.LENGTH_SHORT).show();
+        } else {
+            projetsList = new ArrayList<>();
+            Toast.makeText(this, "Impossible de charger les projets (hors ligne, aucune donnée enregistrée)", Toast.LENGTH_SHORT).show();
+        }
+        setupProjetSelector();
     }
 
     private void setupProjetSelector() {
@@ -269,24 +295,41 @@ public class HomeActivity extends AppCompatActivity {
     }
 
     /** Alertes recalculées côté serveur (stock, mortalité, transactions en attente...) —
-     * même logique/endpoint que le tableau de bord web, jamais de seuils recalculés côté mobile. */
+     * même logique/endpoint que le tableau de bord web, jamais de seuils recalculés côté
+     * mobile. Réseau d'abord, repli sur le cache local hors ligne (voir loadProjets). */
     private void loadAlertes() {
         if (currentProjet == null) return;
+        String cacheKey = CACHE_NOTIFICATIONS_PREFIX + currentProjet.getUniqueId();
+
         ApiClient.dataApi(this).getNotificationsForProjet(currentProjet.getUniqueId())
                 .enqueue(new Callback<ApiEnvelope<List<NotificationResponse>>>() {
                     @Override
                     public void onResponse(Call<ApiEnvelope<List<NotificationResponse>>> call, Response<ApiEnvelope<List<NotificationResponse>>> response) {
-                        alertesList = response.isSuccessful() && response.body() != null && response.body().getData() != null
-                                ? response.body().getData() : new ArrayList<>();
-                        updateAlertesCard();
+                        if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
+                            alertesList = response.body().getData();
+                            localDatabase.putCache(cacheKey, gson.toJson(alertesList));
+                            updateAlertesCard();
+                        } else {
+                            loadAlertesFromCache(cacheKey);
+                        }
                     }
 
                     @Override
                     public void onFailure(Call<ApiEnvelope<List<NotificationResponse>>> call, Throwable t) {
-                        alertesList = new ArrayList<>();
-                        updateAlertesCard();
+                        loadAlertesFromCache(cacheKey);
                     }
                 });
+    }
+
+    private void loadAlertesFromCache(String cacheKey) {
+        String cached = localDatabase.getCache(cacheKey);
+        if (cached != null) {
+            Type type = new TypeToken<List<NotificationResponse>>() {}.getType();
+            alertesList = gson.fromJson(cached, type);
+        } else {
+            alertesList = new ArrayList<>();
+        }
+        updateAlertesCard();
     }
 
     private void updateAlertesCard() {
@@ -335,7 +378,8 @@ public class HomeActivity extends AppCompatActivity {
     }
 
     /** /projets/select ne renvoie que code/titre : le détail (effectif, taux de ponte,
-     * fin prévue, bâtiments occupés) vient de /projets/findbyUniqueId/{uniqueId}. */
+     * fin prévue, bâtiments occupés) vient de /projets/findbyUniqueId/{uniqueId}.
+     * Réseau d'abord, repli sur le cache local hors ligne (voir loadProjets). */
     private void updateProjetDisplay() {
         if (currentProjet == null) {
             clearProjetDisplay();
@@ -344,37 +388,53 @@ public class HomeActivity extends AppCompatActivity {
         clearProjetDisplay();
         loadAlertes();
 
+        String cacheKey = CACHE_PROJET_DETAIL_PREFIX + currentProjet.getUniqueId();
+
         ApiClient.dataApi(this).getProjetDetail(currentProjet.getUniqueId())
                 .enqueue(new Callback<ApiEnvelope<ProjetDetailResponse>>() {
                     @Override
                     public void onResponse(Call<ApiEnvelope<ProjetDetailResponse>> call, Response<ApiEnvelope<ProjetDetailResponse>> response) {
                         ProjetDetailResponse detail = response.isSuccessful() && response.body() != null
                                 ? response.body().getData() : null;
-                        if (detail == null) return;
-
-                        tvPoulesCount.setText(detail.getNbSujets() != null ? String.valueOf(detail.getNbSujets()) : "—");
-                        tvTauxPonte.setText(detail.getTauxPonte() != null
-                                ? String.format(Locale.FRANCE, "%.0f%%", detail.getTauxPonte()) : "—");
-                        tvJoursRestants.setText(joursRestants(detail.getFinPrevue()));
-
-                        List<OccupationBatimentResponse> occupations = detail.getOccupationBatiment();
-                        if (occupations == null || occupations.isEmpty()) {
-                            tvBatimentsOccupes.setText("Bâtiments : aucun bâtiment assigné");
-                        } else {
-                            String noms = occupations.stream()
-                                    .filter(o -> o.getDateSortie() == null) // occupations encore actives
-                                    .map(o -> o.getNomBatiment() + (o.getNbSujetsDansBatiment() != null
-                                            ? " (" + o.getNbSujetsDansBatiment() + ")" : ""))
-                                    .collect(Collectors.joining(", "));
-                            tvBatimentsOccupes.setText("Bâtiments : " + (noms.isEmpty() ? "aucun actif" : noms));
+                        if (detail == null) {
+                            loadProjetDetailFromCache(cacheKey);
+                            return;
                         }
+                        localDatabase.putCache(cacheKey, gson.toJson(detail));
+                        renderProjetDetail(detail);
                     }
 
                     @Override
                     public void onFailure(Call<ApiEnvelope<ProjetDetailResponse>> call, Throwable t) {
-                        Log.e(TAG, "Impossible de charger le détail du projet", t);
+                        Log.e(TAG, "Impossible de charger le détail du projet, repli sur le cache local", t);
+                        loadProjetDetailFromCache(cacheKey);
                     }
                 });
+    }
+
+    private void loadProjetDetailFromCache(String cacheKey) {
+        String cached = localDatabase.getCache(cacheKey);
+        if (cached == null) return; // les tirets posés par clearProjetDisplay() restent affichés
+        renderProjetDetail(gson.fromJson(cached, ProjetDetailResponse.class));
+    }
+
+    private void renderProjetDetail(ProjetDetailResponse detail) {
+        tvPoulesCount.setText(detail.getNbSujets() != null ? String.valueOf(detail.getNbSujets()) : "—");
+        tvTauxPonte.setText(detail.getTauxPonte() != null
+                ? String.format(Locale.FRANCE, "%.0f%%", detail.getTauxPonte()) : "—");
+        tvJoursRestants.setText(joursRestants(detail.getFinPrevue()));
+
+        List<OccupationBatimentResponse> occupations = detail.getOccupationBatiment();
+        if (occupations == null || occupations.isEmpty()) {
+            tvBatimentsOccupes.setText("Bâtiments : aucun bâtiment assigné");
+        } else {
+            String noms = occupations.stream()
+                    .filter(o -> o.getDateSortie() == null) // occupations encore actives
+                    .map(o -> o.getNomBatiment() + (o.getNbSujetsDansBatiment() != null
+                            ? " (" + o.getNbSujetsDansBatiment() + ")" : ""))
+                    .collect(Collectors.joining(", "));
+            tvBatimentsOccupes.setText("Bâtiments : " + (noms.isEmpty() ? "aucun actif" : noms));
+        }
     }
 
     private String joursRestants(String finPrevueIso) {
@@ -490,7 +550,6 @@ public class HomeActivity extends AppCompatActivity {
     private void updateFinanceStats() {
         if (!currentUser.isFinance()) return;
 
-        Gson gson = new Gson();
         String today = new SimpleDateFormat("yyyy-MM-dd", Locale.FRANCE).format(new java.util.Date());
 
         double entrees = 0;
@@ -535,6 +594,14 @@ public class HomeActivity extends AppCompatActivity {
                     setupSyncStatus();
                     loadLastEntry();
                     updateFinanceStats();
+                    // Les saisies qu'on vient de pousser ont pu changer le stock, la
+                    // mortalité cumulée, etc. côté serveur : on rafraîchit le cache local
+                    // du projet courant pour que la consultation hors ligne reflète l'état
+                    // à jour. Pas de rechargement de la liste des projets ici : ça
+                    // réinitialiserait la sélection en cours dans le spinner.
+                    if (success > 0 && currentProjet != null) {
+                        updateProjetDisplay();
+                    }
                 });
             }
         });

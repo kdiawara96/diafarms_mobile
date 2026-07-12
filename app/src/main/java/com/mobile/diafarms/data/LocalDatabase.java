@@ -16,11 +16,21 @@ import java.util.UUID;
 
 public class LocalDatabase extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "diafarms.db";
-    private static final int DATABASE_VERSION = 3;
+    private static final int DATABASE_VERSION = 4;
 
     // Tables
     private static final String TABLE_ACCOUNTS = "accounts";
     private static final String TABLE_SAISIES = "saisies_locales";
+    private static final String TABLE_CACHE = "local_cache";
+
+    // Colonnes local_cache : cache générique clé/valeur (JSON) pour les données lues du
+    // serveur (projets, détail projet, alertes...) — permet à l'app de démarrer et
+    // afficher les dernières données connues même hors ligne, plutôt que de dépendre
+    // d'un appel réseau réussi à chaque ouverture. Rafraîchi à chaque appel réseau
+    // réussi et après chaque synchronisation (voir HomeActivity/SyncManager).
+    private static final String COL_CACHE_KEY = "cache_key";
+    private static final String COL_CACHE_VALUE = "cache_value";
+    private static final String COL_CACHE_UPDATED_AT = "cache_updated_at";
 
     // Colonnes accounts (comptes déjà utilisés pour se connecter sur cet appareil,
     // afin de proposer l'identifiant en sélection plutôt qu'en ressaisie systématique)
@@ -66,17 +76,62 @@ public class LocalDatabase extends SQLiteOpenHelper {
                 + COL_CREATED_AT + " INTEGER"
                 + ")";
 
+        String createCache = "CREATE TABLE " + TABLE_CACHE + "("
+                + COL_CACHE_KEY + " TEXT PRIMARY KEY,"
+                + COL_CACHE_VALUE + " TEXT NOT NULL,"
+                + COL_CACHE_UPDATED_AT + " INTEGER"
+                + ")";
+
         db.execSQL(createAccounts);
         db.execSQL(createSaisies);
+        db.execSQL(createCache);
     }
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_ACCOUNTS);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_SAISIES);
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_CACHE);
         db.execSQL("DROP TABLE IF EXISTS enregistrements");
         db.execSQL("DROP TABLE IF EXISTS transactions");
         onCreate(db);
+    }
+
+    // ===== CACHE LOCAL (données serveur pour affichage hors ligne) =====
+
+    public void putCache(String key, String jsonValue) {
+        SQLiteDatabase db = getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COL_CACHE_KEY, key);
+        values.put(COL_CACHE_VALUE, jsonValue);
+        values.put(COL_CACHE_UPDATED_AT, System.currentTimeMillis());
+        db.insertWithOnConflict(TABLE_CACHE, null, values, SQLiteDatabase.CONFLICT_REPLACE);
+    }
+
+    public String getCache(String key) {
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor cursor = db.query(TABLE_CACHE, new String[]{COL_CACHE_VALUE},
+                COL_CACHE_KEY + "=?", new String[]{key}, null, null, null);
+        String result = null;
+        if (cursor.moveToFirst()) {
+            result = cursor.getString(0);
+        }
+        cursor.close();
+        return result;
+    }
+
+    /** Horodatage (epoch ms) de la dernière mise à jour de cette entrée, 0 si absente —
+     * utilisé pour afficher "données du ..." quand on retombe sur le cache hors ligne. */
+    public long getCacheUpdatedAt(String key) {
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor cursor = db.query(TABLE_CACHE, new String[]{COL_CACHE_UPDATED_AT},
+                COL_CACHE_KEY + "=?", new String[]{key}, null, null, null);
+        long result = 0;
+        if (cursor.moveToFirst() && !cursor.isNull(0)) {
+            result = cursor.getLong(0);
+        }
+        cursor.close();
+        return result;
     }
 
     // ===== COMPTES LOCAUX (sélecteur d'identifiant) =====
@@ -210,6 +265,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
         SQLiteDatabase db = getWritableDatabase();
         db.delete(TABLE_SAISIES, null, null);
         db.delete(TABLE_ACCOUNTS, null, null);
+        db.delete(TABLE_CACHE, null, null);
         return pendingCount;
     }
 
