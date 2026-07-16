@@ -97,14 +97,15 @@ public class HomeActivity extends AppCompatActivity {
     private CardView btnAlimentation;
     private CardView btnSoins;
     private CardView btnMortalite;
-    private CardView btnVenteOeufs;
-    private CardView btnVenteReforme;
+    private CardView btnReforme;
 
     // Vues Finance
     private TextView tvSectionFinance;
     private GridLayout gridFinance;
     private CardView btnEntreeArgent;
     private CardView btnSortieArgent;
+    private CardView btnVenteOeufs;
+    private CardView btnVenteReforme;
     private CardView cardStatsFinance;
     private TextView tvMesEntrees;
     private TextView tvMesSorties;
@@ -189,13 +190,14 @@ public class HomeActivity extends AppCompatActivity {
         btnAlimentation = findViewById(R.id.btnAlimentation);
         btnSoins = findViewById(R.id.btnSoins);
         btnMortalite = findViewById(R.id.btnMortalite);
-        btnVenteOeufs = findViewById(R.id.btnVenteOeufs);
-        btnVenteReforme = findViewById(R.id.btnVenteReforme);
+        btnReforme = findViewById(R.id.btnReforme);
 
         tvSectionFinance = findViewById(R.id.tvSectionFinance);
         gridFinance = findViewById(R.id.gridFinance);
         btnEntreeArgent = findViewById(R.id.btnEntreeArgent);
         btnSortieArgent = findViewById(R.id.btnSortieArgent);
+        btnVenteOeufs = findViewById(R.id.btnVenteOeufs);
+        btnVenteReforme = findViewById(R.id.btnVenteReforme);
         cardStatsFinance = findViewById(R.id.cardStatsFinance);
         tvMesEntrees = findViewById(R.id.tvMesEntrees);
         tvMesSorties = findViewById(R.id.tvMesSorties);
@@ -432,18 +434,20 @@ public class HomeActivity extends AppCompatActivity {
     /** /projets/select ne renvoie que code/titre : le détail (effectif, taux de ponte,
      * fin prévue, bâtiments occupés) vient de /projets/findbyUniqueId/{uniqueId}.
      * Réseau d'abord, repli sur le cache local hors ligne (voir loadProjets). */
-    /** Un projet REFORME (chair) ne produit pas d'œufs : les cartes "Collecte d'œufs"
-     * et "Vente d'œufs" ne doivent pas être proposées pour lui, contrairement à PONTE
-     * et MIXTE. Symétriquement, un projet PONTE pur n'a pas de sujets à réformer :
-     * "Vente réforme" ne lui est proposée que s'il est REFORME ou MIXTE. Rappelée à
-     * chaque changement de projet sélectionné (spinner) pour rester à jour. */
+    /** Un projet REFORME (chair) ne produit pas d'œufs : la carte "Collecte d'œufs"
+     * ne doit pas être proposée pour lui, contrairement à PONTE et MIXTE.
+     * Symétriquement, un projet PONTE pur n'a pas de sujets à réformer : "Réforme"
+     * ne lui est proposée que s'il est REFORME ou MIXTE. Ces deux cartes sont
+     * Production, rattachées au projet sélectionné. "Vente d'œufs"/"Vente réforme"
+     * (Finance) restent en revanche TOUJOURS visibles : elles puisent dans un stock
+     * à l'échelle de la ferme entière, indépendant du projet actuellement
+     * sélectionné dans le spinner. Rappelée à chaque changement de projet. */
     private void updateSaisieButtonsVisibility() {
         boolean masquerCollecteOeufs = currentProjet != null && currentProjet.isReformeSeule();
         btnCollecteOeufs.setVisibility(masquerCollecteOeufs ? View.GONE : View.VISIBLE);
-        btnVenteOeufs.setVisibility(masquerCollecteOeufs ? View.GONE : View.VISIBLE);
 
-        boolean masquerVenteReforme = currentProjet != null && currentProjet.isPonteSeule();
-        btnVenteReforme.setVisibility(masquerVenteReforme ? View.GONE : View.VISIBLE);
+        boolean masquerReforme = currentProjet != null && currentProjet.isPonteSeule();
+        btnReforme.setVisibility(masquerReforme ? View.GONE : View.VISIBLE);
     }
 
     private void updateProjetDisplay() {
@@ -533,12 +537,13 @@ public class HomeActivity extends AppCompatActivity {
         btnAlimentation.setOnClickListener(v -> showChoixAlimentation());
         btnSoins.setOnClickListener(v -> openSaisie(SaisieType.SOINS));
         btnMortalite.setOnClickListener(v -> openSaisie(SaisieType.MORTALITE));
-        btnVenteOeufs.setOnClickListener(v -> openSaisie(SaisieType.VENTE_OEUFS));
-        btnVenteReforme.setOnClickListener(v -> openSaisie(SaisieType.VENTE_REFORME));
+        btnReforme.setOnClickListener(v -> openSaisie(SaisieType.REFORME));
 
         // Finance
         btnEntreeArgent.setOnClickListener(v -> openSaisie(SaisieType.TRANSACTION_ENTREE));
         btnSortieArgent.setOnClickListener(v -> openSaisie(SaisieType.TRANSACTION_SORTIE));
+        btnVenteOeufs.setOnClickListener(v -> openSaisie(SaisieType.VENTE_OEUFS));
+        btnVenteReforme.setOnClickListener(v -> openSaisie(SaisieType.VENTE_REFORME));
 
         // Sync — écouteur sur l'ImageButton interne, même raison que btnDiagnostics ci-dessus.
         findViewById(R.id.imgBtnSync).setOnClickListener(v -> forceSync());
@@ -550,7 +555,10 @@ public class HomeActivity extends AppCompatActivity {
     }
 
     private void openSaisie(SaisieType type) {
-        boolean needsProjet = type != SaisieType.TRANSACTION_ENTREE && type != SaisieType.TRANSACTION_SORTIE;
+        // Vente œufs/réforme (Finance) puisent dans un stock à l'échelle de la ferme
+        // entière, pas du projet sélectionné — même exception que les transactions.
+        boolean needsProjet = type != SaisieType.TRANSACTION_ENTREE && type != SaisieType.TRANSACTION_SORTIE
+                && type != SaisieType.VENTE_OEUFS && type != SaisieType.VENTE_REFORME;
         if (needsProjet && currentProjet == null) {
             Toast.makeText(this, "Veuillez sélectionner un projet", Toast.LENGTH_SHORT).show();
             return;

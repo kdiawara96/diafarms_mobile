@@ -12,6 +12,7 @@ import com.mobile.diafarms.network.dto.CollecteOeufsCreateRequest;
 import com.mobile.diafarms.network.dto.ConsommationAlimentCreateRequest;
 import com.mobile.diafarms.network.dto.CreatedEntityResponse;
 import com.mobile.diafarms.network.dto.MortaliteCreateRequest;
+import com.mobile.diafarms.network.dto.ReformeCreateRequest;
 import com.mobile.diafarms.network.dto.SoinsCreateRequest;
 import com.mobile.diafarms.network.dto.TransactionCreateRequest;
 import com.mobile.diafarms.network.dto.VenteOeufsCreateRequest;
@@ -94,6 +95,9 @@ public class SyncManager {
                 break;
             case MORTALITE:
                 api.createMortalite(gson.fromJson(json, MortaliteCreateRequest.class)).enqueue(callback);
+                break;
+            case REFORME:
+                api.createReforme(gson.fromJson(json, ReformeCreateRequest.class)).enqueue(callback);
                 break;
             case COLLECTE_OEUFS:
                 api.createCollecteOeufs(gson.fromJson(json, CollecteOeufsCreateRequest.class)).enqueue(callback);

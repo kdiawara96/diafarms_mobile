@@ -13,6 +13,7 @@ import com.mobile.diafarms.network.dto.ProjetDetailResponse;
 import com.mobile.diafarms.network.dto.ProjetSelectResponse;
 import com.mobile.diafarms.network.dto.StockAlimentResponse;
 import com.mobile.diafarms.network.dto.StockOeufsResponse;
+import com.mobile.diafarms.network.dto.StockReformeResponse;
 import com.mobile.diafarms.util.DebugLog;
 
 import java.util.ArrayList;
@@ -37,8 +38,12 @@ public class CachePrefetcher {
     public static final String CACHE_PROJET_DETAIL_PREFIX = "projet_detail_";
     public static final String CACHE_NOTIFICATIONS_PREFIX = "notifications_";
     public static final String CACHE_STOCK_ALIMENT_PREFIX = "stock_aliment_";
-    public static final String CACHE_STOCK_OEUFS_PREFIX = "stock_oeufs_";
+    // Effectif vivant (Production, ReformeImpl) : par projet, comme le stock aliment.
     public static final String CACHE_EFFECTIF_REFORME_PREFIX = "effectif_reforme_";
+    // Stock d'œufs / de réforme vendables (Finance) : à l'échelle de la ferme entière,
+    // une seule clé de cache — pas de préfixe par projet.
+    public static final String CACHE_STOCK_OEUFS_FARM = "stock_oeufs_farm";
+    public static final String CACHE_STOCK_REFORME_FARM = "stock_reforme_farm";
 
     private static final String TAG = "CachePrefetcher";
     private static final Gson gson = new Gson();
@@ -72,6 +77,7 @@ public class CachePrefetcher {
         for (ProjetSelectResponse projet : projets) {
             prefetchOneProjet(appContext, localDatabase, projet.getUniqueId());
         }
+        prefetchFarmWide(appContext, localDatabase);
     }
 
     private static void prefetchOneProjet(Context appContext, LocalDatabase localDatabase, String projetUniqueId) {
@@ -111,18 +117,6 @@ public class CachePrefetcher {
             public void onFailure(@NonNull Call<ApiEnvelope<StockAlimentResponse>> call, Throwable t) { }
         });
 
-        ApiClient.dataApi(appContext).getStockOeufs(projetUniqueId).enqueue(new Callback<ApiEnvelope<StockOeufsResponse>>() {
-            @Override
-            public void onResponse(Call<ApiEnvelope<StockOeufsResponse>> call, Response<ApiEnvelope<StockOeufsResponse>> response) {
-                if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
-                    localDatabase.putCache(CACHE_STOCK_OEUFS_PREFIX + projetUniqueId, gson.toJson(response.body().getData()));
-                }
-            }
-
-            @Override
-            public void onFailure(@NonNull Call<ApiEnvelope<StockOeufsResponse>> call, Throwable t) { }
-        });
-
         ApiClient.dataApi(appContext).getEffectifReforme(projetUniqueId).enqueue(new Callback<ApiEnvelope<EffectifReformeResponse>>() {
             @Override
             public void onResponse(Call<ApiEnvelope<EffectifReformeResponse>> call, Response<ApiEnvelope<EffectifReformeResponse>> response) {
@@ -133,6 +127,35 @@ public class CachePrefetcher {
 
             @Override
             public void onFailure(@NonNull Call<ApiEnvelope<EffectifReformeResponse>> call, Throwable t) { }
+        });
+    }
+
+    /** Précharge les stocks Finance à l'échelle de la ferme (vente œufs/réforme) —
+     * une seule fois, pas par projet contrairement à prefetchOneProjet ci-dessus,
+     * puisque ces ventes ne sont plus rattachées à un projet précis. */
+    private static void prefetchFarmWide(Context appContext, LocalDatabase localDatabase) {
+        ApiClient.dataApi(appContext).getStockOeufs().enqueue(new Callback<ApiEnvelope<StockOeufsResponse>>() {
+            @Override
+            public void onResponse(Call<ApiEnvelope<StockOeufsResponse>> call, Response<ApiEnvelope<StockOeufsResponse>> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
+                    localDatabase.putCache(CACHE_STOCK_OEUFS_FARM, gson.toJson(response.body().getData()));
+                }
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<ApiEnvelope<StockOeufsResponse>> call, Throwable t) { }
+        });
+
+        ApiClient.dataApi(appContext).getStockReforme().enqueue(new Callback<ApiEnvelope<StockReformeResponse>>() {
+            @Override
+            public void onResponse(Call<ApiEnvelope<StockReformeResponse>> call, Response<ApiEnvelope<StockReformeResponse>> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
+                    localDatabase.putCache(CACHE_STOCK_REFORME_FARM, gson.toJson(response.body().getData()));
+                }
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<ApiEnvelope<StockReformeResponse>> call, Throwable t) { }
         });
     }
 

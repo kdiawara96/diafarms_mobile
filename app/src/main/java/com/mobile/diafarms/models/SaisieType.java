@@ -14,12 +14,17 @@ public enum SaisieType {
     ALIMENTATION_ACHAT("Achat d'aliment", Categorie.PRODUCTION),
     SOINS("Soins", Categorie.PRODUCTION),
     MORTALITE("Mortalité", Categorie.PRODUCTION),
-    // Ventes plafonnées côté serveur (stock d'œufs vendables / effectif vivant) —
-    // voir diafarms_back VenteOeufsImpl/VenteReformeImpl. Groupées avec Production
-    // (mouvement physique de stock au quotidien), pas Finance, même si chacune génère
-    // aussi une Transaction "entrée" automatiquement côté back.
-    VENTE_OEUFS("Vente d'œufs", Categorie.PRODUCTION),
-    VENTE_REFORME("Vente réforme", Categorie.PRODUCTION),
+    // Comptage pur des sujets retirés du cheptel vivant (comme Mortalité) — jamais de
+    // prix ici, plafonné par l'effectif vivant du projet. Voir diafarms_back
+    // ReformeImpl. La vente réelle (avec montant) est un acte Finance séparé.
+    REFORME("Réforme", Categorie.PRODUCTION),
+    // Ventes plafonnées côté serveur par le stock d'œufs vendables / de sujets
+    // réformés de TOUTE LA FERME (pas d'un projet précis) — voir diafarms_back
+    // VenteOeufsImpl/VenteReformeImpl. Catégorie Finance : c'est un acte commercial
+    // (prix), pas un mouvement de stock Production, même s'il puise dans les
+    // quantités remontées par Collecte œufs / Réforme.
+    VENTE_OEUFS("Vente d'œufs", Categorie.FINANCE),
+    VENTE_REFORME("Vente réforme", Categorie.FINANCE),
     TRANSACTION_ENTREE("Entrée d'argent", Categorie.FINANCE),
     TRANSACTION_SORTIE("Sortie d'argent", Categorie.FINANCE);
 

@@ -248,6 +248,44 @@
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
+            <!-- ===================== RÉFORME (Production : comptage pur, jamais de prix) ===================== -->
+            <LinearLayout
+                android:id="@+id/groupReforme"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/tvEffectifReformeInfo"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    android:textSize="13sp"
+                    android:textColor="@android:color/darker_gray"
+                    tools:text="Sujets vivants disponibles : 688" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Nombre de sujets réformés">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etNombreSujetsReforme"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="number" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Cause (optionnel)">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etCauseReforme"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="text" />
+                </com.google.android.material.textfield.TextInputLayout>
+            </LinearLayout>
+
             <!-- ===================== ALIMENTATION — ACHAT (entrant) ===================== -->
             <LinearLayout
                 android:id="@+id/groupAlimentationAchat"
@@ -326,7 +364,7 @@
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
-            <!-- ===================== VENTE D'ŒUFS (plafonnée par le stock vendable) ===================== -->
+            <!-- ===================== VENTE D'ŒUFS (Finance : ferme entière, pas un projet) ===================== -->
             <LinearLayout
                 android:id="@+id/groupVenteOeufs"
                 android:layout_width="match_parent"
@@ -341,7 +379,7 @@
                     android:layout_marginBottom="12dp"
                     android:textSize="13sp"
                     android:textColor="@android:color/darker_gray"
-                    tools:text="Disponible à la vente : 250 œuf(s)" />
+                    tools:text="Disponible à la vente (ferme) : 250 œuf(s)" />
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -375,7 +413,7 @@
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
-            <!-- ===================== VENTE RÉFORME (plafonnée par l'effectif vivant) ===================== -->
+            <!-- ===================== VENTE RÉFORME (Finance : ferme entière, pas un projet) ===================== -->
             <LinearLayout
                 android:id="@+id/groupVenteReforme"
                 android:layout_width="match_parent"
@@ -384,13 +422,13 @@
                 android:visibility="gone">
 
                 <TextView
-                    android:id="@+id/tvEffectifReformeInfo"
+                    android:id="@+id/tvStockReformeInfo"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="12dp"
                     android:textSize="13sp"
                     android:textColor="@android:color/darker_gray"
-                    tools:text="Sujets vivants disponibles : 688" />
+                    tools:text="Disponible à la vente (ferme) : 40 sujet(s)" />
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent" android:layout_height="wrap_content"
