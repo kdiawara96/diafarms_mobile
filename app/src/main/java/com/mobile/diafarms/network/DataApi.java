@@ -6,13 +6,17 @@ import com.mobile.diafarms.network.dto.CollecteOeufsCreateRequest;
 import com.mobile.diafarms.network.dto.ConsommationAlimentCreateRequest;
 import com.mobile.diafarms.network.dto.CreatedEntityResponse;
 import com.mobile.diafarms.network.dto.AlimentationCreateRequest;
+import com.mobile.diafarms.network.dto.EffectifReformeResponse;
 import com.mobile.diafarms.network.dto.MortaliteCreateRequest;
 import com.mobile.diafarms.network.dto.NotificationResponse;
 import com.mobile.diafarms.network.dto.ProjetDetailResponse;
 import com.mobile.diafarms.network.dto.ProjetSelectResponse;
 import com.mobile.diafarms.network.dto.SoinsCreateRequest;
 import com.mobile.diafarms.network.dto.StockAlimentResponse;
+import com.mobile.diafarms.network.dto.StockOeufsResponse;
 import com.mobile.diafarms.network.dto.TransactionCreateRequest;
+import com.mobile.diafarms.network.dto.VenteOeufsCreateRequest;
+import com.mobile.diafarms.network.dto.VenteReformeCreateRequest;
 
 import java.util.List;
 
@@ -50,6 +54,20 @@ public interface DataApi {
     // ============== COLLECTE D'ŒUFS ==============
     @POST("collectes-oeufs/create")
     Call<ApiEnvelope<CreatedEntityResponse>> createCollecteOeufs(@Body CollecteOeufsCreateRequest request);
+
+    // ============== VENTE D'ŒUFS (plafonnée par le stock vendable côté serveur) ==============
+    @GET("ventes-oeufs/stock/{projetUniqueId}")
+    Call<ApiEnvelope<StockOeufsResponse>> getStockOeufs(@Path("projetUniqueId") String projetUniqueId);
+
+    @POST("ventes-oeufs/create")
+    Call<ApiEnvelope<CreatedEntityResponse>> createVenteOeufs(@Body VenteOeufsCreateRequest request);
+
+    // ============== VENTE RÉFORME (plafonnée par l'effectif vivant côté serveur) ==============
+    @GET("ventes-reforme/effectif/{projetUniqueId}")
+    Call<ApiEnvelope<EffectifReformeResponse>> getEffectifReforme(@Path("projetUniqueId") String projetUniqueId);
+
+    @POST("ventes-reforme/create")
+    Call<ApiEnvelope<CreatedEntityResponse>> createVenteReforme(@Body VenteReformeCreateRequest request);
 
     // ============== ALIMENTATION — ACHAT (aliment entrant, par projet) ==============
     @POST("alimentations/create/{uniqueIdProjet}")

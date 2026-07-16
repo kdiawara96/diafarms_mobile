@@ -20,6 +20,7 @@ import androidx.core.view.WindowInsetsCompat;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.mobile.diafarms.R;
+import com.mobile.diafarms.data.CachePrefetcher;
 import com.mobile.diafarms.data.LocalDatabase;
 import com.mobile.diafarms.data.SessionManager;
 import com.mobile.diafarms.data.SyncManager;
@@ -50,12 +51,14 @@ public class HomeActivity extends AppCompatActivity {
 
     private static final String TAG = "HomeActivity";
 
-    // Cache local (voir LocalDatabase.putCache/getCache) : permet d'afficher les
-    // dernières données connues quand le réseau est indisponible plutôt qu'un écran
-    // vierge — rafraîchi à chaque appel réseau réussi et après chaque synchronisation.
-    private static final String CACHE_PROJETS_SELECT = "projets_select";
-    private static final String CACHE_PROJET_DETAIL_PREFIX = "projet_detail_";
-    private static final String CACHE_NOTIFICATIONS_PREFIX = "notifications_";
+    // Cache local (voir LocalDatabase.putCache/getCache et CachePrefetcher) : permet
+    // d'afficher les dernières données connues quand le réseau est indisponible plutôt
+    // qu'un écran vierge — rafraîchi à chaque appel réseau réussi et après chaque
+    // synchronisation. Clés partagées avec CachePrefetcher pour que le préchargement
+    // déclenché après le login/scan QR écrive au même endroit que cet écran.
+    private static final String CACHE_PROJETS_SELECT = CachePrefetcher.CACHE_PROJETS_SELECT;
+    private static final String CACHE_PROJET_DETAIL_PREFIX = CachePrefetcher.CACHE_PROJET_DETAIL_PREFIX;
+    private static final String CACHE_NOTIFICATIONS_PREFIX = CachePrefetcher.CACHE_NOTIFICATIONS_PREFIX;
 
     // Session et données
     private SessionManager sessionManager;
@@ -94,6 +97,8 @@ public class HomeActivity extends AppCompatActivity {
     private CardView btnAlimentation;
     private CardView btnSoins;
     private CardView btnMortalite;
+    private CardView btnVenteOeufs;
+    private CardView btnVenteReforme;
 
     // Vues Finance
     private TextView tvSectionFinance;
@@ -156,6 +161,14 @@ public class HomeActivity extends AppCompatActivity {
         // rien ne se passe visuellement à part le ripple).
         findViewById(R.id.imgBtnDiagnostics).setOnClickListener(v -> startActivity(new Intent(this, DiagnosticsActivity.class)));
 
+        // Avatar + nom/rôles de l'agent : affiche ses infos et propose la déconnexion
+        // classique (verrouillage réversible, voir SessionManager.lockSession) — la
+        // suppression complète du compte reste dans Paramètres (DiagnosticsActivity),
+        // volontairement séparée pour ne pas confondre les deux actions.
+        View.OnClickListener showProfile = v -> showProfileDialog();
+        findViewById(R.id.flAvatar).setOnClickListener(showProfile);
+        findViewById(R.id.llAgentInfo).setOnClickListener(showProfile);
+
         spinnerProjets = findViewById(R.id.spinnerProjets);
         tvPoulesCount = findViewById(R.id.tvPoulesCount);
         tvTauxPonte = findViewById(R.id.tvTauxPonte);
@@ -176,6 +189,8 @@ public class HomeActivity extends AppCompatActivity {
         btnAlimentation = findViewById(R.id.btnAlimentation);
         btnSoins = findViewById(R.id.btnSoins);
         btnMortalite = findViewById(R.id.btnMortalite);
+        btnVenteOeufs = findViewById(R.id.btnVenteOeufs);
+        btnVenteReforme = findViewById(R.id.btnVenteReforme);
 
         tvSectionFinance = findViewById(R.id.tvSectionFinance);
         gridFinance = findViewById(R.id.gridFinance);
@@ -195,6 +210,36 @@ public class HomeActivity extends AppCompatActivity {
         tvAgentName.setText(currentUser.getNom());
         badgeProduction.setVisibility(currentUser.isProduction() ? View.VISIBLE : View.GONE);
         badgeFinance.setVisibility(currentUser.isFinance() ? View.VISIBLE : View.GONE);
+    }
+
+    /** Infos de l'agent connecté + déconnexion classique (verrouillage, pas de
+     * suppression — voir SessionManager.lockSession). */
+    private void showProfileDialog() {
+        StringBuilder roles = new StringBuilder();
+        if (currentUser.isProduction()) roles.append("Production");
+        if (currentUser.isFinance()) {
+            if (roles.length() > 0) roles.append(" · ");
+            roles.append("Finance");
+        }
+        if (currentUser.isAdmin()) {
+            if (roles.length() > 0) roles.append(" · ");
+            roles.append("Administration");
+        }
+
+        new android.app.AlertDialog.Builder(this)
+                .setTitle(currentUser.getNom())
+                .setMessage(roles.length() > 0 ? roles.toString() : "Aucun rôle")
+                .setPositiveButton("Déconnecter", (dialog, which) -> logout())
+                .setNegativeButton("Fermer", null)
+                .show();
+    }
+
+    private void logout() {
+        sessionManager.lockSession();
+        Intent intent = new Intent(this, LoginActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+        finish();
     }
 
     private void setupVisibilityByRole() {
@@ -218,8 +263,15 @@ public class HomeActivity extends AppCompatActivity {
             @Override
             public void onResponse(Call<ApiEnvelope<List<ProjetSelectResponse>>> call, Response<ApiEnvelope<List<ProjetSelectResponse>>> response) {
                 if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
-                    projetsList = response.body().getData();
+                    // On n'amène jamais un projet terminé sur le terrain (voir
+                    // CachePrefetcher.filterActifs) : ni dans le sélecteur, ni en cache.
+                    projetsList = CachePrefetcher.filterActifs(response.body().getData());
                     localDatabase.putCache(CACHE_PROJETS_SELECT, gson.toJson(projetsList));
+                    // Précharge le détail/alertes/stock de TOUS les projets, pas
+                    // uniquement celui affiché ici — sinon un projet jamais
+                    // sélectionné en ligne apparaît vide dès qu'on le choisit hors
+                    // ligne sur le terrain (voir CachePrefetcher).
+                    CachePrefetcher.prefetchProjectsDetails(HomeActivity.this, localDatabase, projetsList);
                     setupProjetSelector();
                 } else {
                     loadProjetsFromCache();
@@ -380,7 +432,22 @@ public class HomeActivity extends AppCompatActivity {
     /** /projets/select ne renvoie que code/titre : le détail (effectif, taux de ponte,
      * fin prévue, bâtiments occupés) vient de /projets/findbyUniqueId/{uniqueId}.
      * Réseau d'abord, repli sur le cache local hors ligne (voir loadProjets). */
+    /** Un projet REFORME (chair) ne produit pas d'œufs : les cartes "Collecte d'œufs"
+     * et "Vente d'œufs" ne doivent pas être proposées pour lui, contrairement à PONTE
+     * et MIXTE. Symétriquement, un projet PONTE pur n'a pas de sujets à réformer :
+     * "Vente réforme" ne lui est proposée que s'il est REFORME ou MIXTE. Rappelée à
+     * chaque changement de projet sélectionné (spinner) pour rester à jour. */
+    private void updateSaisieButtonsVisibility() {
+        boolean masquerCollecteOeufs = currentProjet != null && currentProjet.isReformeSeule();
+        btnCollecteOeufs.setVisibility(masquerCollecteOeufs ? View.GONE : View.VISIBLE);
+        btnVenteOeufs.setVisibility(masquerCollecteOeufs ? View.GONE : View.VISIBLE);
+
+        boolean masquerVenteReforme = currentProjet != null && currentProjet.isPonteSeule();
+        btnVenteReforme.setVisibility(masquerVenteReforme ? View.GONE : View.VISIBLE);
+    }
+
     private void updateProjetDisplay() {
+        updateSaisieButtonsVisibility();
         if (currentProjet == null) {
             clearProjetDisplay();
             return;
@@ -466,6 +533,8 @@ public class HomeActivity extends AppCompatActivity {
         btnAlimentation.setOnClickListener(v -> showChoixAlimentation());
         btnSoins.setOnClickListener(v -> openSaisie(SaisieType.SOINS));
         btnMortalite.setOnClickListener(v -> openSaisie(SaisieType.MORTALITE));
+        btnVenteOeufs.setOnClickListener(v -> openSaisie(SaisieType.VENTE_OEUFS));
+        btnVenteReforme.setOnClickListener(v -> openSaisie(SaisieType.VENTE_REFORME));
 
         // Finance
         btnEntreeArgent.setOnClickListener(v -> openSaisie(SaisieType.TRANSACTION_ENTREE));
@@ -574,19 +643,24 @@ public class HomeActivity extends AppCompatActivity {
 
     private void forceSync() {
         int pending = localDatabase.countPending();
+
+        btnSyncNow.setEnabled(false);
+
         if (pending == 0) {
-            Toast.makeText(this, "Rien à synchroniser", Toast.LENGTH_SHORT).show();
+            // Rien à pousser, mais "Synchroniser" doit quand même vérifier ce qui a pu
+            // changer côté serveur (nouveau projet assigné, projet passé en terminé,
+            // stock/alertes à jour...) plutôt que de ne rien faire.
+            Toast.makeText(this, "Actualisation des données...", Toast.LENGTH_SHORT).show();
+            refreshProjetsEtCache(() -> btnSyncNow.setEnabled(true));
             return;
         }
 
-        btnSyncNow.setEnabled(false);
         Toast.makeText(this, "Synchronisation de " + pending + " saisie(s)...", Toast.LENGTH_SHORT).show();
 
         new SyncManager(this).syncAll(new SyncManager.SyncCallback() {
             @Override
             public void onComplete(int success, int failed) {
                 runOnUiThread(() -> {
-                    btnSyncNow.setEnabled(true);
                     String message = failed == 0
                             ? success + " saisie(s) synchronisée(s) avec succès"
                             : success + " synchronisée(s), " + failed + " en échec (réessayez plus tard)";
@@ -595,16 +669,50 @@ public class HomeActivity extends AppCompatActivity {
                     loadLastEntry();
                     updateFinanceStats();
                     // Les saisies qu'on vient de pousser ont pu changer le stock, la
-                    // mortalité cumulée, etc. côté serveur : on rafraîchit le cache local
-                    // du projet courant pour que la consultation hors ligne reflète l'état
-                    // à jour. Pas de rechargement de la liste des projets ici : ça
-                    // réinitialiserait la sélection en cours dans le spinner.
-                    if (success > 0 && currentProjet != null) {
-                        updateProjetDisplay();
-                    }
+                    // mortalité cumulée, etc. côté serveur, et la liste de projets a pu
+                    // changer (nouveau projet assigné, projet passé en terminé) : on
+                    // récupère les métadonnées à jour et on remplace le cache local,
+                    // en conservant la sélection en cours dans le spinner si possible.
+                    refreshProjetsEtCache(() -> btnSyncNow.setEnabled(true));
                 });
             }
         });
+    }
+
+    /** Récupère la liste de projets actifs à jour, remplace le cache local (projets +
+     * détail/alertes/stock de chacun), et réapplique la sélection en cours si le projet
+     * existe toujours dans la liste actualisée — sinon retombe sur le premier projet. */
+    private void refreshProjetsEtCache(Runnable onDone) {
+        String currentProjetId = currentProjet != null ? currentProjet.getUniqueId() : null;
+
+        ApiClient.dataApi(this).getProjetsSelect().enqueue(new Callback<ApiEnvelope<List<ProjetSelectResponse>>>() {
+            @Override
+            public void onResponse(Call<ApiEnvelope<List<ProjetSelectResponse>>> call, Response<ApiEnvelope<List<ProjetSelectResponse>>> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
+                    projetsList = CachePrefetcher.filterActifs(response.body().getData());
+                    localDatabase.putCache(CACHE_PROJETS_SELECT, gson.toJson(projetsList));
+                    CachePrefetcher.prefetchProjectsDetails(HomeActivity.this, localDatabase, projetsList);
+                    setupProjetSelectorPreservingSelection(currentProjetId);
+                }
+                onDone.run();
+            }
+
+            @Override
+            public void onFailure(Call<ApiEnvelope<List<ProjetSelectResponse>>> call, Throwable t) {
+                onDone.run(); // pas de réseau : on garde ce qui est déjà affiché/en cache
+            }
+        });
+    }
+
+    private void setupProjetSelectorPreservingSelection(String previousProjetId) {
+        setupProjetSelector();
+        if (previousProjetId == null) return;
+        for (int i = 0; i < projetsList.size(); i++) {
+            if (previousProjetId.equals(projetsList.get(i).getUniqueId())) {
+                spinnerProjets.setSelection(i);
+                break;
+            }
+        }
     }
 
     private void redirectToLogin() {

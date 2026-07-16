@@ -23,6 +23,7 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.gson.Gson;
 import com.mobile.diafarms.R;
+import com.mobile.diafarms.data.CachePrefetcher;
 import com.mobile.diafarms.data.LocalDatabase;
 import com.mobile.diafarms.models.SaisieLocale;
 import com.mobile.diafarms.models.SaisieType;
@@ -31,12 +32,16 @@ import com.mobile.diafarms.network.dto.AlimentationCreateRequest;
 import com.mobile.diafarms.network.dto.ApiEnvelope;
 import com.mobile.diafarms.network.dto.CollecteOeufsCreateRequest;
 import com.mobile.diafarms.network.dto.ConsommationAlimentCreateRequest;
+import com.mobile.diafarms.network.dto.EffectifReformeResponse;
 import com.mobile.diafarms.network.dto.MortaliteCreateRequest;
 import com.mobile.diafarms.network.dto.OccupationBatimentResponse;
 import com.mobile.diafarms.network.dto.ProjetDetailResponse;
 import com.mobile.diafarms.network.dto.SoinsCreateRequest;
 import com.mobile.diafarms.network.dto.StockAlimentResponse;
+import com.mobile.diafarms.network.dto.StockOeufsResponse;
 import com.mobile.diafarms.network.dto.TransactionCreateRequest;
+import com.mobile.diafarms.network.dto.VenteOeufsCreateRequest;
+import com.mobile.diafarms.network.dto.VenteReformeCreateRequest;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -92,7 +97,7 @@ public class SaisieFormActivity extends AppCompatActivity {
     // Soins
     private View groupSoins;
     private Spinner spinnerTypeSoin;
-    private TextInputEditText etProduit, etQuantiteSoin, etCoutSoin, etObservationsSoin;
+    private TextInputEditText etProduit, etQuantiteSoin, etObservationsSoin;
 
     // Mortalité
     private View groupMortalite;
@@ -100,11 +105,25 @@ public class SaisieFormActivity extends AppCompatActivity {
 
     // Alimentation - achat
     private View groupAlimentationAchat;
-    private TextInputEditText etNomAliment, etSac, etQuantiteKgAchat, etCoutAchat, etObservationsAchat;
+    private TextInputEditText etNomAliment, etSac, etQuantiteKgAchat, etObservationsAchat;
 
     // Alimentation - consommation
     private View groupConsommation;
     private TextInputEditText etQuantiteKgConso;
+
+    // Vente œufs — plafonnée par le stock vendable (collectés - cassés - vendus),
+    // calculé côté serveur (voir stockOeufsDisponible, jamais recalculé sur l'appareil).
+    private View groupVenteOeufs;
+    private TextView tvStockOeufsInfo;
+    private TextInputEditText etQuantiteOeufsVente, etPrixUnitaireOeufs, etMontantVenteOeufs;
+    private Integer stockOeufsDisponible;
+
+    // Vente réforme — plafonnée par l'effectif vivant (nbSujets - mortalité -
+    // déjà réformés), calculé côté serveur (voir effectifReformeDisponible).
+    private View groupVenteReforme;
+    private TextView tvEffectifReformeInfo;
+    private TextInputEditText etNombreSujetsVente, etPrixUnitaireReforme, etMontantVenteReforme;
+    private Integer effectifReformeDisponible;
 
     // Transaction
     private View groupTransaction;
@@ -139,6 +158,12 @@ public class SaisieFormActivity extends AppCompatActivity {
         if (type == SaisieType.ALIMENTATION_CONSOMMATION && projetUniqueId != null) {
             loadStock();
         }
+        if (type == SaisieType.VENTE_OEUFS && projetUniqueId != null) {
+            loadStockOeufs();
+        }
+        if (type == SaisieType.VENTE_REFORME && projetUniqueId != null) {
+            loadEffectifReforme();
+        }
 
         if (editingLocalId != null) {
             prefillFromExisting();
@@ -170,7 +195,6 @@ public class SaisieFormActivity extends AppCompatActivity {
         spinnerTypeSoin = findViewById(R.id.spinnerTypeSoin);
         etProduit = findViewById(R.id.etProduit);
         etQuantiteSoin = findViewById(R.id.etQuantiteSoin);
-        etCoutSoin = findViewById(R.id.etCoutSoin);
         etObservationsSoin = findViewById(R.id.etObservationsSoin);
 
         groupMortalite = findViewById(R.id.groupMortalite);
@@ -181,12 +205,23 @@ public class SaisieFormActivity extends AppCompatActivity {
         etNomAliment = findViewById(R.id.etNomAliment);
         etSac = findViewById(R.id.etSac);
         etQuantiteKgAchat = findViewById(R.id.etQuantiteKgAchat);
-        etCoutAchat = findViewById(R.id.etCoutAchat);
         etObservationsAchat = findViewById(R.id.etObservationsAchat);
 
         groupConsommation = findViewById(R.id.groupConsommation);
         tvStockInfo = findViewById(R.id.tvStockInfo);
         etQuantiteKgConso = findViewById(R.id.etQuantiteKgConso);
+
+        groupVenteOeufs = findViewById(R.id.groupVenteOeufs);
+        tvStockOeufsInfo = findViewById(R.id.tvStockOeufsInfo);
+        etQuantiteOeufsVente = findViewById(R.id.etQuantiteOeufsVente);
+        etPrixUnitaireOeufs = findViewById(R.id.etPrixUnitaireOeufs);
+        etMontantVenteOeufs = findViewById(R.id.etMontantVenteOeufs);
+
+        groupVenteReforme = findViewById(R.id.groupVenteReforme);
+        tvEffectifReformeInfo = findViewById(R.id.tvEffectifReformeInfo);
+        etNombreSujetsVente = findViewById(R.id.etNombreSujetsVente);
+        etPrixUnitaireReforme = findViewById(R.id.etPrixUnitaireReforme);
+        etMontantVenteReforme = findViewById(R.id.etMontantVenteReforme);
 
         groupTransaction = findViewById(R.id.groupTransaction);
         spinnerCategorie = findViewById(R.id.spinnerCategorie);
@@ -214,6 +249,8 @@ public class SaisieFormActivity extends AppCompatActivity {
         groupMortalite.setVisibility(type == SaisieType.MORTALITE ? View.VISIBLE : View.GONE);
         groupAlimentationAchat.setVisibility(type == SaisieType.ALIMENTATION_ACHAT ? View.VISIBLE : View.GONE);
         groupConsommation.setVisibility(type == SaisieType.ALIMENTATION_CONSOMMATION ? View.VISIBLE : View.GONE);
+        groupVenteOeufs.setVisibility(type == SaisieType.VENTE_OEUFS ? View.VISIBLE : View.GONE);
+        groupVenteReforme.setVisibility(type == SaisieType.VENTE_REFORME ? View.VISIBLE : View.GONE);
         groupTransaction.setVisibility(
                 (type == SaisieType.TRANSACTION_ENTREE || type == SaisieType.TRANSACTION_SORTIE) ? View.VISIBLE : View.GONE);
     }
@@ -274,28 +311,50 @@ public class SaisieFormActivity extends AppCompatActivity {
             return;
         }
 
+        String cacheKey = CachePrefetcher.CACHE_PROJET_DETAIL_PREFIX + projetUniqueId;
+
         ApiClient.dataApi(this).getProjetDetail(projetUniqueId).enqueue(new Callback<ApiEnvelope<ProjetDetailResponse>>() {
             @Override
             public void onResponse(Call<ApiEnvelope<ProjetDetailResponse>> call, Response<ApiEnvelope<ProjetDetailResponse>> response) {
                 ProjetDetailResponse detail = response.isSuccessful() && response.body() != null
                         ? response.body().getData() : null;
-                if (detail != null && detail.getOccupationBatiment() != null) {
-                    batiments = new ArrayList<>();
-                    for (OccupationBatimentResponse occ : detail.getOccupationBatiment()) {
-                        if (occ.getDateSortie() == null) { // occupation encore active
-                            batiments.add(occ);
-                        }
-                    }
+                if (detail != null) {
+                    localDatabase.putCache(cacheKey, gson.toJson(detail));
+                    applyBatiments(detail);
+                } else {
+                    loadBatimentsFromCache(cacheKey);
                 }
-                populateBatimentSpinner();
             }
 
             @Override
             public void onFailure(Call<ApiEnvelope<ProjetDetailResponse>> call, Throwable t) {
-                // Hors ligne : le bâtiment est optionnel partout côté backend, on continue sans bloquer.
-                populateBatimentSpinner();
+                // Hors ligne : on retombe sur le même cache que l'accueil (voir
+                // CachePrefetcher/HomeActivity) plutôt que d'abandonner directement —
+                // le bâtiment reste optionnel côté backend si le cache est vide aussi.
+                loadBatimentsFromCache(cacheKey);
             }
         });
+    }
+
+    private void loadBatimentsFromCache(String cacheKey) {
+        String cached = localDatabase.getCache(cacheKey);
+        if (cached != null) {
+            applyBatiments(gson.fromJson(cached, ProjetDetailResponse.class));
+        } else {
+            populateBatimentSpinner();
+        }
+    }
+
+    private void applyBatiments(ProjetDetailResponse detail) {
+        if (detail.getOccupationBatiment() != null) {
+            batiments = new ArrayList<>();
+            for (OccupationBatimentResponse occ : detail.getOccupationBatiment()) {
+                if (occ.getDateSortie() == null) { // occupation encore active
+                    batiments.add(occ);
+                }
+            }
+        }
+        populateBatimentSpinner();
     }
 
     private void populateBatimentSpinner() {
@@ -326,22 +385,112 @@ public class SaisieFormActivity extends AppCompatActivity {
     }
 
     private void loadStock() {
+        String cacheKey = CachePrefetcher.CACHE_STOCK_ALIMENT_PREFIX + projetUniqueId;
+
         ApiClient.dataApi(this).getStockAliment(projetUniqueId).enqueue(new Callback<ApiEnvelope<StockAlimentResponse>>() {
             @Override
             public void onResponse(Call<ApiEnvelope<StockAlimentResponse>> call, Response<ApiEnvelope<StockAlimentResponse>> response) {
                 StockAlimentResponse stock = response.isSuccessful() && response.body() != null ? response.body().getData() : null;
-                if (stock != null && stock.getStockRestant() != null) {
-                    tvStockInfo.setText(String.format(Locale.FRANCE, "Stock restant estimé : %.1f kg", stock.getStockRestant()));
-                } else {
-                    tvStockInfo.setText("Stock non disponible");
+                if (stock != null) {
+                    localDatabase.putCache(cacheKey, gson.toJson(stock));
                 }
+                displayStock(stock, false);
             }
 
             @Override
             public void onFailure(Call<ApiEnvelope<StockAlimentResponse>> call, Throwable t) {
-                tvStockInfo.setText("Stock non disponible (hors ligne)");
+                // Hors ligne : on affiche la dernière valeur connue (préchargée après
+                // le login/scan QR ou vue depuis l'accueil, voir CachePrefetcher)
+                // plutôt que de déclarer directement l'info indisponible.
+                String cached = localDatabase.getCache(cacheKey);
+                StockAlimentResponse stock = cached != null ? gson.fromJson(cached, StockAlimentResponse.class) : null;
+                displayStock(stock, true);
             }
         });
+    }
+
+    private void displayStock(StockAlimentResponse stock, boolean fromCache) {
+        if (stock != null && stock.getStockRestant() != null) {
+            String suffix = fromCache ? " (dernière donnée connue, hors ligne)" : "";
+            tvStockInfo.setText(String.format(Locale.FRANCE, "Stock restant estimé : %.1f kg%s", stock.getStockRestant(), suffix));
+        } else {
+            tvStockInfo.setText(fromCache ? "Stock non disponible (hors ligne)" : "Stock non disponible");
+        }
+    }
+
+    /**
+     * Stock d'œufs vendables (collectés - cassés - vendus), même schéma retrofit →
+     * cache → repli hors ligne que loadStock()/displayStock() ci-dessus — la valeur
+     * calculée côté serveur est gardée dans stockOeufsDisponible pour le garde-fou de
+     * onValider() (le serveur reste juge en dernier ressort, mais on refuse déjà côté
+     * client plutôt que de laisser l'utilisateur découvrir le refus après coup).
+     */
+    private void loadStockOeufs() {
+        String cacheKey = CachePrefetcher.CACHE_STOCK_OEUFS_PREFIX + projetUniqueId;
+
+        ApiClient.dataApi(this).getStockOeufs(projetUniqueId).enqueue(new Callback<ApiEnvelope<StockOeufsResponse>>() {
+            @Override
+            public void onResponse(Call<ApiEnvelope<StockOeufsResponse>> call, Response<ApiEnvelope<StockOeufsResponse>> response) {
+                StockOeufsResponse stock = response.isSuccessful() && response.body() != null ? response.body().getData() : null;
+                if (stock != null) {
+                    localDatabase.putCache(cacheKey, gson.toJson(stock));
+                }
+                displayStockOeufs(stock, false);
+            }
+
+            @Override
+            public void onFailure(Call<ApiEnvelope<StockOeufsResponse>> call, Throwable t) {
+                String cached = localDatabase.getCache(cacheKey);
+                StockOeufsResponse stock = cached != null ? gson.fromJson(cached, StockOeufsResponse.class) : null;
+                displayStockOeufs(stock, true);
+            }
+        });
+    }
+
+    private void displayStockOeufs(StockOeufsResponse stock, boolean fromCache) {
+        stockOeufsDisponible = stock != null ? stock.getStockRestant() : null;
+        if (stockOeufsDisponible != null) {
+            String suffix = fromCache ? " (dernière donnée connue, hors ligne)" : "";
+            tvStockOeufsInfo.setText(String.format(Locale.FRANCE, "Disponible à la vente : %d œuf(s)%s", stockOeufsDisponible, suffix));
+        } else {
+            tvStockOeufsInfo.setText(fromCache ? "Stock non disponible (hors ligne)" : "Stock non disponible");
+        }
+    }
+
+    /**
+     * Effectif vivant (nbSujets - mortalité - déjà réformés), même schéma que
+     * loadStockOeufs() ci-dessus.
+     */
+    private void loadEffectifReforme() {
+        String cacheKey = CachePrefetcher.CACHE_EFFECTIF_REFORME_PREFIX + projetUniqueId;
+
+        ApiClient.dataApi(this).getEffectifReforme(projetUniqueId).enqueue(new Callback<ApiEnvelope<EffectifReformeResponse>>() {
+            @Override
+            public void onResponse(Call<ApiEnvelope<EffectifReformeResponse>> call, Response<ApiEnvelope<EffectifReformeResponse>> response) {
+                EffectifReformeResponse effectif = response.isSuccessful() && response.body() != null ? response.body().getData() : null;
+                if (effectif != null) {
+                    localDatabase.putCache(cacheKey, gson.toJson(effectif));
+                }
+                displayEffectifReforme(effectif, false);
+            }
+
+            @Override
+            public void onFailure(Call<ApiEnvelope<EffectifReformeResponse>> call, Throwable t) {
+                String cached = localDatabase.getCache(cacheKey);
+                EffectifReformeResponse effectif = cached != null ? gson.fromJson(cached, EffectifReformeResponse.class) : null;
+                displayEffectifReforme(effectif, true);
+            }
+        });
+    }
+
+    private void displayEffectifReforme(EffectifReformeResponse effectif, boolean fromCache) {
+        effectifReformeDisponible = effectif != null ? effectif.getEffectifVivant() : null;
+        if (effectifReformeDisponible != null) {
+            String suffix = fromCache ? " (dernière donnée connue, hors ligne)" : "";
+            tvEffectifReformeInfo.setText(String.format(Locale.FRANCE, "Sujets vivants disponibles : %d%s", effectifReformeDisponible, suffix));
+        } else {
+            tvEffectifReformeInfo.setText(fromCache ? "Effectif non disponible (hors ligne)" : "Effectif non disponible");
+        }
     }
 
     private int parseIntSafe(CharSequence s) {
@@ -411,7 +560,8 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.type = (String) spinnerTypeSoin.getSelectedItem();
                 req.produit = produit;
                 req.quantite = parseDoubleOrNull(etQuantiteSoin.getText());
-                req.coutTotal = parseDoubleOrNull(etCoutSoin.getText());
+                // Coût volontairement absent de la saisie Production : le prix d'un soin
+                // se déclare comme une sortie d'argent (Finance), pas ici.
                 req.observations = nullIfBlank(textOf(etObservationsSoin));
                 requestObject = req;
                 summary = req.type + " — " + produit;
@@ -445,7 +595,8 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.nomAliment = nom;
                 req.sac = parseDoubleOrNull(etSac.getText());
                 req.quantiteKg = quantiteKg;
-                req.coutTotal = parseDoubleOrNull(etCoutAchat.getText());
+                // Coût volontairement absent de la saisie Production : le prix d'un achat
+                // d'aliment se déclare comme une sortie d'argent (Finance), pas ici.
                 req.dateDistribution = date;
                 req.heure = heure;
                 req.observations = nullIfBlank(textOf(etObservationsAchat));
@@ -468,6 +619,62 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.quantiteKg = quantiteKg;
                 requestObject = req;
                 summary = String.format(Locale.FRANCE, "%.1f kg consommés", quantiteKg);
+                break;
+            }
+            case VENTE_OEUFS: {
+                int quantite = parseIntSafe(etQuantiteOeufsVente.getText());
+                Double montant = parseDoubleOrNull(etMontantVenteOeufs.getText());
+                if (quantite <= 0) {
+                    toast("Veuillez saisir le nombre d'œufs vendus");
+                    return;
+                }
+                if (montant == null || montant <= 0) {
+                    toast("Veuillez saisir le montant de la vente");
+                    return;
+                }
+                // Garde-fou client en plus de la validation serveur (voir loadStockOeufs) :
+                // évite un aller-retour réseau pour découvrir le refus après coup.
+                if (stockOeufsDisponible != null && quantite > stockOeufsDisponible) {
+                    toast("Quantité supérieure au stock disponible (" + stockOeufsDisponible + " œuf(s))");
+                    return;
+                }
+                VenteOeufsCreateRequest req = new VenteOeufsCreateRequest();
+                req.projetUniqueId = projetUniqueId;
+                req.batimentUniqueId = batimentUniqueId;
+                req.date = date;
+                req.heure = heure;
+                req.quantiteOeufs = quantite;
+                req.prixUnitaire = parseDoubleOrNull(etPrixUnitaireOeufs.getText());
+                req.montant = montant;
+                requestObject = req;
+                summary = String.format(Locale.FRANCE, "Vente de %d œufs (%,.0f FCFA)", quantite, montant);
+                break;
+            }
+            case VENTE_REFORME: {
+                int nombreSujets = parseIntSafe(etNombreSujetsVente.getText());
+                Double montant = parseDoubleOrNull(etMontantVenteReforme.getText());
+                if (nombreSujets <= 0) {
+                    toast("Veuillez saisir le nombre de sujets vendus");
+                    return;
+                }
+                if (montant == null || montant <= 0) {
+                    toast("Veuillez saisir le montant de la vente");
+                    return;
+                }
+                if (effectifReformeDisponible != null && nombreSujets > effectifReformeDisponible) {
+                    toast("Quantité supérieure à l'effectif vivant (" + effectifReformeDisponible + " sujet(s))");
+                    return;
+                }
+                VenteReformeCreateRequest req = new VenteReformeCreateRequest();
+                req.projetUniqueId = projetUniqueId;
+                req.batimentUniqueId = batimentUniqueId;
+                req.date = date;
+                req.heure = heure;
+                req.nombreSujets = nombreSujets;
+                req.prixUnitaire = parseDoubleOrNull(etPrixUnitaireReforme.getText());
+                req.montant = montant;
+                requestObject = req;
+                summary = String.format(Locale.FRANCE, "Vente réforme de %d sujet(s) (%,.0f FCFA)", nombreSujets, montant);
                 break;
             }
             case TRANSACTION_ENTREE:
@@ -536,7 +743,6 @@ public class SaisieFormActivity extends AppCompatActivity {
                 setDateHeure(req.date, req.heure);
                 etProduit.setText(req.produit);
                 if (req.quantite != null) etQuantiteSoin.setText(String.valueOf(req.quantite));
-                if (req.coutTotal != null) etCoutSoin.setText(String.valueOf(req.coutTotal));
                 etObservationsSoin.setText(req.observations);
                 selectSpinnerValue(spinnerTypeSoin, TYPES_SOIN, req.type);
                 selectBatimentByUniqueId(req.batimentUniqueId);
@@ -556,7 +762,6 @@ public class SaisieFormActivity extends AppCompatActivity {
                 etNomAliment.setText(req.nomAliment);
                 if (req.sac != null) etSac.setText(String.valueOf(req.sac));
                 if (req.quantiteKg != null) etQuantiteKgAchat.setText(String.valueOf(req.quantiteKg));
-                if (req.coutTotal != null) etCoutAchat.setText(String.valueOf(req.coutTotal));
                 etObservationsAchat.setText(req.observations);
                 selectBatimentByUniqueId(req.batimentUniqueId);
                 break;
@@ -565,6 +770,24 @@ public class SaisieFormActivity extends AppCompatActivity {
                 ConsommationAlimentCreateRequest req = gson.fromJson(json, ConsommationAlimentCreateRequest.class);
                 setDateHeure(req.date, req.heure);
                 if (req.quantiteKg != null) etQuantiteKgConso.setText(String.valueOf(req.quantiteKg));
+                selectBatimentByUniqueId(req.batimentUniqueId);
+                break;
+            }
+            case VENTE_OEUFS: {
+                VenteOeufsCreateRequest req = gson.fromJson(json, VenteOeufsCreateRequest.class);
+                setDateHeure(req.date, req.heure);
+                if (req.quantiteOeufs != null) etQuantiteOeufsVente.setText(String.valueOf(req.quantiteOeufs));
+                if (req.prixUnitaire != null) etPrixUnitaireOeufs.setText(String.valueOf(req.prixUnitaire));
+                if (req.montant != null) etMontantVenteOeufs.setText(String.valueOf(req.montant));
+                selectBatimentByUniqueId(req.batimentUniqueId);
+                break;
+            }
+            case VENTE_REFORME: {
+                VenteReformeCreateRequest req = gson.fromJson(json, VenteReformeCreateRequest.class);
+                setDateHeure(req.date, req.heure);
+                if (req.nombreSujets != null) etNombreSujetsVente.setText(String.valueOf(req.nombreSujets));
+                if (req.prixUnitaire != null) etPrixUnitaireReforme.setText(String.valueOf(req.prixUnitaire));
+                if (req.montant != null) etMontantVenteReforme.setText(String.valueOf(req.montant));
                 selectBatimentByUniqueId(req.batimentUniqueId);
                 break;
             }

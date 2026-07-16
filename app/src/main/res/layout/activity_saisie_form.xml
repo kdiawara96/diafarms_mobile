@@ -211,17 +211,6 @@
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Coût total (FCFA, optionnel)">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etCoutSoin"
-                        android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:inputType="numberDecimal" />
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <View android:layout_width="match_parent" android:layout_height="12dp" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:hint="Observations (optionnel)">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etObservationsSoin"
@@ -302,17 +291,6 @@
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Coût total (FCFA)">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etCoutAchat"
-                        android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:inputType="numberDecimal" />
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <View android:layout_width="match_parent" android:layout_height="12dp" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:hint="Observations (optionnel)">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etObservationsAchat"
@@ -343,6 +321,104 @@
                     android:hint="Quantité consommée (kg)">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etQuantiteKgConso"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="numberDecimal" />
+                </com.google.android.material.textfield.TextInputLayout>
+            </LinearLayout>
+
+            <!-- ===================== VENTE D'ŒUFS (plafonnée par le stock vendable) ===================== -->
+            <LinearLayout
+                android:id="@+id/groupVenteOeufs"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/tvStockOeufsInfo"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    android:textSize="13sp"
+                    android:textColor="@android:color/darker_gray"
+                    tools:text="Disponible à la vente : 250 œuf(s)" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Nombre d'œufs vendus">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etQuantiteOeufsVente"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="number" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Prix unitaire (FCFA, optionnel)">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etPrixUnitaireOeufs"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="numberDecimal" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Montant total de la vente (FCFA)">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etMontantVenteOeufs"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="numberDecimal" />
+                </com.google.android.material.textfield.TextInputLayout>
+            </LinearLayout>
+
+            <!-- ===================== VENTE RÉFORME (plafonnée par l'effectif vivant) ===================== -->
+            <LinearLayout
+                android:id="@+id/groupVenteReforme"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/tvEffectifReformeInfo"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    android:textSize="13sp"
+                    android:textColor="@android:color/darker_gray"
+                    tools:text="Sujets vivants disponibles : 688" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Nombre de sujets vendus">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etNombreSujetsVente"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="number" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Prix unitaire (FCFA, optionnel)">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etPrixUnitaireReforme"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="numberDecimal" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Montant total de la vente (FCFA)">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etMontantVenteReforme"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
                         android:inputType="numberDecimal" />
                 </com.google.android.material.textfield.TextInputLayout>

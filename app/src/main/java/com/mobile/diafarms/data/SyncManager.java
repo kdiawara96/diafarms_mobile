@@ -14,6 +14,8 @@ import com.mobile.diafarms.network.dto.CreatedEntityResponse;
 import com.mobile.diafarms.network.dto.MortaliteCreateRequest;
 import com.mobile.diafarms.network.dto.SoinsCreateRequest;
 import com.mobile.diafarms.network.dto.TransactionCreateRequest;
+import com.mobile.diafarms.network.dto.VenteOeufsCreateRequest;
+import com.mobile.diafarms.network.dto.VenteReformeCreateRequest;
 
 import java.util.List;
 
@@ -102,6 +104,12 @@ public class SyncManager {
                 break;
             case ALIMENTATION_CONSOMMATION:
                 api.createConsommationAliment(gson.fromJson(json, ConsommationAlimentCreateRequest.class)).enqueue(callback);
+                break;
+            case VENTE_OEUFS:
+                api.createVenteOeufs(gson.fromJson(json, VenteOeufsCreateRequest.class)).enqueue(callback);
+                break;
+            case VENTE_REFORME:
+                api.createVenteReforme(gson.fromJson(json, VenteReformeCreateRequest.class)).enqueue(callback);
                 break;
             case TRANSACTION_ENTREE:
             case TRANSACTION_SORTIE:
