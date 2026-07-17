@@ -441,13 +441,52 @@ public class HomeActivity extends AppCompatActivity {
      * Production, rattachées au projet sélectionné. "Vente d'œufs"/"Vente réforme"
      * (Finance) restent en revanche TOUJOURS visibles : elles puisent dans un stock
      * à l'échelle de la ferme entière, indépendant du projet actuellement
-     * sélectionné dans le spinner. Rappelée à chaque changement de projet. */
+     * sélectionné dans le spinner. Rappelée à chaque changement de projet.
+     *
+     * GridLayout ne referme PAS automatiquement l'espace d'une carte passée en GONE
+     * (limitation connue : le placement automatique réserve quand même sa cellule) —
+     * simplement masquer btnCollecteOeufs laissait donc un trou visible sur les
+     * projets chair. On retire/reconstruit la grille à la place, en ne (ré)ajoutant
+     * que les cartes réellement visibles, pour qu'elles se resserrent naturellement. */
     private void updateSaisieButtonsVisibility() {
         boolean masquerCollecteOeufs = currentProjet != null && currentProjet.isReformeSeule();
-        btnCollecteOeufs.setVisibility(masquerCollecteOeufs ? View.GONE : View.VISIBLE);
-
         boolean masquerReforme = currentProjet != null && currentProjet.isPonteSeule();
+
+        gridProduction.removeAllViews();
+
+        List<CardView> rangeeNormale = new ArrayList<>();
+        if (!masquerCollecteOeufs) rangeeNormale.add(btnCollecteOeufs);
+        rangeeNormale.add(btnAlimentation);
+        rangeeNormale.add(btnSoins);
+        rangeeNormale.add(btnMortalite);
+
+        // Projet chair (REFORME seule) : Réforme remplace Collecte œufs comme carte
+        // "principale" de la production physique — on la sort du flux normal pour la
+        // placer seule, pleine largeur, tout en bas, plutôt que la faire fusionner
+        // avec Soins/Mortalité dans la grille à 2 colonnes.
+        boolean reformeIsolee = masquerCollecteOeufs && !masquerReforme;
+        if (!masquerReforme && !reformeIsolee) {
+            rangeeNormale.add(btnReforme);
+        }
+
+        for (int i = 0; i < rangeeNormale.size(); i++) {
+            boolean seuleSurSaLigne = (i == rangeeNormale.size() - 1) && (rangeeNormale.size() % 2 != 0);
+            addProductionCard(rangeeNormale.get(i), seuleSurSaLigne);
+        }
+        if (reformeIsolee) {
+            addProductionCard(btnReforme, true);
+        }
+
+        btnCollecteOeufs.setVisibility(masquerCollecteOeufs ? View.GONE : View.VISIBLE);
         btnReforme.setVisibility(masquerReforme ? View.GONE : View.VISIBLE);
+    }
+
+    private void addProductionCard(CardView card, boolean pleineLargeur) {
+        GridLayout.LayoutParams lp = (GridLayout.LayoutParams) card.getLayoutParams();
+        lp.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, pleineLargeur ? 2 : 1, 1f);
+        lp.rowSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f);
+        card.setVisibility(View.VISIBLE);
+        gridProduction.addView(card, lp);
     }
 
     private void updateProjetDisplay() {

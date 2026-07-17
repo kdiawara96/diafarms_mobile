@@ -442,8 +442,7 @@
                 android:id="@+id/gridProduction"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:columnCount="2"
-                android:rowCount="3">
+                android:columnCount="2">
 
                 <androidx.cardview.widget.CardView
                     android:id="@+id/btnCollecteOeufs"
@@ -466,7 +465,7 @@
                         <ImageView
                             android:layout_width="48dp"
                             android:layout_height="48dp"
-                            android:src="@android:drawable/ic_menu_gallery"
+                            android:src="@drawable/ic_egg"
                             android:tint="#FFFFFF"/>
 
                         <TextView
@@ -508,7 +507,7 @@
                         <ImageView
                             android:layout_width="48dp"
                             android:layout_height="48dp"
-                            android:src="@android:drawable/ic_menu_sort_by_size"
+                            android:src="@drawable/ic_wheat"
                             android:tint="#FFFFFF"/>
 
                         <TextView
@@ -641,7 +640,7 @@
                         <ImageView
                             android:layout_width="32dp"
                             android:layout_height="32dp"
-                            android:src="@android:drawable/ic_menu_delete"
+                            android:src="@drawable/ic_steak"
                             android:tint="#F59E0B"/>
 
                         <TextView
@@ -693,7 +692,7 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="#2563EB"
+                    app:cardBackgroundColor="#10B981"
                     app:cardElevation="4dp"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
@@ -794,7 +793,7 @@
                         <ImageView
                             android:layout_width="32dp"
                             android:layout_height="32dp"
-                            android:src="@android:drawable/ic_menu_upload"
+                            android:src="@drawable/ic_egg"
                             android:tint="#10B981"/>
 
                         <TextView
@@ -839,7 +838,7 @@
                         <ImageView
                             android:layout_width="32dp"
                             android:layout_height="32dp"
-                            android:src="@android:drawable/ic_menu_share"
+                            android:src="@drawable/ic_steak"
                             android:tint="#F59E0B"/>
 
                         <TextView
