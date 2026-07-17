@@ -536,52 +536,41 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="#FFFFFF"
-                    app:cardElevation="2dp"
+                    app:cardBackgroundColor="#F9FAFB"
+                    app:cardElevation="1dp"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:padding="16dp">
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="8dp">
 
-                        <FrameLayout
-                            android:layout_width="48dp"
-                            android:layout_height="48dp"
-                            android:background="@drawable/circle_red_light">
+                        <ImageView
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
+                            android:src="@android:drawable/ic_menu_preferences"
+                            android:tint="#DC2626"/>
 
-                            <ImageView
-                                android:layout_width="24dp"
-                                android:layout_height="24dp"
-                                android:src="@android:drawable/ic_menu_preferences"
-                                android:tint="#DC2626"
-                                android:layout_gravity="center"/>
-                        </FrameLayout>
-
-                        <LinearLayout
+                        <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:orientation="vertical"
-                            android:layout_marginStart="16dp">
+                            android:layout_marginTop="10dp"
+                            android:text="Soins"
+                            android:textColor="#1F2937"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:gravity="center"/>
 
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Soins"
-                                android:textColor="#1F2937"
-                                android:textSize="16sp"
-                                android:textStyle="bold"/>
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Vaccins, médicaments"
-                                android:textColor="#6B7280"
-                                android:textSize="12sp"/>
-                        </LinearLayout>
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Vaccins, médicaments"
+                            android:textColor="#6B7280"
+                            android:textSize="11sp"
+                            android:gravity="center"/>
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 
@@ -592,52 +581,41 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="#FFFFFF"
-                    app:cardElevation="2dp"
+                    app:cardBackgroundColor="#F9FAFB"
+                    app:cardElevation="1dp"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:padding="16dp">
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="8dp">
 
-                        <FrameLayout
-                            android:layout_width="48dp"
-                            android:layout_height="48dp"
-                            android:background="@drawable/circle_red_light">
+                        <ImageView
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
+                            android:src="@android:drawable/ic_dialog_alert"
+                            android:tint="#EF4444"/>
 
-                            <ImageView
-                                android:layout_width="24dp"
-                                android:layout_height="24dp"
-                                android:src="@android:drawable/ic_dialog_alert"
-                                android:tint="#EF4444"
-                                android:layout_gravity="center"/>
-                        </FrameLayout>
-
-                        <LinearLayout
+                        <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:orientation="vertical"
-                            android:layout_marginStart="16dp">
+                            android:layout_marginTop="10dp"
+                            android:text="Mortalité"
+                            android:textColor="#1F2937"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:gravity="center"/>
 
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Mortalité"
-                                android:textColor="#1F2937"
-                                android:textSize="16sp"
-                                android:textStyle="bold"/>
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Décès à signaler"
-                                android:textColor="#6B7280"
-                                android:textSize="12sp"/>
-                        </LinearLayout>
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Décès à signaler"
+                            android:textColor="#6B7280"
+                            android:textSize="11sp"
+                            android:gravity="center"/>
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 
@@ -648,52 +626,41 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="#FFFFFF"
-                    app:cardElevation="2dp"
+                    app:cardBackgroundColor="#F9FAFB"
+                    app:cardElevation="1dp"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:padding="16dp">
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="8dp">
 
-                        <FrameLayout
-                            android:layout_width="48dp"
-                            android:layout_height="48dp"
-                            android:background="@drawable/circle_orange">
+                        <ImageView
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
+                            android:src="@android:drawable/ic_menu_delete"
+                            android:tint="#F59E0B"/>
 
-                            <ImageView
-                                android:layout_width="24dp"
-                                android:layout_height="24dp"
-                                android:src="@android:drawable/ic_menu_delete"
-                                android:tint="#FFFFFF"
-                                android:layout_gravity="center"/>
-                        </FrameLayout>
-
-                        <LinearLayout
+                        <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:orientation="vertical"
-                            android:layout_marginStart="16dp">
+                            android:layout_marginTop="10dp"
+                            android:text="Réforme"
+                            android:textColor="#1F2937"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:gravity="center"/>
 
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Réforme"
-                                android:textColor="#1F2937"
-                                android:textSize="16sp"
-                                android:textStyle="bold"/>
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Sujets retirés du cheptel"
-                                android:textColor="#6B7280"
-                                android:textSize="12sp"/>
-                        </LinearLayout>
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Sujets retirés du cheptel"
+                            android:textColor="#6B7280"
+                            android:textSize="11sp"
+                            android:gravity="center"/>
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 
@@ -722,112 +689,84 @@
                 <androidx.cardview.widget.CardView
                     android:id="@+id/btnEntreeArgent"
                     android:layout_width="0dp"
-                    android:layout_height="100dp"
+                    android:layout_height="140dp"
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="#EFF6FF"
-                    app:cardElevation="2dp"
+                    app:cardBackgroundColor="#2563EB"
+                    app:cardElevation="4dp"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:padding="16dp">
+                        android:orientation="vertical"
+                        android:gravity="center">
 
-                        <FrameLayout
+                        <ImageView
                             android:layout_width="48dp"
                             android:layout_height="48dp"
-                            android:background="@drawable/circle_blue">
+                            android:src="@android:drawable/arrow_down_float"
+                            android:tint="#FFFFFF"/>
 
-                            <ImageView
-                                android:layout_width="24dp"
-                                android:layout_height="24dp"
-                                android:src="@android:drawable/arrow_down_float"
-                                android:tint="#FFFFFF"
-                                android:layout_gravity="center"/>
-                        </FrameLayout>
-
-                        <LinearLayout
+                        <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:orientation="vertical"
-                            android:layout_marginStart="16dp">
+                            android:layout_marginTop="12dp"
+                            android:text="Entrée d'argent"
+                            android:textColor="#FFFFFF"
+                            android:textSize="16sp"
+                            android:textStyle="bold"/>
 
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Entrée d'argent"
-                                android:textColor="#1E40AF"
-                                android:textSize="16sp"
-                                android:textStyle="bold"/>
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Vente, remboursement..."
-                                android:textColor="#2563EB"
-                                android:textSize="12sp"/>
-                        </LinearLayout>
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Vente, remboursement..."
+                            android:textColor="#B3FFFFFF"
+                            android:textSize="12sp"/>
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 
                 <androidx.cardview.widget.CardView
                     android:id="@+id/btnSortieArgent"
                     android:layout_width="0dp"
-                    android:layout_height="100dp"
+                    android:layout_height="140dp"
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="#FEF2F2"
-                    app:cardElevation="2dp"
+                    app:cardBackgroundColor="#DC2626"
+                    app:cardElevation="4dp"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:padding="16dp">
+                        android:orientation="vertical"
+                        android:gravity="center">
 
-                        <FrameLayout
+                        <ImageView
                             android:layout_width="48dp"
                             android:layout_height="48dp"
-                            android:background="@drawable/circle_red">
+                            android:src="@android:drawable/arrow_up_float"
+                            android:tint="#FFFFFF"/>
 
-                            <ImageView
-                                android:layout_width="24dp"
-                                android:layout_height="24dp"
-                                android:src="@android:drawable/arrow_up_float"
-                                android:tint="#FFFFFF"
-                                android:layout_gravity="center"/>
-                        </FrameLayout>
-
-                        <LinearLayout
+                        <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:orientation="vertical"
-                            android:layout_marginStart="16dp">
+                            android:layout_marginTop="12dp"
+                            android:text="Sortie d'argent"
+                            android:textColor="#FFFFFF"
+                            android:textSize="16sp"
+                            android:textStyle="bold"/>
 
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Sortie d'argent"
-                                android:textColor="#991B1B"
-                                android:textSize="16sp"
-                                android:textStyle="bold"/>
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Achat, dépense..."
-                                android:textColor="#DC2626"
-                                android:textSize="12sp"/>
-                        </LinearLayout>
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Achat, dépense..."
+                            android:textColor="#B3FFFFFF"
+                            android:textSize="12sp"/>
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 
@@ -836,112 +775,90 @@
                 <androidx.cardview.widget.CardView
                     android:id="@+id/btnVenteOeufs"
                     android:layout_width="0dp"
-                    android:layout_height="100dp"
+                    android:layout_height="120dp"
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="#FFFFFF"
-                    app:cardElevation="2dp"
+                    app:cardBackgroundColor="#F9FAFB"
+                    app:cardElevation="1dp"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:padding="16dp">
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="8dp">
 
-                        <FrameLayout
-                            android:layout_width="48dp"
-                            android:layout_height="48dp"
-                            android:background="@drawable/circle_green">
+                        <ImageView
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
+                            android:src="@android:drawable/ic_menu_upload"
+                            android:tint="#10B981"/>
 
-                            <ImageView
-                                android:layout_width="24dp"
-                                android:layout_height="24dp"
-                                android:src="@android:drawable/ic_menu_gallery"
-                                android:tint="#FFFFFF"
-                                android:layout_gravity="center"/>
-                        </FrameLayout>
-
-                        <LinearLayout
+                        <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:orientation="vertical"
-                            android:layout_marginStart="16dp">
+                            android:layout_marginTop="10dp"
+                            android:text="Vente d'œufs"
+                            android:textColor="#1F2937"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:gravity="center"/>
 
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Vente d'œufs"
-                                android:textColor="#1F2937"
-                                android:textSize="16sp"
-                                android:textStyle="bold"/>
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Plafonnée par le stock (ferme)"
-                                android:textColor="#6B7280"
-                                android:textSize="12sp"/>
-                        </LinearLayout>
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Plafonnée par le stock (ferme)"
+                            android:textColor="#6B7280"
+                            android:textSize="11sp"
+                            android:gravity="center"/>
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 
                 <androidx.cardview.widget.CardView
                     android:id="@+id/btnVenteReforme"
                     android:layout_width="0dp"
-                    android:layout_height="100dp"
+                    android:layout_height="120dp"
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="#FFFFFF"
-                    app:cardElevation="2dp"
+                    app:cardBackgroundColor="#F9FAFB"
+                    app:cardElevation="1dp"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:padding="16dp">
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="8dp">
 
-                        <FrameLayout
-                            android:layout_width="48dp"
-                            android:layout_height="48dp"
-                            android:background="@drawable/circle_orange">
+                        <ImageView
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
+                            android:src="@android:drawable/ic_menu_share"
+                            android:tint="#F59E0B"/>
 
-                            <ImageView
-                                android:layout_width="24dp"
-                                android:layout_height="24dp"
-                                android:src="@android:drawable/ic_menu_sort_by_size"
-                                android:tint="#FFFFFF"
-                                android:layout_gravity="center"/>
-                        </FrameLayout>
-
-                        <LinearLayout
+                        <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:orientation="vertical"
-                            android:layout_marginStart="16dp">
+                            android:layout_marginTop="10dp"
+                            android:text="Vente réforme"
+                            android:textColor="#1F2937"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:gravity="center"/>
 
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Vente réforme"
-                                android:textColor="#1F2937"
-                                android:textSize="16sp"
-                                android:textStyle="bold"/>
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Plafonnée par le stock (ferme)"
-                                android:textColor="#6B7280"
-                                android:textSize="12sp"/>
-                        </LinearLayout>
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Plafonnée par le stock (ferme)"
+                            android:textColor="#6B7280"
+                            android:textSize="11sp"
+                            android:gravity="center"/>
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
             </GridLayout>
