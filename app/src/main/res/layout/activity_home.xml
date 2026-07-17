@@ -465,8 +465,7 @@
                         <ImageView
                             android:layout_width="48dp"
                             android:layout_height="48dp"
-                            android:src="@drawable/ic_egg"
-                            android:tint="#FFFFFF"/>
+                            android:src="@drawable/oeufs"/>
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -507,8 +506,7 @@
                         <ImageView
                             android:layout_width="48dp"
                             android:layout_height="48dp"
-                            android:src="@drawable/ic_wheat"
-                            android:tint="#FFFFFF"/>
+                            android:src="@drawable/ble"/>
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -550,8 +548,7 @@
                         <ImageView
                             android:layout_width="32dp"
                             android:layout_height="32dp"
-                            android:src="@android:drawable/ic_menu_preferences"
-                            android:tint="#DC2626"/>
+                            android:src="@drawable/injection"/>
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -640,8 +637,7 @@
                         <ImageView
                             android:layout_width="32dp"
                             android:layout_height="32dp"
-                            android:src="@drawable/ic_steak"
-                            android:tint="#F59E0B"/>
+                            android:src="@drawable/reforme"/>
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -793,8 +789,7 @@
                         <ImageView
                             android:layout_width="32dp"
                             android:layout_height="32dp"
-                            android:src="@drawable/ic_egg"
-                            android:tint="#10B981"/>
+                            android:src="@drawable/oeufs"/>
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -838,8 +833,7 @@
                         <ImageView
                             android:layout_width="32dp"
                             android:layout_height="32dp"
-                            android:src="@drawable/ic_steak"
-                            android:tint="#F59E0B"/>
+                            android:src="@drawable/reforme"/>
 
                         <TextView
                             android:layout_width="wrap_content"
