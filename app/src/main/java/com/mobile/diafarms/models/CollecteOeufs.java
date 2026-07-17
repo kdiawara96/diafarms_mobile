@@ -1,17 +1,14 @@
 package com.mobile.diafarms.models;
-
 public class CollecteOeufs {
     private String id;
     private String projetId;
     private String date;
     private int quantite;
-    private String categorie; // "Petit", "Moyen", "Grand", "Extra"
-    private String batiment;  // Bâtiment concerné
+    private String batiment;
     private int oeufsCasses;
     private String saisiPar;
     private String syncStatus;
 
-    // Constructeurs
     public CollecteOeufs() {}
 
     // Getters & Setters
@@ -26,9 +23,6 @@ public class CollecteOeufs {
 
     public int getQuantite() { return quantite; }
     public void setQuantite(int quantite) { this.quantite = quantite; }
-
-    public String getCategorie() { return categorie; }
-    public void setCategorie(String categorie) { this.categorie = categorie; }
 
     public String getBatiment() { return batiment; }
     public void setBatiment(String batiment) { this.batiment = batiment; }

@@ -37,54 +37,11 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:layout_marginStart="12dp"
-                android:text="Diagnostics"
+                android:text="Paramètres"
                 android:textColor="@color/primary"
                 android:textSize="22sp"
                 android:textStyle="bold" />
         </LinearLayout>
-
-        <!-- Compte -->
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_margin="16dp"
-            android:layout_marginBottom="0dp"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="2dp"
-            app:cardBackgroundColor="@android:color/white">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Compte"
-                    android:textColor="@color/primary"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/tvCompteIdentifiant"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="Connecté"
-                    android:textColor="@android:color/darker_gray"
-                    android:textSize="12sp" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnDeconnexion"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="Se déconnecter"
-                    app:backgroundTint="#DC2626" />
-            </LinearLayout>
-        </androidx.cardview.widget.CardView>
 
         <!-- Serveur -->
         <androidx.cardview.widget.CardView
@@ -126,7 +83,8 @@
                     android:inputType="textUri"
                     android:singleLine="true"
                     android:textSize="13sp"
-                    android:hint="http://192.168.1.18:8093/diafarms/api/v1/" />
+
+                    android:hint="http://10.126.242.60:8093/diafarms/api/v1/" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -277,6 +235,59 @@
                 </LinearLayout>
             </LinearLayout>
         </androidx.cardview.widget.CardView>
+
+        <!-- Zone dangereuse : suppression complète du compte de cet appareil -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginBottom="16dp"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp"
+            app:cardBackgroundColor="@android:color/white"
+            app:strokeColor="#DC2626"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Zone dangereuse"
+                    android:textColor="#DC2626"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvCompteIdentifiant"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Connecté"
+                    android:textColor="@android:color/darker_gray"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="Retire définitivement ce compte de cet appareil : session, mot de passe hors ligne, projets en cache et identifiants enregistrés seront supprimés. Un nouveau scan QR sera nécessaire pour se reconnecter."
+                    android:textColor="@android:color/darker_gray"
+                    android:textSize="12sp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSupprimerCompte"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="Supprimer ce compte de l'appareil"
+                    app:backgroundTint="#DC2626" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
         <!-- Version -->
         <TextView

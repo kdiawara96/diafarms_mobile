@@ -1,181 +1,284 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="match_parent"
     android:id="@+id/main_oeufs"
+    android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp"
-    android:background="#F5F5F5">
+    android:background="#E8F5E9">
 
-    <!-- Header -->
+    <!-- Header avec ombre -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:paddingBottom="16dp">
+        android:padding="20dp"
+        android:background="#FFFFFF"
+        android:elevation="4dp">
 
-        <ImageButton
+        <TextView
             android:id="@+id/btnBack"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@drawable/ic_arrow_back"
-            android:contentDescription="Retour"/>
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:gravity="center"
+            android:text="←"
+            android:textSize="24sp"
+            android:textColor="#2E7D32"
+            android:clickable="true"
+            android:focusable="true" />
 
         <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="🥚 Collecte des œufs"
-            android:textSize="20sp"
+            android:text="🥚 COLLECTE DES ŒUFS"
+            android:textSize="18sp"
             android:textStyle="bold"
-            android:textColor="#2E7D32"
-            android:gravity="center"/>
+            android:textColor="#1B5E20"
+            android:gravity="center" />
 
-        <View android:layout_width="48dp" android:layout_height="48dp"/>
+        <TextView
+            android:id="@+id/btnHistorique"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:gravity="center"
+            android:text="📊"
+            android:textSize="20sp"
+            android:clickable="true"
+            android:focusable="true" />
+
     </LinearLayout>
 
     <TextView
         android:id="@+id/tvProjetTitre"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Projet"
-        android:textSize="14sp"
-        android:textColor="#666"
+        android:text="🐔 EGG TRACKER PRO"
+        android:textSize="12sp"
+        android:textColor="#66BB6A"
         android:gravity="center"
-        android:paddingBottom="16dp"/>
+        android:paddingTop="12dp"
+        android:paddingBottom="12dp"
+        android:background="#FAFAFA"
+        android:letterSpacing="0.08" />
 
-    <!-- Card principale -->
-    <androidx.cardview.widget.CardView
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="16dp"
-        app:cardCornerRadius="12dp"
-        app:cardElevation="4dp">
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:paddingHorizontal="16dp"
+        android:paddingTop="12dp"
+        android:scrollbars="none">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="16dp">
+            android:orientation="vertical">
 
-            <!-- Date -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Date de collecte"
-                android:textStyle="bold"
-                android:textColor="#333"
-                android:layout_marginBottom="4dp"/>
-
-            <TextView
-                android:id="@+id/tvDate"
+            <!-- Carte Date -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Aujourd'hui"
-                android:textSize="16sp"
-                android:padding="12dp"
-                android:background="#E8F5E9"
-                android:textColor="#2E7D32"
-                android:layout_marginBottom="16dp"/>
+                android:layout_marginBottom="16dp"
+                android:background="#FFFFFF"
+                android:elevation="2dp"
+                android:padding="20dp"
+                android:orientation="vertical">
 
-            <!-- Bâtiment -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Bâtiment / Poulailler"
-                android:textStyle="bold"
-                android:textColor="#333"
-                android:layout_marginBottom="4dp"/>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="📅 DATE DE COLLECTE"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:textColor="#8D6E63"
+                    android:letterSpacing="0.1"
+                    android:layout_marginBottom="12dp" />
 
-            <Spinner
-                android:id="@+id/spinnerBatiment"
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="#FFF8E1"
+                    android:padding="14dp"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="📆 Aujourd'hui"
+                        android:textSize="14sp"
+                        android:textColor="#4E342E" />
+
+                    <TextView
+                        android:id="@+id/tvDate"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Lundi 6 Avril 2026"
+                        android:textSize="14sp"
+                        android:textColor="#8D6E63"
+                        android:textStyle="bold" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <!-- Carte Bâtiment -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"/>
+                android:layout_marginBottom="16dp"
+                android:background="#FFFFFF"
+                android:elevation="2dp"
+                android:padding="20dp"
+                android:orientation="vertical">
 
-            <!-- Catégorie -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Catégorie d'œufs"
-                android:textStyle="bold"
-                android:textColor="#333"
-                android:layout_marginBottom="4dp"/>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🏠 BÂTIMENT / POULAILLER"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:textColor="#8D6E63"
+                    android:letterSpacing="0.1"
+                    android:layout_marginBottom="12dp" />
 
-            <Spinner
-                android:id="@+id/spinnerCategorie"
+                <Spinner
+                    android:id="@+id/spinnerBatiment"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:background="#F5F5F5"
+                    android:padding="12dp" />
+
+            </LinearLayout>
+
+            <!-- Carte Quantité -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"/>
+                android:layout_marginBottom="16dp"
+                android:background="#FFFFFF"
+                android:elevation="2dp"
+                android:padding="20dp"
+                android:orientation="vertical">
 
-            <!-- Quantité -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Nombre d'œufs collectés"
-                android:textStyle="bold"
-                android:textColor="#333"
-                android:layout_marginBottom="4dp"/>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🥚 NOMBRE D'ŒUFS COLLECTÉS"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:textColor="#8D6E63"
+                    android:letterSpacing="0.1"
+                    android:layout_marginBottom="12dp" />
 
-            <EditText
-                android:id="@+id/etQuantite"
+                <EditText
+                    android:id="@+id/etQuantite"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:inputType="number"
+                    android:hint="Exemple : 245"
+                    android:padding="14dp"
+                    android:textSize="16sp"
+                    android:background="#F5F5F5"
+                    android:gravity="center" />
+
+            </LinearLayout>
+
+            <!-- Carte Œufs cassés -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="number"
-                android:hint="Ex: 245"
-                android:padding="12dp"
-                android:background="@android:drawable/edit_text"
-                android:layout_marginBottom="16dp"/>
+                android:layout_marginBottom="16dp"
+                android:background="#FFFFFF"
+                android:elevation="2dp"
+                android:padding="20dp"
+                android:orientation="vertical">
 
-            <!-- Œufs cassés -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Œufs cassés / invendables"
-                android:textStyle="bold"
-                android:textColor="#C62828"
-                android:layout_marginBottom="4dp"/>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="💔 ŒUFS CASSÉS / INVENDABLES"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:textColor="#D32F2F"
+                    android:letterSpacing="0.1"
+                    android:layout_marginBottom="12dp" />
 
-            <EditText
-                android:id="@+id/etOeufsCasses"
+                <EditText
+                    android:id="@+id/etOeufsCasses"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:inputType="number"
+                    android:hint="Exemple : 3"
+                    android:padding="14dp"
+                    android:textSize="16sp"
+                    android:background="#FFEBEE"
+                    android:gravity="center" />
+
+            </LinearLayout>
+
+            <!-- Carte Résumé -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="number"
-                android:hint="Ex: 3"
-                android:padding="12dp"
-                android:background="@android:drawable/edit_text"
-                android:layout_marginBottom="8dp"/>
+                android:layout_marginBottom="24dp"
+                android:background="#2E7D32"
+                android:elevation="2dp"
+                android:padding="24dp"
+                android:orientation="vertical"
+                android:gravity="center">
 
-            <!-- Résumé calculé -->
-            <TextView
-                android:id="@+id/tvResume"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Total: 0 œufs vendables"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:textColor="#2E7D32"
-                android:gravity="center"
-                android:padding="12dp"
-                android:background="#E8F5E9"
-                android:layout_marginTop="8dp"/>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="📊 RÉSUMÉ DE LA COLLECTE"
+                    android:textSize="11sp"
+                    android:textColor="#A5D6A7"
+                    android:letterSpacing="0.1"
+                    android:layout_marginBottom="12dp" />
+
+                <TextView
+                    android:id="@+id/tvResume"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0 œufs vendables"
+                    android:textSize="24sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF"
+                    android:gravity="center" />
+
+                <View
+                    android:layout_width="60dp"
+                    android:layout_height="2dp"
+                    android:background="#66BB6A"
+                    android:layout_marginTop="12dp" />
+
+            </LinearLayout>
 
         </LinearLayout>
-    </androidx.cardview.widget.CardView>
+    </ScrollView>
 
     <!-- Bouton Valider -->
-    <Button
-        android:id="@+id/btnValider"
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:text="✓ Enregistrer la collecte"
-        android:textSize="16sp"
-        android:textColor="#FFF"
-        android:backgroundTint="#2E7D32"
-        app:cornerRadius="8dp"/>
+        android:layout_height="wrap_content"
+        android:padding="16dp"
+        android:background="#FFFFFF"
+        android:elevation="8dp">
+
+        <Button
+            android:id="@+id/btnValider"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="✓ ENREGISTRER LA COLLECTE"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:background="#43A047"
+            android:letterSpacing="0.08" />
+
+    </LinearLayout>
 
 </LinearLayout>

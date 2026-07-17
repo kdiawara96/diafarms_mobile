@@ -47,14 +47,16 @@ import com.google.mlkit.vision.barcode.common.Barcode;
 import com.google.mlkit.vision.common.InputImage;
 import com.mobile.diafarms.R;
 import com.mobile.diafarms.crypto.AESHelper;
+import com.mobile.diafarms.crypto.JwtHelper;
+import com.mobile.diafarms.crypto.QrJwtClaims;
 import com.mobile.diafarms.crypto.QrPayload;
+import com.mobile.diafarms.data.CachePrefetcher;
 import com.mobile.diafarms.data.LocalDatabase;
 import com.mobile.diafarms.data.SessionManager;
 import com.mobile.diafarms.models.User;
 import com.mobile.diafarms.network.ApiClient;
 import com.mobile.diafarms.network.dto.ApiEnvelope;
-import com.mobile.diafarms.network.dto.RoleResponse;
-import com.mobile.diafarms.network.dto.UtilisateurResponse;
+import com.mobile.diafarms.network.dto.ProjetSelectResponse;
 import com.mobile.diafarms.util.DebugLog;
 
 import java.util.ArrayList;
@@ -218,9 +220,16 @@ public class CameraScanActivity extends AppCompatActivity {
     }
 
     /**
-     * Déchiffre le QR (même schéma AES/CBC que QRCodeController/AESService côté back),
-     * puis vérifie sa validité auprès du serveur via /auth/me avec le token qu'il contient.
-     * Aucun mot de passe n'est jamais affiché : le token du QR sert directement de session.
+     * Déchiffre le QR (même schéma AES/CBC que QRCodeController/AESService côté back) et
+     * lit l'identité directement dans les claims du JWT qu'il contient (fullName/role/
+     * uniqueId, voir QrJwtClaims/JwtHelper) — aucun appel réseau n'est nécessaire pour se
+     * connecter, exactement comme le login classique de BioEnrollApp qui ne consulte
+     * jamais le back. Le réseau ne sert qu'ensuite, pour récupérer les projets actifs
+     * liés au compte (voir CachePrefetcher), pas pour valider la connexion elle-même.
+     *
+     * Contrepartie assumée : un compte désactivé ou un rôle changé côté serveur après la
+     * génération du QR ne sera détecté qu'à la prochaine synchronisation réseau, pas
+     * immédiatement au scan (le backend faisait cette vérification via /auth/me avant).
      */
     private void processQr(String qrContent) {
         Vibrator vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
@@ -263,116 +272,105 @@ public class CameraScanActivity extends AppCompatActivity {
             return;
         }
 
-        verifyWithServer(payload);
-    }
-
-    private void verifyWithServer(QrPayload payload) {
-        AlertDialog loading = new MaterialAlertDialogBuilder(this)
-                .setMessage(getString(R.string.qr_checking_server))
-                .setCancelable(false)
-                .show();
-
-        String bearerHeader = "Bearer " + payload.getToken();
-        DebugLog.log(this, TAG, "Appel GET " + com.mobile.diafarms.network.Constants.BASE_URL + "auth/me avec Authorization=" + DebugLog.reveal(bearerHeader));
-
-        ApiClient.authApi(this).me(bearerHeader)
-                .enqueue(new Callback<ApiEnvelope<UtilisateurResponse>>() {
-                    @Override
-                    public void onResponse(Call<ApiEnvelope<UtilisateurResponse>> call, Response<ApiEnvelope<UtilisateurResponse>> response) {
-                        loading.dismiss();
-
-                        // Distingue un vrai refus serveur (401/403 : QR expiré/révoqué,
-                        // compte suspendu) d'une simple absence de réseau, au lieu du
-                        // message générique d'avant qui rendait les deux indiscernables.
-                        if (!response.isSuccessful()) {
-                            // response.errorBody() ne peut être lu qu'une seule fois : on le
-                            // récupère en String une bonne fois, puis on le réutilise partout.
-                            String rawErrorBody = readRawErrorBody(response);
-                            String serverMessage = extractMessage(rawErrorBody);
-                            String detail = "HTTP " + response.code()
-                                    + (serverMessage != null ? " : " + serverMessage : "")
-                                    + "\n(QR probablement expiré, révoqué, ou compte suspendu — régénérez-le depuis le site web)";
-                            DebugLog.log(CameraScanActivity.this, TAG, "Réponse /auth/me NON réussie : code=" + response.code()
-                                    + " message=\"" + response.message() + "\" errorBody=\"" + rawErrorBody + "\"");
-                            showMessage(getString(R.string.error), detail);
-                            return;
-                        }
-
-                        UtilisateurResponse profile = response.body() != null ? response.body().getData() : null;
-                        DebugLog.log(CameraScanActivity.this, TAG, "Réponse /auth/me OK : code=" + response.code()
-                                + " profileUniqueId=" + (profile != null ? profile.getUniqueId() : "null"));
-
-                        if (profile == null || profile.getUniqueId() == null) {
-                            showMessage(getString(R.string.error), "Réponse du serveur incomplète (HTTP " + response.code() + ").");
-                            return;
-                        }
-
-                        onQrLoginSuccess(profile, payload.getToken());
-                    }
-
-                    @Override
-                    public void onFailure(Call<ApiEnvelope<UtilisateurResponse>> call, Throwable t) {
-                        loading.dismiss();
-                        String detail = t.getClass().getSimpleName() + (t.getMessage() != null ? " : " + t.getMessage() : "");
-                        DebugLog.error(CameraScanActivity.this, TAG, "onFailure appel /auth/me (base URL=" + com.mobile.diafarms.network.Constants.BASE_URL + ")", t);
-                        showMessage(getString(R.string.error), "Impossible de contacter le serveur.\n" + detail);
-                    }
-                });
-    }
-
-    /** Lit le corps d'erreur en String une seule fois (errorBody() ne se lit qu'une fois). */
-    private String readRawErrorBody(Response<ApiEnvelope<UtilisateurResponse>> response) {
+        QrJwtClaims claims;
         try {
-            if (response.errorBody() != null) {
-                return response.errorBody().string();
-            }
-        } catch (Exception ignored) {
+            claims = JwtHelper.decodeClaims(payload.getToken());
+        } catch (Exception e) {
+            DebugLog.error(this, TAG, "Impossible de décoder les claims du JWT du QR", e);
+            showMessage(getString(R.string.error), getString(R.string.qr_invalid));
+            return;
         }
-        return "(vide)";
+
+        if (claims == null || claims.getUniqueId() == null || claims.isExpired()) {
+            DebugLog.log(this, TAG, "Claims JWT invalides ou expirées : uniqueId=" + (claims != null ? claims.getUniqueId() : "null"));
+            showMessage(getString(R.string.error), getString(R.string.qr_expired));
+            return;
+        }
+
+        onQrLoginSuccess(claims, payload.getToken());
     }
 
-    /** Extrait le champ "message" si le corps suit l'enveloppe ApiResponse habituelle. */
-    private String extractMessage(String rawBody) {
-        try {
-            ApiEnvelope<?> envelope = new Gson().fromJson(rawBody, ApiEnvelope.class);
-            if (envelope != null && envelope.getMessage() != null) {
-                return envelope.getMessage();
-            }
-        } catch (Exception ignored) {
-            // Le corps d'erreur ne suit pas forcément notre enveloppe JSON (ex: rejet direct
-            // par Spring Security avant d'atteindre nos contrôleurs) — on se rabat sur le code HTTP seul.
-        }
-        return null;
-    }
-
-    private void onQrLoginSuccess(UtilisateurResponse profile, String token) {
+    private void onQrLoginSuccess(QrJwtClaims claims, String token) {
         User user = new User();
-        user.setId(profile.getUniqueId());
-        user.setNom(profile.getFullName());
-        user.setTelephone(profile.getTelephone());
-        user.setEmail(profile.getEmail());
-        user.setPhotoUrl(profile.getPhoto());
-        user.setActif(profile.isStatut());
-
-        List<String> roleNames = new ArrayList<>();
-        if (profile.getRoles() != null) {
-            for (RoleResponse role : profile.getRoles()) {
-                if (role.getRole() != null) roleNames.add(role.getRole());
-            }
-        }
-        user.setRoles(roleNames);
+        user.setId(claims.getUniqueId());
+        user.setNom(claims.getFullName());
+        user.setActif(true); // pas de vérification serveur au scan, voir le commentaire de processQr()
+        user.setRoles(claims.getRoles());
 
         sessionManager.createSession(user, token);
-        String identifiant = profile.getUsername();
+        String identifiant = claims.getSub();
         if (identifiant != null) {
             localDatabase.saveAccountIdentifiant(identifiant);
         }
 
-        showSuccessDialog(user, identifiant);
+        // Contrairement à avant, le JWT du QR ne porte que le username (sub), pas le
+        // téléphone/email (voir QRCodeService côté back) : un seul identifiant possible
+        // ici pour la reconnexion hors ligne, faute de mieux tant que le profil complet
+        // n'a pas été récupéré une fois en ligne.
+        List<String> identifiantsAcceptes = new ArrayList<>();
+        if (identifiant != null) identifiantsAcceptes.add(identifiant);
+
+        boolean dejaBootstrappe = localDatabase.getCache(CachePrefetcher.CACHE_PROJETS_SELECT) != null;
+        if (dejaBootstrappe) {
+            // Cet appareil a déjà les métadonnées d'un scan/login précédent (base
+            // locale non vide) : pas besoin de réseau pour continuer, on rafraîchit
+            // juste en best-effort, sans bloquer.
+            CachePrefetcher.prefetchAll(this);
+            showSuccessDialog(user, identifiantsAcceptes);
+        } else {
+            // Premier scan sur cet appareil : la base locale est vide, impossible de
+            // travailler hors ligne ensuite sans avoir récupéré au moins une fois les
+            // projets actifs du compte. On exige donc ici une connexion réussie, une
+            // seule fois — c'est la SEULE situation où le scan requiert le réseau.
+            requireFirstMetadataFetch(user, identifiantsAcceptes);
+        }
+    }
+
+    /** Ne s'exécute que lors du tout premier scan sur cet appareil (base locale vide,
+     * voir onQrLoginSuccess) : bloque jusqu'à récupérer avec succès les projets actifs
+     * du compte, faute de quoi il n'y aurait rien à afficher hors ligne ensuite. */
+    private void requireFirstMetadataFetch(User user, List<String> identifiantsAcceptes) {
+        AlertDialog loading = new MaterialAlertDialogBuilder(this)
+                .setMessage("Première connexion : récupération des données de votre compte…")
+                .setCancelable(false)
+                .show();
+
+        ApiClient.dataApi(this).getProjetsSelect().enqueue(new Callback<ApiEnvelope<List<ProjetSelectResponse>>>() {
+            @Override
+            public void onResponse(Call<ApiEnvelope<List<ProjetSelectResponse>>> call, Response<ApiEnvelope<List<ProjetSelectResponse>>> response) {
+                loading.dismiss();
+                if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
+                    List<ProjetSelectResponse> projets = CachePrefetcher.filterActifs(response.body().getData());
+                    localDatabase.putCache(CachePrefetcher.CACHE_PROJETS_SELECT, new Gson().toJson(projets));
+                    CachePrefetcher.prefetchProjectsDetails(CameraScanActivity.this, localDatabase, projets);
+                    showSuccessDialog(user, identifiantsAcceptes);
+                } else {
+                    DebugLog.notice(CameraScanActivity.this, TAG, "Premier scan : réponse serveur non exploitable (HTTP " + response.code() + ")");
+                    showFirstFetchError(user, identifiantsAcceptes);
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiEnvelope<List<ProjetSelectResponse>>> call, Throwable t) {
+                loading.dismiss();
+                DebugLog.error(CameraScanActivity.this, TAG, "Premier scan : impossible de récupérer les données du compte", t);
+                showFirstFetchError(user, identifiantsAcceptes);
+            }
+        });
+    }
+
+    private void showFirstFetchError(User user, List<String> identifiantsAcceptes) {
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(getString(R.string.error))
+                .setMessage("Ce premier scan sur cet appareil nécessite une connexion pour récupérer les données de votre compte (projets actifs...). Vérifiez votre réseau puis réessayez.")
+                .setCancelable(false)
+                .setPositiveButton("Réessayer", (d, w) -> requireFirstMetadataFetch(user, identifiantsAcceptes))
+                .setNegativeButton("Annuler", (d, w) -> resetQrProcessing())
+                .show();
     }
 
     /** Popup de succès uniquement informative : jamais d'identifiant ni de mot de passe affichés. */
-    private void showSuccessDialog(User user, String identifiant) {
+    private void showSuccessDialog(User user, List<String> identifiantsAcceptes) {
         MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this);
         View view = LayoutInflater.from(this).inflate(R.layout.dialog_qr_result, null);
         builder.setView(view);
@@ -402,12 +400,13 @@ public class CameraScanActivity extends AppCompatActivity {
             dialog.dismiss();
             // Le mot de passe local est CE QUI permet l'accès hors ligne ensuite (via le
             // formulaire identifiant/mot de passe classique, voir LoginActivity.tryOfflineLogin) —
-            // pas un simple raccourci de confort, donc pas d'option "plus tard". Un seul
-            // emplacement par appareil : on ne le repropose que si aucun n'est défini, ou si
-            // le compte scanné diffère de celui déjà enregistré (sinon on écraserait
-            // silencieusement le mot de passe d'un autre utilisateur sans jamais le lui redemander).
-            if (!sessionManager.hasLocalPassword() || !identifiant.equals(sessionManager.getLocalPasswordIdentifiant())) {
-                showSetPasswordDialog(identifiant);
+            // pas un simple raccourci de confort, donc pas d'option "plus tard". Chaque
+            // compte a désormais son propre emplacement (voir SessionManager.createSession,
+            // qui vient d'activer CE compte, celui tout juste scanné) : hasLocalPassword()
+            // ne peut donc plus, comme avant, refléter le mot de passe d'un AUTRE compte —
+            // on ne reprompte que si CE compte n'a pas encore le sien.
+            if (!sessionManager.hasLocalPassword()) {
+                showSetPasswordDialog(identifiantsAcceptes);
             } else {
                 goHome();
             }
@@ -422,7 +421,7 @@ public class CameraScanActivity extends AppCompatActivity {
         }
     }
 
-    private void showSetPasswordDialog(String identifiant) {
+    private void showSetPasswordDialog(List<String> identifiantsAcceptes) {
         MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this);
         View view = LayoutInflater.from(this).inflate(R.layout.dialog_set_local_password, null);
         builder.setView(view);
@@ -447,7 +446,14 @@ public class CameraScanActivity extends AppCompatActivity {
                 return;
             }
 
-            sessionManager.setLocalPassword(identifiant, password);
+            sessionManager.setLocalPassword(identifiantsAcceptes, password);
+            // Relecture immédiate pour confirmer que l'écriture a bien persisté (et pas
+            // été silencieusement perdue par une réinitialisation Keystore, voir
+            // SessionManager.recoverFromCorruptedPrefs) — sans ce log on ne peut pas
+            // distinguer "jamais écrit" de "écrit puis reperdu" en cas de souci.
+            DebugLog.notice(this, TAG, "Mot de passe local enregistré pour " + identifiantsAcceptes
+                    + " — relecture immédiate : hasLocalPassword=" + sessionManager.hasLocalPassword()
+                    + " identifiantsRelus=" + sessionManager.getLocalPasswordIdentifiants());
             Toast.makeText(this, "Mot de passe hors ligne enregistré", Toast.LENGTH_SHORT).show();
             dialog.dismiss();
             goHome();

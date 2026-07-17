@@ -8,16 +8,31 @@ import androidx.security.crypto.EncryptedSharedPreferences;
 import androidx.security.crypto.MasterKeys;
 
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import com.mobile.diafarms.crypto.LocalPasswordHasher;
 import com.mobile.diafarms.models.User;
 
+import java.lang.reflect.Type;
 import java.security.GeneralSecurityException;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Stocke le token de session et le profil utilisateur dans des SharedPreferences
  * chiffrées (EncryptedSharedPreferences) : le token JWT et les infos de compte ne
  * doivent jamais rester en clair sur le disque, contrairement à ce qui existait avant.
+ *
+ * Plusieurs comptes peuvent être mémorisés SIMULTANÉMENT sur le même appareil (voir
+ * Account/getAccounts) — un agent Production et un agent Finance qui partagent un
+ * téléphone de terrain doivent chacun garder leur session et leur mot de passe hors
+ * ligne, indépendamment : avant, un second scan QR écrasait purement et simplement le
+ * seul compte stocké (token ET mot de passe local), rendant l'accès hors ligne du
+ * premier compte définitivement perdu dès qu'un second se connectait sur le même
+ * appareil. getCurrentUser()/getToken()/etc. reflètent toujours le compte ACTIF
+ * (voir getActiveAccountId/setActiveAccountId) ; switchToAccountMatching() est ce qui
+ * permet de changer de compte actif hors ligne, en cherchant parmi tous les comptes
+ * mémorisés plutôt qu'un seul.
  *
  * Sur certains appareils (Samsung notamment), la clé Android Keystore protégeant ces
  * préférences peut devenir indécryptable après un événement système (mise à jour,
@@ -25,18 +40,15 @@ import java.io.IOException;
  * SecurityException sur le moindre accès à la session — observé en conditions réelles.
  * Tous les accès passent donc par des méthodes "safe" qui, en cas d'échec de
  * déchiffrement, réinitialisent les préférences plutôt que de planter : ça équivaut à
- * une déconnexion forcée (perte de la session locale), mais l'app reste utilisable.
+ * une déconnexion forcée de TOUS les comptes (perte de la session locale), mais l'app
+ * reste utilisable.
  */
 public class SessionManager {
     private static final String TAG = "SessionManager";
     private static final String PREF_NAME = "DiaFarmsSession";
-    private static final String KEY_USER = "current_user";
-    private static final String KEY_TOKEN = "token";
-    private static final String KEY_REFRESH_TOKEN = "refresh_token";
+    private static final String KEY_ACCOUNTS = "accounts_v2";
+    private static final String KEY_ACTIVE_ACCOUNT_ID = "active_account_id";
     private static final String KEY_IS_LOGGED_IN = "is_logged_in";
-    private static final String KEY_CURRENT_PROJET = "current_projet";
-    private static final String KEY_LOCAL_PASSWORD_HASH = "local_password_hash";
-    private static final String KEY_LOCAL_PASSWORD_IDENTIFIANT = "local_password_identifiant";
 
     private final Context context;
     private SharedPreferences pref;
@@ -67,9 +79,15 @@ public class SessionManager {
     }
 
     /** Efface le fichier de prefs corrompu et en recrée un vide — dernier recours quand
-     * le Keystore ne peut plus déchiffrer les données déjà écrites. */
+     * le Keystore ne peut plus déchiffrer les données déjà écrites. Efface AUSSI, entre
+     * autres, tous les mots de passe hors ligne de TOUS les comptes : DebugLog.notice
+     * (pas juste Log.e) pour que ça apparaisse dans le journal partagé depuis
+     * Diagnostics, sinon cette perte de données passe totalement inaperçue de
+     * l'utilisateur qui la subit sur le terrain. */
     private void recoverFromCorruptedPrefs(Exception cause) {
         Log.e(TAG, "Préférences chiffrées corrompues (Keystore), réinitialisation forcée", cause);
+        com.mobile.diafarms.util.DebugLog.notice(context, TAG, "Préférences chiffrées corrompues (Keystore), réinitialisation forcée — TOUS les comptes et mots de passe locaux de cet appareil sont perdus : "
+                + cause.getClass().getSimpleName() + (cause.getMessage() != null ? ": " + cause.getMessage() : ""));
         context.deleteSharedPreferences(PREF_NAME);
         resetMasterKeyIfNeeded();
         pref = buildEncryptedPrefs(context);
@@ -130,54 +148,195 @@ public class SessionManager {
         void apply(SharedPreferences.Editor editor);
     }
 
-    public void createSession(User user, String token) {
-        createSession(user, token, null);
+    // ===== COMPTES (plusieurs comptes peuvent coexister sur le même appareil) =====
+
+    /** Un compte mémorisé sur cet appareil (un par utilisateur ayant scanné son QR ici),
+     * indexé par userId (User.getId(), stable — voir CameraScanActivity.onQrLoginSuccess). */
+    private static class Account {
+        String userId;
+        User user;
+        String token;
+        String refreshToken;
+        String currentProjetId;
+        String localPasswordHash;
+        List<String> localPasswordIdentifiants = new ArrayList<>();
     }
 
-    public void createSession(User user, String token, String refreshToken) {
-        safeEdit(editor -> {
-            editor.putBoolean(KEY_IS_LOGGED_IN, true);
-            editor.putString(KEY_USER, gson.toJson(user));
-            editor.putString(KEY_TOKEN, token);
-            if (refreshToken != null) {
-                editor.putString(KEY_REFRESH_TOKEN, refreshToken);
-            }
-            if (user.getProjetsAssignes() != null && !user.getProjetsAssignes().isEmpty()) {
-                editor.putString(KEY_CURRENT_PROJET, user.getProjetsAssignes().get(0));
-            }
-        });
+    private List<Account> getAccounts() {
+        String json = safeGetString(KEY_ACCOUNTS, null);
+        if (json == null) return new ArrayList<>();
+        try {
+            Type type = new TypeToken<List<Account>>() {}.getType();
+            List<Account> result = gson.fromJson(json, type);
+            return result != null ? result : new ArrayList<>();
+        } catch (com.google.gson.JsonSyntaxException e) {
+            Log.e(TAG, "Format de comptes illisible, traité comme aucun compte mémorisé", e);
+            return new ArrayList<>();
+        }
     }
 
-    public User getCurrentUser() {
-        String userJson = safeGetString(KEY_USER, null);
-        if (userJson != null) {
-            return gson.fromJson(userJson, User.class);
+    private void saveAccounts(List<Account> accounts) {
+        safeEdit(editor -> editor.putString(KEY_ACCOUNTS, gson.toJson(accounts)));
+    }
+
+    private static Account findAccount(List<Account> accounts, String userId) {
+        if (userId == null) return null;
+        for (Account a : accounts) {
+            if (userId.equals(a.userId)) return a;
         }
         return null;
     }
 
+    private String getActiveAccountId() {
+        return safeGetString(KEY_ACTIVE_ACCOUNT_ID, null);
+    }
+
+    private void setActiveAccountId(String userId) {
+        safeEdit(editor -> editor.putString(KEY_ACTIVE_ACCOUNT_ID, userId));
+    }
+
+    private Account getActiveAccount() {
+        return findAccount(getAccounts(), getActiveAccountId());
+    }
+
+    // ===== SESSION (compte actif) =====
+
+    public void createSession(User user, String token) {
+        createSession(user, token, null);
+    }
+
+    /** Enregistre/actualise la session d'un compte SANS toucher aux autres comptes déjà
+     * mémorisés sur l'appareil : retrouvé par userId, mis à jour s'il existe déjà (ex:
+     * nouveau scan QR du même agent après expiration), sinon ajouté. Ce compte devient
+     * le compte actif. */
+    public void createSession(User user, String token, String refreshToken) {
+        List<Account> accounts = getAccounts();
+        Account account = findAccount(accounts, user.getId());
+        if (account == null) {
+            account = new Account();
+            account.userId = user.getId();
+            accounts.add(account);
+        }
+        account.user = user;
+        account.token = token;
+        if (refreshToken != null) {
+            account.refreshToken = refreshToken;
+        }
+        if (account.currentProjetId == null && user.getProjetsAssignes() != null && !user.getProjetsAssignes().isEmpty()) {
+            account.currentProjetId = user.getProjetsAssignes().get(0);
+        }
+        saveAccounts(accounts);
+        setActiveAccountId(user.getId());
+        safeEdit(editor -> editor.putBoolean(KEY_IS_LOGGED_IN, true));
+    }
+
+    public User getCurrentUser() {
+        Account a = getActiveAccount();
+        return a != null ? a.user : null;
+    }
+
     public boolean isLoggedIn() {
-        return safeGetBoolean(KEY_IS_LOGGED_IN, false);
+        return safeGetBoolean(KEY_IS_LOGGED_IN, false) && getActiveAccount() != null;
     }
 
     public String getToken() {
-        return safeGetString(KEY_TOKEN, null);
+        Account a = getActiveAccount();
+        return a != null ? a.token : null;
     }
 
     public String getRefreshToken() {
-        return safeGetString(KEY_REFRESH_TOKEN, null);
+        Account a = getActiveAccount();
+        return a != null ? a.refreshToken : null;
     }
 
     public String getCurrentProjetId() {
-        return safeGetString(KEY_CURRENT_PROJET, null);
+        Account a = getActiveAccount();
+        return a != null ? a.currentProjetId : null;
     }
 
     public void setCurrentProjetId(String projetId) {
-        safeEdit(editor -> editor.putString(KEY_CURRENT_PROJET, projetId));
+        List<Account> accounts = getAccounts();
+        Account a = findAccount(accounts, getActiveAccountId());
+        if (a == null) return;
+        a.currentProjetId = projetId;
+        saveAccounts(accounts);
     }
 
-    public void clearSession() {
-        safeEdit(SharedPreferences.Editor::clear);
+    /** Déconnexion "classique" (icône profil sur l'accueil) = verrouillage, PAS un
+     * effacement : on ne touche ni au token ni au mot de passe local du compte actif,
+     * seulement au drapeau is_logged_in (qui n'est pas par compte : c'est un état
+     * d'écran, "app déverrouillée ou non"). Retaper le mot de passe local d'un compte —
+     * le même ou un AUTRE compte mémorisé sur cet appareil (voir switchToAccountMatching)
+     * — suffit à revenir, sans réseau ni nouveau scan QR. Pour retirer complètement un
+     * compte de l'appareil, voir deleteAccount() (écran Paramètres). */
+    public void lockSession() {
+        safeEdit(editor -> editor.putBoolean(KEY_IS_LOGGED_IN, false));
+    }
+
+    /** Réactive la session du compte actif après un déverrouillage réussi par mot de
+     * passe local (même compte). Pour activer un AUTRE compte, voir
+     * switchToAccountMatching(), qui appelle déjà ceci en interne. */
+    public void unlockSession() {
+        safeEdit(editor -> editor.putBoolean(KEY_IS_LOGGED_IN, true));
+    }
+
+    /** Cherche, PARMI TOUS LES COMPTES mémorisés sur l'appareil (pas seulement le compte
+     * actif), celui dont l'identifiant et le mot de passe local correspondent, puis
+     * l'active. C'est ce qui permet à un second (ou troisième...) utilisateur de se
+     * reconnecter hors ligne après que le compte actif s'est déconnecté (voir
+     * LoginActivity.tryOfflineLogin), sans jamais écraser la session de personne.
+     * Retourne true si un compte correspondant a été trouvé et activé. */
+    public boolean switchToAccountMatching(String identifiant, String password) {
+        if (identifiant == null || password == null) return false;
+        String trimmed = identifiant.trim();
+        for (Account a : getAccounts()) {
+            if (a.localPasswordHash == null || a.localPasswordIdentifiants == null) continue;
+            boolean identifiantReconnu = false;
+            for (String accepted : a.localPasswordIdentifiants) {
+                if (accepted.equalsIgnoreCase(trimmed)) {
+                    identifiantReconnu = true;
+                    break;
+                }
+            }
+            if (!identifiantReconnu) continue;
+            if (!LocalPasswordHasher.matches(password, a.localPasswordHash)) continue;
+
+            setActiveAccountId(a.userId);
+            unlockSession();
+            return true;
+        }
+        return false;
+    }
+
+    /** Retire complètement le compte ACTIF de l'appareil (session, token et mot de passe
+     * local) — les autres comptes mémorisés ne sont pas affectés. S'il en reste un
+     * autre, il devient le compte actif ; sinon plus aucun compte n'est actif (retour à
+     * l'écran de connexion, nouveau scan QR nécessaire pour ce compte). Le cache
+     * local générique (projets, détails...) et la file de saisies en attente restent en
+     * revanche partagés au niveau de l'appareil (voir LocalDatabase) — pas encore
+     * cloisonnés par compte. */
+    public void deleteAccount() {
+        List<Account> accounts = getAccounts();
+        String activeId = getActiveAccountId();
+        accounts.removeIf(a -> activeId != null && activeId.equals(a.userId));
+        saveAccounts(accounts);
+        String nextActiveId = accounts.isEmpty() ? null : accounts.get(0).userId;
+        safeEdit(editor -> {
+            if (nextActiveId != null) {
+                editor.putString(KEY_ACTIVE_ACCOUNT_ID, nextActiveId);
+            } else {
+                editor.remove(KEY_ACTIVE_ACCOUNT_ID);
+            }
+            editor.putBoolean(KEY_IS_LOGGED_IN, false);
+        });
+    }
+
+    /** true s'il reste au moins un compte mémorisé sur cet appareil (avant ou après un
+     * deleteAccount()) — utilisé par l'écran Paramètres pour savoir si le cache local
+     * générique (projets, saisies en attente...) peut être purgé sans risque d'emporter
+     * les données d'un AUTRE compte encore présent (voir DiagnosticsActivity). */
+    public boolean hasAnyAccount() {
+        return !getAccounts().isEmpty();
     }
 
     public boolean isQRValid() {
@@ -186,38 +345,76 @@ public class SessionManager {
         return System.currentTimeMillis() < user.getQrExpiry();
     }
 
-    // ===== MOT DE PASSE LOCAL (accès hors ligne) =====
+    // ===== MOT DE PASSE LOCAL (accès hors ligne, par compte) =====
     // Défini juste après un scan QR réussi (voir CameraScanActivity) : c'est ce mot de
     // passe, vérifié uniquement sur l'appareil, qui permet ensuite de se reconnecter par
     // le formulaire identifiant/mot de passe classique quand le réseau est indisponible,
     // en réutilisant la session déjà stockée (token). Toute l'app est pensée pour un
     // usage hors ligne : ce mot de passe local EST le moyen d'accès hors ligne, pas un
-    // simple raccourci de confort.
+    // simple raccourci de confort. Chaque compte a le sien (voir Account) : celui du
+    // compte ACTIF au moment de l'appel pour setLocalPassword/hasLocalPassword/etc. —
+    // voir switchToAccountMatching() pour la recherche à travers TOUS les comptes.
+    //
+    // Le backend accepte indifféremment username, email OU téléphone comme identifiant
+    // de connexion (voir AuthImpl.jwt côté back : findByEmailOrUsernameOrTelephone...).
+    // Si on ne retenait que le username renvoyé par /auth/me (ce qui était fait avant),
+    // un agent qui a l'habitude de se connecter avec son numéro de téléphone tapait un
+    // identifiant qui ne correspondait jamais à celui enregistré au scan — l'accès hors
+    // ligne semblait ne "jamais avoir enregistré le mot de passe" alors qu'il l'avait
+    // bien fait, sous une autre forme d'identifiant. On enregistre donc les trois et on
+    // accepte n'importe lequel d'entre eux à la reconnexion hors ligne.
 
-    public void setLocalPassword(String identifiant, String password) {
-        safeEdit(editor -> {
-            editor.putString(KEY_LOCAL_PASSWORD_HASH, LocalPasswordHasher.hash(password));
-            editor.putString(KEY_LOCAL_PASSWORD_IDENTIFIANT, identifiant);
-        });
+    public void setLocalPassword(List<String> acceptedIdentifiants, String password) {
+        List<String> cleaned = new ArrayList<>();
+        for (String candidate : acceptedIdentifiants) {
+            if (candidate != null && !candidate.trim().isEmpty()) {
+                cleaned.add(candidate.trim());
+            }
+        }
+        List<Account> accounts = getAccounts();
+        Account a = findAccount(accounts, getActiveAccountId());
+        if (a == null) return;
+        a.localPasswordHash = LocalPasswordHasher.hash(password);
+        a.localPasswordIdentifiants = cleaned;
+        saveAccounts(accounts);
     }
 
+    /** true si le compte ACTIF a déjà un mot de passe local défini (pas les autres
+     * comptes mémorisés sur l'appareil — voir switchToAccountMatching pour ceux-là). */
     public boolean hasLocalPassword() {
-        return safeGetString(KEY_LOCAL_PASSWORD_HASH, null) != null;
+        Account a = getActiveAccount();
+        return a != null && a.localPasswordHash != null;
     }
 
     public boolean verifyLocalPassword(String password) {
-        String hash = safeGetString(KEY_LOCAL_PASSWORD_HASH, null);
-        return hash != null && LocalPasswordHasher.matches(password, hash);
+        Account a = getActiveAccount();
+        return a != null && a.localPasswordHash != null && LocalPasswordHasher.matches(password, a.localPasswordHash);
     }
 
-    public String getLocalPasswordIdentifiant() {
-        return safeGetString(KEY_LOCAL_PASSWORD_IDENTIFIANT, null);
+    /** true si candidate correspond (insensible à la casse/aux espaces) à l'un des
+     * identifiants (username/email/téléphone) enregistrés avec le mot de passe local
+     * du compte ACTIF. */
+    public boolean matchesLocalPasswordIdentifiant(String candidate) {
+        if (candidate == null) return false;
+        String trimmed = candidate.trim();
+        for (String accepted : getLocalPasswordIdentifiants()) {
+            if (accepted.equalsIgnoreCase(trimmed)) return true;
+        }
+        return false;
+    }
+
+    public List<String> getLocalPasswordIdentifiants() {
+        Account a = getActiveAccount();
+        if (a == null || a.localPasswordIdentifiants == null) return new ArrayList<>();
+        return a.localPasswordIdentifiants;
     }
 
     public void clearLocalPassword() {
-        safeEdit(editor -> {
-            editor.remove(KEY_LOCAL_PASSWORD_HASH);
-            editor.remove(KEY_LOCAL_PASSWORD_IDENTIFIANT);
-        });
+        List<Account> accounts = getAccounts();
+        Account a = findAccount(accounts, getActiveAccountId());
+        if (a == null) return;
+        a.localPasswordHash = null;
+        a.localPasswordIdentifiants = new ArrayList<>();
+        saveAccounts(accounts);
     }
 }

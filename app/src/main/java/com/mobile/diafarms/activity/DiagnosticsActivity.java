@@ -64,7 +64,7 @@ public class DiagnosticsActivity extends AppCompatActivity {
         tvCompteIdentifiant.setText(currentUser != null && currentUser.getNom() != null
                 ? "Connecté en tant que " + currentUser.getNom()
                 : "Non connecté");
-        findViewById(R.id.btnDeconnexion).setOnClickListener(v -> confirmDeconnexion());
+        findViewById(R.id.btnSupprimerCompte).setOnClickListener(v -> confirmSuppressionCompte());
 
         etServerUrl = findViewById(R.id.etServerUrl);
         tvConnectiviteResult = findViewById(R.id.tvConnectiviteResult);
@@ -142,18 +142,30 @@ public class DiagnosticsActivity extends AppCompatActivity {
         });
     }
 
-    private void confirmDeconnexion() {
+    /**
+     * Action destructrice et irréversible : retire complètement le compte ACTIF de cet
+     * appareil (session, token, mot de passe local) — pas la déconnexion classique du
+     * terrain (voir HomeActivity, icône profil), qui elle ne fait que verrouiller sans
+     * rien effacer. Plusieurs comptes pouvant coexister sur le même appareil (voir
+     * SessionManager), le cache local générique (projets, identifiants, saisies en
+     * attente) n'est purgé que s'il ne reste plus aucun autre compte après suppression —
+     * sinon on emporterait par erreur les données d'un compte encore présent.
+     */
+    private void confirmSuppressionCompte() {
         int pending = localDatabase.countPending();
-        String message = pending > 0
-                ? "Cette action supprime la session en cours (et le mot de passe hors ligne s'il y en a un). "
-                    + pending + " saisie(s) non encore synchronisée(s) resteront en attente localement."
-                : "Cette action supprime la session en cours (et le mot de passe hors ligne s'il y en a un).";
+        String message = "Cette action est irréversible : la session et le mot de passe hors ligne de ce compte "
+                + "seront supprimés de cet appareil. Un nouveau scan QR sera nécessaire pour s'y reconnecter."
+                + (pending > 0 ? "\n\nSi c'est le seul compte de l'appareil, " + pending
+                    + " saisie(s) non encore synchronisée(s) seront aussi définitivement perdues." : "");
 
         new MaterialAlertDialogBuilder(this)
-                .setTitle("Se déconnecter ?")
+                .setTitle("Supprimer ce compte de l'appareil ?")
                 .setMessage(message)
-                .setPositiveButton("Se déconnecter", (dialog, which) -> {
-                    sessionManager.clearSession();
+                .setPositiveButton("Supprimer définitivement", (dialog, which) -> {
+                    sessionManager.deleteAccount();
+                    if (!sessionManager.hasAnyAccount()) {
+                        localDatabase.clearAllLocalData();
+                    }
                     ApiClient.reset();
                     Intent intent = new Intent(this, LoginActivity.class);
                     intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);

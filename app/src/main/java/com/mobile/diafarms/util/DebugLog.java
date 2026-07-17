@@ -66,6 +66,25 @@ public class DebugLog {
         }
     }
 
+    /** Comme captureHttpError mais pour un évènement de diagnostic non-HTTP (ex: échec
+     * de la connexion hors ligne) — écrit dans le MÊME journal que celui affiché/partagé
+     * par l'écran Diagnostics (voir DiagnosticsActivity.readErrorLog/getErrorLogFile),
+     * qui ne lit que ERROR_FILE_NAME. Un DebugLog.log() seul (journal général) ne serait
+     * donc jamais vu par quelqu'un sur le terrain qui partage juste ce journal. */
+    public static synchronized void notice(Context context, String tag, String message) {
+        String entry = SEPARATOR + "\n" + TIMESTAMP.format(new Date()) + " [" + tag + "] " + message;
+        log(context, tag, message);
+        try {
+            File dir = context.getApplicationContext().getExternalFilesDir(null);
+            if (dir == null) return;
+            File file = new File(dir, ERROR_FILE_NAME);
+            try (FileWriter writer = new FileWriter(file, true)) {
+                writer.write(entry + "\n");
+            }
+        } catch (IOException ignored) {
+        }
+    }
+
     public static File getErrorLogFile(Context context) {
         File dir = context.getApplicationContext().getExternalFilesDir(null);
         if (dir == null) return null;
