@@ -519,6 +519,51 @@
                         android:textSize="13sp"
                         android:textColor="@android:color/darker_gray" />
                 </LinearLayout>
+
+                <!-- Visible seulement si "commune" est coché : répartit la dépense/rentrée
+                     sur les projets actifs sélectionnés (voir SaisieFormActivity, qui
+                     peuple ce conteneur dynamiquement à partir des projets en cache). -->
+                <LinearLayout
+                    android:id="@+id/groupProjetsConcernes"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginTop="8dp"
+                    android:visibility="gone">
+
+                    <View android:layout_width="match_parent" android:layout_height="1dp"
+                        android:background="#E5E7EB" android:layout_marginBottom="8dp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Projets concernés"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:textColor="@android:color/black" />
+                        <TextView
+                            android:id="@+id/btnToutSelectionner"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Tout désélectionner"
+                            android:textSize="12sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/primary"
+                            android:padding="4dp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/containerProjetsConcernes"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical" />
+                </LinearLayout>
             </LinearLayout>
 
             <View android:layout_width="match_parent" android:layout_height="28dp" />

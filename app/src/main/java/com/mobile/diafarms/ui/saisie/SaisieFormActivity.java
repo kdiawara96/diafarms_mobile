@@ -9,6 +9,7 @@ import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.CheckBox;
 import android.widget.ImageButton;
+import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -22,6 +23,7 @@ import androidx.core.view.WindowInsetsCompat;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import com.mobile.diafarms.R;
 import com.mobile.diafarms.data.CachePrefetcher;
 import com.mobile.diafarms.data.LocalDatabase;
@@ -36,6 +38,7 @@ import com.mobile.diafarms.network.dto.EffectifReformeResponse;
 import com.mobile.diafarms.network.dto.MortaliteCreateRequest;
 import com.mobile.diafarms.network.dto.OccupationBatimentResponse;
 import com.mobile.diafarms.network.dto.ProjetDetailResponse;
+import com.mobile.diafarms.network.dto.ProjetSelectResponse;
 import com.mobile.diafarms.network.dto.ReformeCreateRequest;
 import com.mobile.diafarms.network.dto.SoinsCreateRequest;
 import com.mobile.diafarms.network.dto.StockAlimentResponse;
@@ -45,6 +48,7 @@ import com.mobile.diafarms.network.dto.TransactionCreateRequest;
 import com.mobile.diafarms.network.dto.VenteOeufsCreateRequest;
 import com.mobile.diafarms.network.dto.VenteReformeCreateRequest;
 
+import java.lang.reflect.Type;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -142,6 +146,10 @@ public class SaisieFormActivity extends AppCompatActivity {
     private Spinner spinnerCategorie;
     private TextInputEditText etMontant, etDescriptionTransaction;
     private CheckBox checkCommun;
+    private View groupProjetsConcernes;
+    private LinearLayout containerProjetsConcernes;
+    private TextView btnToutSelectionner;
+    private final List<CheckBox> checkboxesProjetsConcernes = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -251,6 +259,17 @@ public class SaisieFormActivity extends AppCompatActivity {
         etMontant = findViewById(R.id.etMontant);
         etDescriptionTransaction = findViewById(R.id.etDescriptionTransaction);
         checkCommun = findViewById(R.id.checkCommun);
+        groupProjetsConcernes = findViewById(R.id.groupProjetsConcernes);
+        containerProjetsConcernes = findViewById(R.id.containerProjetsConcernes);
+        btnToutSelectionner = findViewById(R.id.btnToutSelectionner);
+
+        checkCommun.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            groupProjetsConcernes.setVisibility(isChecked ? View.VISIBLE : View.GONE);
+            if (isChecked && checkboxesProjetsConcernes.isEmpty()) {
+                populateProjetsConcernesCheckboxes(null);
+            }
+        });
+        btnToutSelectionner.setOnClickListener(v -> toggleToutSelectionner());
 
         ArrayAdapter<String> categorieAdapter = new ArrayAdapter<>(this,
                 android.R.layout.simple_spinner_item, CATEGORIES_TRANSACTION);
@@ -277,6 +296,64 @@ public class SaisieFormActivity extends AppCompatActivity {
         groupVenteReforme.setVisibility(type == SaisieType.VENTE_REFORME ? View.VISIBLE : View.GONE);
         groupTransaction.setVisibility(
                 (type == SaisieType.TRANSACTION_ENTREE || type == SaisieType.TRANSACTION_SORTIE) ? View.VISIBLE : View.GONE);
+    }
+
+    /**
+     * Remplit la case à cocher "Projets concernés" à partir des projets actifs en
+     * cache local (voir CachePrefetcher.CACHE_PROJETS_SELECT — fonctionne donc aussi
+     * hors ligne, comme le reste de l'app). Coché par défaut = toute la ferme, à
+     * décocher un par un ou via "Tout désélectionner" — c'est l'utilisateur qui
+     * précise ensuite quels projets sont réellement concernés par cette dépense/
+     * rentrée commune.
+     *
+     * @param preselectionnesUniqueIds si non null (édition d'une saisie existante),
+     *                                 seuls ces projets sont cochés au départ.
+     */
+    private void populateProjetsConcernesCheckboxes(List<String> preselectionnesUniqueIds) {
+        containerProjetsConcernes.removeAllViews();
+        checkboxesProjetsConcernes.clear();
+
+        String json = localDatabase.getCache(CachePrefetcher.CACHE_PROJETS_SELECT);
+        List<ProjetSelectResponse> projets = new ArrayList<>();
+        if (json != null) {
+            Type listType = new TypeToken<List<ProjetSelectResponse>>() {}.getType();
+            List<ProjetSelectResponse> parsed = gson.fromJson(json, listType);
+            if (parsed != null) projets = parsed;
+        }
+
+        for (ProjetSelectResponse projet : projets) {
+            if (!projet.isActive()) continue;
+            CheckBox cb = new CheckBox(this);
+            cb.setText(projet.getLabel());
+            cb.setTag(projet.getUniqueId());
+            cb.setChecked(preselectionnesUniqueIds == null || preselectionnesUniqueIds.contains(projet.getUniqueId()));
+            containerProjetsConcernes.addView(cb);
+            checkboxesProjetsConcernes.add(cb);
+        }
+        updateToutSelectionnerLabel();
+    }
+
+    private void toggleToutSelectionner() {
+        boolean toutEstCoche = checkboxesProjetsConcernes.stream().allMatch(CheckBox::isChecked);
+        boolean nouvelEtat = !toutEstCoche;
+        for (CheckBox cb : checkboxesProjetsConcernes) {
+            cb.setChecked(nouvelEtat);
+        }
+        updateToutSelectionnerLabel();
+    }
+
+    private void updateToutSelectionnerLabel() {
+        boolean toutEstCoche = !checkboxesProjetsConcernes.isEmpty()
+                && checkboxesProjetsConcernes.stream().allMatch(CheckBox::isChecked);
+        btnToutSelectionner.setText(toutEstCoche ? "Tout désélectionner" : "Tout sélectionner");
+    }
+
+    private List<String> getSelectedProjetsConcernesUniqueIds() {
+        List<String> result = new ArrayList<>();
+        for (CheckBox cb : checkboxesProjetsConcernes) {
+            if (cb.isChecked()) result.add((String) cb.getTag());
+        }
+        return result;
     }
 
     private void setupDateHeurePickers() {
@@ -769,10 +846,16 @@ public class SaisieFormActivity extends AppCompatActivity {
                     toast("Aucun projet actif : cochez \"commune\" ou sélectionnez un projet depuis l'accueil");
                     return;
                 }
+                List<String> projetsConcernes = commun ? getSelectedProjetsConcernesUniqueIds() : null;
+                if (commun && projetsConcernes.isEmpty()) {
+                    toast("Sélectionnez au moins un projet concerné par cette dépense/rentrée commune");
+                    return;
+                }
                 TransactionCreateRequest req = new TransactionCreateRequest();
                 req.type = (type == SaisieType.TRANSACTION_ENTREE) ? "ENTREE" : "SORTIE";
                 req.commun = commun;
                 req.projetUniqueId = commun ? null : projetUniqueId;
+                req.projetsConcernesUniqueIds = projetsConcernes;
                 req.date = date;
                 req.description = description;
                 req.montant = montant;
@@ -884,6 +967,12 @@ public class SaisieFormActivity extends AppCompatActivity {
                 etDescriptionTransaction.setText(req.description);
                 selectSpinnerValue(spinnerCategorie, CATEGORIES_TRANSACTION, req.categorie);
                 checkCommun.setChecked(Boolean.TRUE.equals(req.commun));
+                if (Boolean.TRUE.equals(req.commun)) {
+                    // Écrase la présélection "tout coché" posée par défaut par le
+                    // listener de checkCommun (voir bindViews) avec les projets
+                    // réellement enregistrés sur cette saisie existante.
+                    populateProjetsConcernesCheckboxes(req.projetsConcernesUniqueIds);
+                }
                 break;
             }
         }
