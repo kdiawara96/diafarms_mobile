@@ -47,7 +47,12 @@ public class LoginActivity extends AppCompatActivity {
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.section_login_act), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
+            // Le mode edge-to-edge désactive le comportement classique de
+            // windowSoftInputMode="adjustResize" : sans ça, le clavier recouvre le champ
+            // mot de passe au lieu de laisser le ScrollView (fillViewport) se réduire et
+            // défiler pour le garder visible.
+            Insets ime = insets.getInsets(WindowInsetsCompat.Type.ime());
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, Math.max(systemBars.bottom, ime.bottom));
             return insets;
         });
 

@@ -166,9 +166,11 @@ public class LocalDatabase extends SQLiteOpenHelper {
 
     // ===== SAISIES LOCALES =====
 
-    /** Crée une nouvelle saisie locale (statut LOCAL) et retourne son localId généré. */
-    public String insertSaisie(SaisieType type, String projetUniqueId, String projetLabel,
-                                String payloadJson, String displaySummary) {
+    /**
+     * Crée une nouvelle saisie locale (statut LOCAL) et retourne son localId généré.
+     */
+    public void insertSaisie(SaisieType type, String projetUniqueId, String projetLabel,
+                             String payloadJson, String displaySummary) {
         String localId = UUID.randomUUID().toString();
 
         SQLiteDatabase db = this.getWritableDatabase();
@@ -183,7 +185,6 @@ public class LocalDatabase extends SQLiteOpenHelper {
         values.put(COL_CREATED_AT, System.currentTimeMillis());
 
         db.insert(TABLE_SAISIES, null, values);
-        return localId;
     }
 
     /** Met à jour le contenu d'une saisie encore LOCAL/ERROR (repasse à LOCAL après modification). */
@@ -267,6 +268,19 @@ public class LocalDatabase extends SQLiteOpenHelper {
         db.delete(TABLE_ACCOUNTS, null, null);
         db.delete(TABLE_CACHE, null, null);
         return pendingCount;
+    }
+
+    /**
+     * Ne vide que le cache serveur générique (projets, détail projet, alertes, stock...)
+     * — contrairement à clearAllLocalData(), ne touche ni aux saisies en attente/déjà
+     * synchronisées, ni aux comptes/session enregistrés. Action sans risque de perte de
+     * données : force juste un re-téléchargement complet au prochain accès réseau, utile
+     * quand les données affichées semblent incohérentes/périmées sans vouloir perdre de
+     * saisies ni se reconnecter.
+     */
+    public void clearCacheOnly() {
+        SQLiteDatabase db = getWritableDatabase();
+        db.delete(TABLE_CACHE, null, null);
     }
 
     private List<SaisieLocale> querySaisies(String selection, String[] selectionArgs) {

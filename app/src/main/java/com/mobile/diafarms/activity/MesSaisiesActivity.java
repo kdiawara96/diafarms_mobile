@@ -10,6 +10,7 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.BaseAdapter;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -163,6 +164,7 @@ public class MesSaisiesActivity extends AppCompatActivity {
 
             SaisieLocale saisie = items.get(position);
 
+            ImageView ivIcon = view.findViewById(R.id.ivItemIcon);
             TextView tvType = view.findViewById(R.id.tvItemType);
             TextView tvSummary = view.findViewById(R.id.tvItemSummary);
             TextView tvMeta = view.findViewById(R.id.tvItemMeta);
@@ -170,6 +172,7 @@ public class MesSaisiesActivity extends AppCompatActivity {
             ImageButton btnEdit = view.findViewById(R.id.btnItemEdit);
             ImageButton btnDelete = view.findViewById(R.id.btnItemDelete);
 
+            ivIcon.setImageResource(iconePour(saisie.getType()));
             tvType.setText(saisie.getType().getLabel());
             tvSummary.setText(saisie.getDisplaySummary());
 
@@ -200,6 +203,32 @@ public class MesSaisiesActivity extends AppCompatActivity {
             btnDelete.setOnClickListener(v -> confirmDelete(saisie));
 
             return view;
+        }
+
+        // Mêmes icônes que les cartes de saisie de l'accueil (HomeActivity), pour rester
+        // cohérent visuellement entre les deux écrans.
+        private int iconePour(SaisieType type) {
+            switch (type) {
+                case COLLECTE_OEUFS:
+                case VENTE_OEUFS:
+                    return R.drawable.oeufs;
+                case ALIMENTATION_ACHAT:
+                case ALIMENTATION_CONSOMMATION:
+                    return R.drawable.ble;
+                case SOINS:
+                    return R.drawable.injection;
+                case MORTALITE:
+                    return android.R.drawable.ic_dialog_alert;
+                case REFORME:
+                case VENTE_REFORME:
+                    return R.drawable.reforme;
+                case TRANSACTION_ENTREE:
+                    return android.R.drawable.arrow_down_float;
+                case TRANSACTION_SORTIE:
+                    return android.R.drawable.arrow_up_float;
+                default:
+                    return android.R.drawable.ic_dialog_info;
+            }
         }
     }
 }

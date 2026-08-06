@@ -22,28 +22,36 @@
         android:theme="@style/Theme.Diafarms">
         <activity
             android:name=".activity.history.HistoriqueCollecteActivity"
+            android:screenOrientation="fullSensor"
             android:exported="false" />
         <activity
             android:name=".ui.saisie.SaisieSortieActivity"
+            android:screenOrientation="fullSensor"
             android:exported="false" />
         <activity
             android:name=".ui.saisie.SaisieSoinsActivity"
+            android:screenOrientation="fullSensor"
             android:exported="false" />
         <activity
             android:name=".ui.saisie.SaisieOeufsActivity"
+            android:screenOrientation="fullSensor"
             android:exported="false" />
         <activity
             android:name=".ui.saisie.SaisieMortaliteActivity"
+            android:screenOrientation="fullSensor"
             android:exported="false" />
         <activity
             android:name=".ui.saisie.SaisieEntreeActivity"
+            android:screenOrientation="fullSensor"
             android:exported="false" />
         <activity
             android:name=".ui.saisie.SaisieAlimentActivity"
+            android:screenOrientation="fullSensor"
             android:exported="false" /> <!-- ❌ LauncherScreen = plus launcher, juste une activity -->
         <activity
             android:name=".activity.LauncherScreen"
             android:exported="true"
+            android:screenOrientation="fullSensor"
             android:theme="@style/Theme.Diafarms">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -53,24 +61,31 @@
         </activity>
         <activity
             android:name=".activity.CameraScanActivity"
+            android:screenOrientation="fullSensor"
             android:exported="false" />
         <activity
             android:name=".activity.HomeActivity"
+            android:screenOrientation="fullSensor"
             android:exported="false" />
         <activity
             android:name=".activity.ScannerActivity"
+            android:screenOrientation="fullSensor"
             android:exported="false" />
         <activity
             android:name=".activity.LoginActivity"
+            android:screenOrientation="fullSensor"
             android:exported="false" />
         <activity
             android:name=".ui.saisie.SaisieFormActivity"
+            android:screenOrientation="fullSensor"
             android:exported="false" />
         <activity
             android:name=".activity.MesSaisiesActivity"
+            android:screenOrientation="fullSensor"
             android:exported="false" />
         <activity
             android:name=".activity.DiagnosticsActivity"
+            android:screenOrientation="fullSensor"
             android:exported="false" />
 
         <provider

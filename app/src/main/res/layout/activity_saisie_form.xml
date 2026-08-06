@@ -139,7 +139,27 @@
                 android:orientation="vertical"
                 android:visibility="gone">
 
+                <TextView
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="Unité de saisie" android:textColor="@android:color/black" android:textSize="14sp"
+                    android:layout_marginBottom="4dp" />
+                <RadioGroup
+                    android:id="@+id/radioGroupUniteCollecte"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="12dp">
+                    <RadioButton
+                        android:id="@+id/radioUniteCollecteOeuf"
+                        android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                        android:text="Œuf" android:checked="true" />
+                    <RadioButton
+                        android:id="@+id/radioUniteCollecteAlveole"
+                        android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                        android:text="Alvéole (30 œufs)" />
+                </RadioGroup>
+
                 <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilOeufsCollectes"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:hint="Œufs collectés">
                     <com.google.android.material.textfield.TextInputEditText
@@ -379,9 +399,29 @@
                     android:layout_marginBottom="12dp"
                     android:textSize="13sp"
                     android:textColor="@android:color/darker_gray"
-                    tools:text="Disponible à la vente (ferme) : 250 œuf(s)" />
+                    tools:text="Disponible à la vente (ferme) : 250 œuf(s) (8 alvéole(s) + 10)" />
+
+                <TextView
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="Unité de vente" android:textColor="@android:color/black" android:textSize="14sp"
+                    android:layout_marginBottom="4dp" />
+                <RadioGroup
+                    android:id="@+id/radioGroupUniteVenteOeufs"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="12dp">
+                    <RadioButton
+                        android:id="@+id/radioUniteVenteOeuf"
+                        android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                        android:text="Œuf" android:checked="true" />
+                    <RadioButton
+                        android:id="@+id/radioUniteVenteAlveole"
+                        android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                        android:text="Alvéole (30 œufs)" />
+                </RadioGroup>
 
                 <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilQuantiteOeufsVente"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:hint="Nombre d'œufs vendus">
                     <com.google.android.material.textfield.TextInputEditText
@@ -393,6 +433,7 @@
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 
                 <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilPrixUnitaireOeufs"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:hint="Prix unitaire (FCFA, optionnel)">
                     <com.google.android.material.textfield.TextInputEditText

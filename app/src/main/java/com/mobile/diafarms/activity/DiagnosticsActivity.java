@@ -3,16 +3,19 @@ package com.mobile.diafarms.activity;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.FileProvider;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.textfield.TextInputEditText;
 import com.mobile.diafarms.BuildConfig;
 import com.mobile.diafarms.R;
 import com.mobile.diafarms.data.AppSettings;
@@ -84,6 +87,7 @@ public class DiagnosticsActivity extends AppCompatActivity {
         });
 
         findViewById(R.id.btnViderBase).setOnClickListener(v -> confirmViderBase());
+        findViewById(R.id.btnViderCache).setOnClickListener(v -> confirmViderCache());
 
         findViewById(R.id.btnPartagerLog).setOnClickListener(v -> partagerLog());
         findViewById(R.id.btnViderLog).setOnClickListener(v -> {
@@ -156,45 +160,101 @@ public class DiagnosticsActivity extends AppCompatActivity {
         String message = "Cette action est irréversible : la session et le mot de passe hors ligne de ce compte "
                 + "seront supprimés de cet appareil. Un nouveau scan QR sera nécessaire pour s'y reconnecter."
                 + (pending > 0 ? "\n\nSi c'est le seul compte de l'appareil, " + pending
-                    + " saisie(s) non encore synchronisée(s) seront aussi définitivement perdues." : "");
+                    + " saisie(s) non encore synchronisée(s) seront aussi définitivement perdues." : "")
+                + "\n\nConfirmez avec votre mot de passe hors ligne.";
 
-        new MaterialAlertDialogBuilder(this)
-                .setTitle("Supprimer ce compte de l'appareil ?")
-                .setMessage(message)
-                .setPositiveButton("Supprimer définitivement", (dialog, which) -> {
-                    sessionManager.deleteAccount();
-                    if (!sessionManager.hasAnyAccount()) {
-                        localDatabase.clearAllLocalData();
-                    }
-                    ApiClient.reset();
-                    Intent intent = new Intent(this, LoginActivity.class);
-                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                    startActivity(intent);
-                    finish();
-                })
-                .setNegativeButton("Annuler", null)
-                .show();
+        confirmAvecMotDePasse("Supprimer ce compte de l'appareil ?", message, "Supprimer définitivement", () -> {
+            sessionManager.deleteAccount();
+            if (!sessionManager.hasAnyAccount()) {
+                localDatabase.clearAllLocalData();
+            }
+            ApiClient.reset();
+            Intent intent = new Intent(this, LoginActivity.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            startActivity(intent);
+            finish();
+        });
     }
 
     private void confirmViderBase() {
         int pending = localDatabase.countPending();
-        String message = pending > 0
+        String message = (pending > 0
                 ? "Cette action supprime toutes les données locales, y compris "
                     + pending + " saisie(s) non encore synchronisée(s) qui seront définitivement perdues."
-                : "Cette action supprime toutes les données locales (aucune saisie en attente actuellement).";
+                : "Cette action supprime toutes les données locales (aucune saisie en attente actuellement).")
+                + "\n\nConfirmez avec votre mot de passe hors ligne.";
 
-        new MaterialAlertDialogBuilder(this)
-                .setTitle("Vider la base locale ?")
+        confirmAvecMotDePasse("Vider la base locale ?", message, "Vider", () -> {
+            int lost = localDatabase.clearAllLocalData();
+            Toast.makeText(this, lost > 0
+                    ? lost + " saisie(s) non synchronisée(s) supprimée(s)"
+                    : "Données locales vidées", Toast.LENGTH_LONG).show();
+            refreshPendingCount();
+        });
+    }
+
+    /**
+     * "Vider le cache" ne touche ni aux saisies en attente ni à la session (voir
+     * LocalDatabase.clearCacheOnly), mais reste risqué sur le terrain : tant qu'aucun
+     * accès réseau n'a eu lieu pour le repeupler, les projets/alertes/stock ne sont
+     * plus disponibles hors ligne — l'agent peut se retrouver bloqué sans données en
+     * pleine ferme, sans connexion. D'où la même confirmation par mot de passe que les
+     * autres actions de la zone dangereuse, avec un avertissement explicite du risque
+     * plutôt qu'un simple bouton déclenchant l'action au premier tap.
+     */
+    private void confirmViderCache() {
+        String message = "Les données serveur en cache (projets, alertes, stock...) seront supprimées.\n\n"
+                + "Tant que l'appareil ne se sera pas reconnecté au réseau au moins une fois pour les "
+                + "recharger, elles ne seront plus disponibles hors ligne — vous risquez de vous retrouver "
+                + "sans données sur le terrain si vous perdez la connexion avant.\n\n"
+                + "Confirmez avec votre mot de passe hors ligne.";
+
+        confirmAvecMotDePasse("Vider le cache ?", message, "Vider le cache", () -> {
+            localDatabase.clearCacheOnly();
+            Toast.makeText(this, "Cache vidé — les données seront rechargées au prochain accès réseau", Toast.LENGTH_LONG).show();
+        });
+    }
+
+    /**
+     * Action de la Zone dangereuse, confirmée par le mot de passe hors ligne du compte
+     * ACTIF (celui défini au scan QR, voir SessionManager.setLocalPassword) plutôt
+     * qu'un simple "Confirmer/Annuler" — ces deux actions (suppression de compte,
+     * vidage complet de la base) sont irréversibles et perdent potentiellement des
+     * saisies non synchronisées, donc trop faciles à déclencher par erreur avec un
+     * simple bouton. Vérifié hors ligne (pas d'appel réseau) pour rester utilisable
+     * sur le terrain sans connexion, là où cet écran est justement le plus utile.
+     * Le dialogue reste ouvert (pas de dismiss automatique) tant que le mot de passe
+     * saisi est incorrect, pour permettre de réessayer.
+     */
+    private void confirmAvecMotDePasse(String title, String message, String actionLabel, Runnable action) {
+        View passwordView = LayoutInflater.from(this).inflate(R.layout.dialog_confirm_password, null);
+        TextInputEditText etPassword = passwordView.findViewById(R.id.etConfirmPassword);
+
+        AlertDialog dialog = new MaterialAlertDialogBuilder(this)
+                .setTitle(title)
                 .setMessage(message)
-                .setPositiveButton("Vider", (dialog, which) -> {
-                    int lost = localDatabase.clearAllLocalData();
-                    Toast.makeText(this, lost > 0
-                            ? lost + " saisie(s) non synchronisée(s) supprimée(s)"
-                            : "Données locales vidées", Toast.LENGTH_LONG).show();
-                    refreshPendingCount();
-                })
+                .setView(passwordView)
+                .setPositiveButton(actionLabel, null) // listener posé après show() pour contrôler le dismiss
                 .setNegativeButton("Annuler", null)
-                .show();
+                .create();
+
+        dialog.setOnShowListener(d -> {
+            // Rouge comme "Vider les données locales"/"Supprimer ce compte" plus bas :
+            // ces deux actions sont irréversibles, le bouton ne doit pas se confondre
+            // avec une confirmation anodine (couleur par défaut du thème).
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getColor(R.color.red_error));
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                String entered = etPassword.getText() != null ? etPassword.getText().toString() : "";
+                if (!sessionManager.verifyLocalPassword(entered)) {
+                    etPassword.setError("Mot de passe incorrect");
+                    return;
+                }
+                dialog.dismiss();
+                action.run();
+            });
+        });
+
+        dialog.show();
     }
 
     private void refreshPendingCount() {

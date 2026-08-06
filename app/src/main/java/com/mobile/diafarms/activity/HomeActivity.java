@@ -1,6 +1,9 @@
 package com.mobile.diafarms.activity;
 
+import android.content.Context;
 import android.content.Intent;
+import android.net.ConnectivityManager;
+import android.net.Network;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -35,6 +38,8 @@ import com.mobile.diafarms.network.dto.ProjetDetailResponse;
 import com.mobile.diafarms.network.dto.ProjetSelectResponse;
 import com.mobile.diafarms.network.dto.TransactionCreateRequest;
 import com.mobile.diafarms.ui.saisie.SaisieFormActivity;
+import com.mobile.diafarms.util.NetworkUtils;
+import com.mobile.diafarms.util.OccupationUtils;
 
 import java.lang.reflect.Type;
 import java.text.SimpleDateFormat;
@@ -67,6 +72,15 @@ public class HomeActivity extends AppCompatActivity {
     private User currentUser;
     private ProjetSelectResponse currentProjet;
     private List<ProjetSelectResponse> projetsList = new ArrayList<>();
+    // Évite de rafraîchir les projets deux fois au lancement : onCreate (loadProjets)
+    // s'en charge déjà, onResume ne doit le refaire qu'aux reprises suivantes.
+    private boolean premierResumeFait = false;
+
+    // Connectivité réelle (voir setupConnectivityMonitor) : l'indicateur En ligne/Hors
+    // ligne de la barre du bas était figé en dur dans le XML jusqu'ici.
+    private ConnectivityManager connectivityManager;
+    private ConnectivityManager.NetworkCallback networkCallback;
+    private boolean wasOnline = true;
 
     // Vues Header
     private TextView tvAgentName;
@@ -146,6 +160,7 @@ public class HomeActivity extends AppCompatActivity {
         setupVisibilityByRole();
         setupClickListeners();
         setupSyncStatus();
+        setupConnectivityMonitor();
         loadProjets();
         loadLastEntry();
         updateFinanceStats();
@@ -228,12 +243,17 @@ public class HomeActivity extends AppCompatActivity {
             roles.append("Administration");
         }
 
-        new android.app.AlertDialog.Builder(this)
+        android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this)
                 .setTitle(currentUser.getNom())
                 .setMessage(roles.length() > 0 ? roles.toString() : "Aucun rôle")
-                .setPositiveButton("Déconnecter", (dialog, which) -> logout())
+                .setPositiveButton("Déconnecter", (d, which) -> logout())
                 .setNegativeButton("Fermer", null)
-                .show();
+                .create();
+        dialog.show();
+        // Bouton par défaut du thème (vert primaire) pour les deux actions — "Déconnecter"
+        // se confondait visuellement avec "Fermer" alors que c'est la seule des deux qui
+        // change réellement l'état de la session.
+        dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setTextColor(getColor(R.color.red_error));
     }
 
     private void logout() {
@@ -257,10 +277,15 @@ public class HomeActivity extends AppCompatActivity {
     }
 
     /** Charge les projets réels de la ferme (GET /projets/select) pour peupler le sélecteur. */
-    /** Réseau d'abord ; en cas d'échec (hors ligne), retombe sur le cache local plutôt
-     * que d'afficher un écran vierge — voir LocalDatabase.putCache/getCache. Le cache
-     * est rafraîchi à chaque succès réseau et après chaque synchronisation (forceSync). */
+    /** Local d'abord : affiche tout de suite la dernière liste connue en cache (voir
+     * LocalDatabase.putCache/getCache) au lieu d'attendre la réponse réseau — sur le
+     * terrain hors ligne, ApiClient met jusqu'à 15s (connectTimeout/readTimeout) à
+     * échouer, ce qui figeait l'écran tout ce temps. Le réseau tourne ensuite en tâche
+     * de fond et rafraîchit l'affichage/le cache s'il aboutit ; le cache est aussi
+     * rafraîchi après chaque synchronisation (forceSync). */
     private void loadProjets() {
+        boolean hadCache = renderProjetsFromCache();
+
         ApiClient.dataApi(this).getProjetsSelect().enqueue(new Callback<ApiEnvelope<List<ProjetSelectResponse>>>() {
             @Override
             public void onResponse(Call<ApiEnvelope<List<ProjetSelectResponse>>> call, Response<ApiEnvelope<List<ProjetSelectResponse>>> response) {
@@ -275,30 +300,35 @@ public class HomeActivity extends AppCompatActivity {
                     // ligne sur le terrain (voir CachePrefetcher).
                     CachePrefetcher.prefetchProjectsDetails(HomeActivity.this, localDatabase, projetsList);
                     setupProjetSelector();
-                } else {
-                    loadProjetsFromCache();
+                } else if (!hadCache) {
+                    showAucunProjetDisponible();
                 }
             }
 
             @Override
             public void onFailure(Call<ApiEnvelope<List<ProjetSelectResponse>>> call, Throwable t) {
-                Log.e(TAG, "Impossible de charger les projets, repli sur le cache local", t);
-                loadProjetsFromCache();
+                Log.e(TAG, "Impossible de charger les projets depuis le réseau" + (hadCache ? " (données locales déjà affichées)" : ""), t);
+                if (!hadCache) {
+                    showAucunProjetDisponible();
+                }
             }
         });
     }
 
-    private void loadProjetsFromCache() {
+    /** Affiche tout de suite la dernière liste de projets connue en local, sans
+     * attendre le réseau — voir loadProjets(). Retourne false si rien n'est en cache. */
+    private boolean renderProjetsFromCache() {
         String cached = localDatabase.getCache(CACHE_PROJETS_SELECT);
-        if (cached != null) {
-            Type type = new TypeToken<List<ProjetSelectResponse>>() {}.getType();
-            projetsList = gson.fromJson(cached, type);
-            long updatedAt = localDatabase.getCacheUpdatedAt(CACHE_PROJETS_SELECT);
-            Toast.makeText(this, "Hors ligne — projets du " + relativeTime(updatedAt), Toast.LENGTH_SHORT).show();
-        } else {
-            projetsList = new ArrayList<>();
-            Toast.makeText(this, "Impossible de charger les projets (hors ligne, aucune donnée enregistrée)", Toast.LENGTH_SHORT).show();
-        }
+        if (cached == null) return false;
+        Type type = new TypeToken<List<ProjetSelectResponse>>() {}.getType();
+        projetsList = gson.fromJson(cached, type);
+        setupProjetSelector();
+        return true;
+    }
+
+    private void showAucunProjetDisponible() {
+        projetsList = new ArrayList<>();
+        Toast.makeText(this, "Impossible de charger les projets (hors ligne, aucune donnée enregistrée)", Toast.LENGTH_SHORT).show();
         setupProjetSelector();
     }
 
@@ -355,27 +385,8 @@ public class HomeActivity extends AppCompatActivity {
         if (currentProjet == null) return;
         String cacheKey = CACHE_NOTIFICATIONS_PREFIX + currentProjet.getUniqueId();
 
-        ApiClient.dataApi(this).getNotificationsForProjet(currentProjet.getUniqueId())
-                .enqueue(new Callback<ApiEnvelope<List<NotificationResponse>>>() {
-                    @Override
-                    public void onResponse(Call<ApiEnvelope<List<NotificationResponse>>> call, Response<ApiEnvelope<List<NotificationResponse>>> response) {
-                        if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
-                            alertesList = response.body().getData();
-                            localDatabase.putCache(cacheKey, gson.toJson(alertesList));
-                            updateAlertesCard();
-                        } else {
-                            loadAlertesFromCache(cacheKey);
-                        }
-                    }
-
-                    @Override
-                    public void onFailure(Call<ApiEnvelope<List<NotificationResponse>>> call, Throwable t) {
-                        loadAlertesFromCache(cacheKey);
-                    }
-                });
-    }
-
-    private void loadAlertesFromCache(String cacheKey) {
+        // Affiche tout de suite les dernières alertes connues en local (ou aucune),
+        // sans attendre le réseau — voir loadProjets().
         String cached = localDatabase.getCache(cacheKey);
         if (cached != null) {
             Type type = new TypeToken<List<NotificationResponse>>() {}.getType();
@@ -384,6 +395,23 @@ public class HomeActivity extends AppCompatActivity {
             alertesList = new ArrayList<>();
         }
         updateAlertesCard();
+
+        ApiClient.dataApi(this).getNotificationsForProjet(currentProjet.getUniqueId())
+                .enqueue(new Callback<ApiEnvelope<List<NotificationResponse>>>() {
+                    @Override
+                    public void onResponse(Call<ApiEnvelope<List<NotificationResponse>>> call, Response<ApiEnvelope<List<NotificationResponse>>> response) {
+                        if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
+                            alertesList = response.body().getData();
+                            localDatabase.putCache(cacheKey, gson.toJson(alertesList));
+                            updateAlertesCard();
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<ApiEnvelope<List<NotificationResponse>>> call, Throwable t) {
+                        // données locales déjà affichées ci-dessus, rien à faire de plus
+                    }
+                });
     }
 
     private void updateAlertesCard() {
@@ -447,34 +475,33 @@ public class HomeActivity extends AppCompatActivity {
      * (limitation connue : le placement automatique réserve quand même sa cellule) —
      * simplement masquer btnCollecteOeufs laissait donc un trou visible sur les
      * projets chair. On retire/reconstruit la grille à la place, en ne (ré)ajoutant
-     * que les cartes réellement visibles, pour qu'elles se resserrent naturellement. */
+     * que les cartes réellement visibles, pour qu'elles se resserrent naturellement.
+     *
+     * PONTE seule ou REFORME seule : 4 cartes au total, déjà pair — appariées 2 à 2
+     * sans traitement particulier. MIXTE : les 5 cartes (Collecte, Alimentation,
+     * Soins, Mortalité, Réforme) sont impaires, donc Collecte est isolée seule en
+     * pleine largeur en haut (carte "vedette", saisie la plus fréquente) et les 4
+     * restantes sont appariées 2 à 2 — Réforme se retrouve ainsi à côté de
+     * Mortalité au lieu de traîner seule, pleine largeur, tout en bas. */
     private void updateSaisieButtonsVisibility() {
         boolean masquerCollecteOeufs = currentProjet != null && currentProjet.isReformeSeule();
         boolean masquerReforme = currentProjet != null && currentProjet.isPonteSeule();
+        boolean mixte = !masquerCollecteOeufs && !masquerReforme;
 
         gridProduction.removeAllViews();
 
-        List<CardView> rangeeNormale = new ArrayList<>();
-        if (!masquerCollecteOeufs) rangeeNormale.add(btnCollecteOeufs);
-        rangeeNormale.add(btnAlimentation);
-        rangeeNormale.add(btnSoins);
-        rangeeNormale.add(btnMortalite);
-
-        // Projet chair (REFORME seule) : Réforme remplace Collecte œufs comme carte
-        // "principale" de la production physique — on la sort du flux normal pour la
-        // placer seule, pleine largeur, tout en bas, plutôt que la faire fusionner
-        // avec Soins/Mortalité dans la grille à 2 colonnes.
-        boolean reformeIsolee = masquerCollecteOeufs && !masquerReforme;
-        if (!masquerReforme && !reformeIsolee) {
-            rangeeNormale.add(btnReforme);
-        }
-
-        for (int i = 0; i < rangeeNormale.size(); i++) {
-            boolean seuleSurSaLigne = (i == rangeeNormale.size() - 1) && (rangeeNormale.size() % 2 != 0);
-            addProductionCard(rangeeNormale.get(i), seuleSurSaLigne);
-        }
-        if (reformeIsolee) {
-            addProductionCard(btnReforme, true);
+        if (mixte) {
+            addProductionCard(btnCollecteOeufs, true);
+            addProductionCard(btnAlimentation, false);
+            addProductionCard(btnSoins, false);
+            addProductionCard(btnMortalite, false);
+            addProductionCard(btnReforme, false);
+        } else {
+            if (!masquerCollecteOeufs) addProductionCard(btnCollecteOeufs, false);
+            addProductionCard(btnAlimentation, false);
+            addProductionCard(btnSoins, false);
+            addProductionCard(btnMortalite, false);
+            if (!masquerReforme) addProductionCard(btnReforme, false);
         }
 
         btnCollecteOeufs.setVisibility(masquerCollecteOeufs ? View.GONE : View.VISIBLE);
@@ -495,10 +522,13 @@ public class HomeActivity extends AppCompatActivity {
             clearProjetDisplay();
             return;
         }
-        clearProjetDisplay();
-        loadAlertes();
 
         String cacheKey = CACHE_PROJET_DETAIL_PREFIX + currentProjet.getUniqueId();
+        // Affiche tout de suite le dernier détail connu en local plutôt que de vider
+        // l'écran (tirets) pendant jusqu'à 15s en attendant le réseau — voir loadProjets().
+        boolean hadCache = renderProjetDetailFromCache(cacheKey);
+        if (!hadCache) clearProjetDisplay();
+        loadAlertes();
 
         ApiClient.dataApi(this).getProjetDetail(currentProjet.getUniqueId())
                 .enqueue(new Callback<ApiEnvelope<ProjetDetailResponse>>() {
@@ -506,26 +536,25 @@ public class HomeActivity extends AppCompatActivity {
                     public void onResponse(Call<ApiEnvelope<ProjetDetailResponse>> call, Response<ApiEnvelope<ProjetDetailResponse>> response) {
                         ProjetDetailResponse detail = response.isSuccessful() && response.body() != null
                                 ? response.body().getData() : null;
-                        if (detail == null) {
-                            loadProjetDetailFromCache(cacheKey);
-                            return;
-                        }
+                        if (detail == null) return; // données locales déjà affichées ci-dessus le cas échéant
                         localDatabase.putCache(cacheKey, gson.toJson(detail));
                         renderProjetDetail(detail);
                     }
 
                     @Override
                     public void onFailure(Call<ApiEnvelope<ProjetDetailResponse>> call, Throwable t) {
-                        Log.e(TAG, "Impossible de charger le détail du projet, repli sur le cache local", t);
-                        loadProjetDetailFromCache(cacheKey);
+                        Log.e(TAG, "Impossible de charger le détail du projet depuis le réseau" + (hadCache ? " (données locales déjà affichées)" : ""), t);
                     }
                 });
     }
 
-    private void loadProjetDetailFromCache(String cacheKey) {
+    /** Affiche tout de suite le dernier détail de projet connu en local, sans
+     * attendre le réseau — voir updateProjetDisplay(). Retourne false si rien n'est en cache. */
+    private boolean renderProjetDetailFromCache(String cacheKey) {
         String cached = localDatabase.getCache(cacheKey);
-        if (cached == null) return; // les tirets posés par clearProjetDisplay() restent affichés
+        if (cached == null) return false;
         renderProjetDetail(gson.fromJson(cached, ProjetDetailResponse.class));
+        return true;
     }
 
     private void renderProjetDetail(ProjetDetailResponse detail) {
@@ -539,7 +568,7 @@ public class HomeActivity extends AppCompatActivity {
             tvBatimentsOccupes.setText("Bâtiments : aucun bâtiment assigné");
         } else {
             String noms = occupations.stream()
-                    .filter(o -> o.getDateSortie() == null) // occupations encore actives
+                    .filter(o -> OccupationUtils.estActive(o.getDateSortie())) // occupations encore actives
                     .map(o -> o.getNomBatiment() + (o.getNbSujetsDansBatiment() != null
                             ? " (" + o.getNbSujetsDansBatiment() + ")" : ""))
                     .collect(Collectors.joining(", "));
@@ -621,6 +650,58 @@ public class HomeActivity extends AppCompatActivity {
                     openSaisie(which == 0 ? SaisieType.ALIMENTATION_ACHAT : SaisieType.ALIMENTATION_CONSOMMATION);
                 })
                 .show();
+    }
+
+    /** Abonne un NetworkCallback pour refléter la connectivité réelle sur l'indicateur
+     * de la barre du bas (figé en dur dans le XML jusqu'ici) et pour récupérer tout de
+     * suite les changements serveur au retour de connexion sur le terrain, sans
+     * attendre la prochaine reprise d'activité ni un tap manuel sur "Sync". */
+    private void setupConnectivityMonitor() {
+        connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (connectivityManager == null) return;
+
+        wasOnline = NetworkUtils.isOnline(this);
+        updateConnectionIndicator(wasOnline);
+
+        networkCallback = new ConnectivityManager.NetworkCallback() {
+            @Override
+            public void onAvailable(Network network) {
+                runOnUiThread(() -> {
+                    updateConnectionIndicator(true);
+                    if (!wasOnline) {
+                        refreshProjetsEtCache(() -> { });
+                    }
+                    wasOnline = true;
+                });
+            }
+
+            @Override
+            public void onLost(Network network) {
+                // Peut se déclencher pour un seul réseau (ex. Wi-Fi perdu) alors que la
+                // 4G a déjà pris le relais — on revérifie l'état global avant d'afficher
+                // "Hors ligne" pour éviter un faux négatif pendant la bascule.
+                runOnUiThread(() -> {
+                    if (!NetworkUtils.isOnline(HomeActivity.this)) {
+                        updateConnectionIndicator(false);
+                        wasOnline = false;
+                    }
+                });
+            }
+        };
+        connectivityManager.registerDefaultNetworkCallback(networkCallback);
+    }
+
+    private void updateConnectionIndicator(boolean online) {
+        indicatorConnection.setBackgroundResource(online ? R.drawable.circle_green : R.drawable.circle_red);
+        tvConnectionStatus.setText(online ? "En ligne • Sync auto" : "Hors ligne • Données locales");
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (connectivityManager != null && networkCallback != null) {
+            connectivityManager.unregisterNetworkCallback(networkCallback);
+        }
     }
 
     private void setupSyncStatus() {
@@ -778,5 +859,16 @@ public class HomeActivity extends AppCompatActivity {
         setupSyncStatus();
         updateFinanceStats();
         loadLastEntry();
+
+        // Reprise après mise en arrière-plan (retour de connexion sur le terrain,
+        // changement d'appli...) : on ne veut pas attendre un tap manuel sur "Sync"
+        // pour retirer un projet passé inactif ou récupérer les changements serveur.
+        // Le tout premier onResume suit loadProjets() (onCreate) de si près qu'il
+        // ferait doublon — on ne rafraîchit qu'à partir de la 2e reprise.
+        if (premierResumeFait) {
+            refreshProjetsEtCache(() -> { });
+        } else {
+            premierResumeFait = true;
+        }
     }
 }

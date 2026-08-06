@@ -83,8 +83,7 @@
                     android:inputType="textUri"
                     android:singleLine="true"
                     android:textSize="13sp"
-
-                    android:hint="http://10.126.242.60:8093/diafarms/api/v1/" />
+                    android:hint="http://10.126.242.60:9093/diafarms/api/v1/" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -144,21 +143,22 @@
                     android:textStyle="bold" />
 
                 <TextView
-                    android:id="@+id/tvPendingCount"
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
-                    android:text="Saisies en attente de synchronisation : 0"
+                    android:text="Ne touche ni aux saisies en attente ni à la session, mais tant que l'appareil ne se sera pas reconnecté au réseau pour les recharger, les projets/alertes/stock ne seront plus disponibles hors ligne."
                     android:textColor="@android:color/darker_gray"
                     android:textSize="12sp" />
 
                 <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnViderBase"
+                    android:id="@+id/btnViderCache"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:text="Vider les données locales"
-                    app:backgroundTint="#DC2626" />
+                    android:text="Vider le cache"
+                    app:strokeColor="@color/orange_warning"
+                    android:textColor="@color/orange_warning" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
@@ -285,6 +285,37 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
                     android:text="Supprimer ce compte de l'appareil"
+                    app:backgroundTint="#DC2626" />
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="16dp"
+                    android:background="#FFE5E5" />
+
+                <TextView
+                    android:id="@+id/tvPendingCount"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="Saisies en attente de synchronisation : 0"
+                    android:textColor="@android:color/darker_gray"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Supprime toutes les données locales : saisies en attente non synchronisées comprises. Action irréversible, à ne déclencher qu'en dernier recours."
+                    android:textColor="@android:color/darker_gray"
+                    android:textSize="12sp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnViderBase"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="Vider les données locales"
                     app:backgroundTint="#DC2626" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>

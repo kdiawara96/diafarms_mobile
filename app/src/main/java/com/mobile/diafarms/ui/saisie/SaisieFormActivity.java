@@ -10,6 +10,7 @@ import android.widget.ArrayAdapter;
 import android.widget.CheckBox;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
+import android.widget.RadioGroup;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -22,6 +23,8 @@ import androidx.core.view.WindowInsetsCompat;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
+import com.mobile.diafarms.util.AlveoleUtils;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.mobile.diafarms.R;
@@ -47,6 +50,7 @@ import com.mobile.diafarms.network.dto.StockReformeResponse;
 import com.mobile.diafarms.network.dto.TransactionCreateRequest;
 import com.mobile.diafarms.network.dto.VenteOeufsCreateRequest;
 import com.mobile.diafarms.network.dto.VenteReformeCreateRequest;
+import com.mobile.diafarms.util.OccupationUtils;
 
 import java.lang.reflect.Type;
 import java.text.SimpleDateFormat;
@@ -72,7 +76,15 @@ public class SaisieFormActivity extends AppCompatActivity {
     public static final String EXTRA_PROJET_LABEL = "PROJET_LABEL";
     public static final String EXTRA_LOCAL_ID = "LOCAL_ID"; // présent seulement en édition
 
-    private static final String[] CATEGORIES_TRANSACTION = {"Vente", "Achat", "Salaire", "Autre"};
+    // "Vente" n'a de sens que pour une Entrée, "Achat"/"Salaire"/... que pour une
+    // Sortie — deux listes séparées plutôt qu'une liste unique proposant des
+    // catégories hors-sujet selon le type (même règle que CreateTransactionDialog
+    // côté web). Le type est fixé pour tout l'écran (TRANSACTION_ENTREE ou
+    // TRANSACTION_SORTIE choisi depuis l'accueil), donc pas besoin de basculer la
+    // liste dynamiquement ici, contrairement au web où un seul formulaire couvre
+    // les deux types.
+    private static final String[] CATEGORIES_TRANSACTION_ENTREE = {"Vente", "Autre"};
+    private static final String[] CATEGORIES_TRANSACTION_SORTIE = {"Achat", "Salaire", "Santé / Vétérinaire", "Transport", "Électricité / Eau", "Entretien / Maintenance", "Autre"};
     private static final String[] TYPES_SOIN = {"Vaccin", "Médicament", "Autre"};
 
     private SaisieType type;
@@ -88,6 +100,9 @@ public class SaisieFormActivity extends AppCompatActivity {
     private Calendar heureCal; // null tant que l'heure n'est pas choisie (optionnelle)
 
     private List<OccupationBatimentResponse> batiments = new ArrayList<>();
+    // Bâtiment à resélectionner dès que "batiments" sera chargé — voir
+    // selectBatimentByUniqueId/applyPendingBatimentSelection.
+    private String pendingBatimentSelection;
 
     // Vues communes
     private TextView tvTitreForm, tvProjetForm, tvStockInfo;
@@ -97,6 +112,10 @@ public class SaisieFormActivity extends AppCompatActivity {
 
     // Collecte
     private View groupCollecte;
+    // Unité de saisie du champ etOeufsCollectes (voir AlveoleUtils) — Œuf ou Alvéole
+    // (plateau de 30 œufs) ; oeufsCasses reste toujours en œufs individuels.
+    private RadioGroup radioGroupUniteCollecte;
+    private TextInputLayout tilOeufsCollectes;
     private TextInputEditText etOeufsCollectes, etOeufsCasses;
     private TextView tvResumeCollecte;
 
@@ -130,6 +149,11 @@ public class SaisieFormActivity extends AppCompatActivity {
     // sur l'appareil).
     private View groupVenteOeufs;
     private TextView tvStockOeufsInfo;
+    // Unité de saisie de etQuantiteOeufsVente/etPrixUnitaireOeufs (voir AlveoleUtils) —
+    // Œuf ou Alvéole (plateau de 30 œufs) ; req.quantiteOeufs envoyé au serveur reste
+    // toujours en œufs, quelle que soit l'unité choisie ici (voir onValider).
+    private RadioGroup radioGroupUniteVenteOeufs;
+    private TextInputLayout tilQuantiteOeufsVente, tilPrixUnitaireOeufs;
     private TextInputEditText etQuantiteOeufsVente, etPrixUnitaireOeufs, etMontantVenteOeufs;
     private Integer stockOeufsDisponible;
 
@@ -159,7 +183,10 @@ public class SaisieFormActivity extends AppCompatActivity {
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main_saisie_form), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
+            // Edge-to-edge désactive adjustResize : sans l'inset ime(), le clavier recouvre
+            // les champs de saisie au lieu de laisser le ScrollView se réduire et défiler.
+            Insets ime = insets.getInsets(WindowInsetsCompat.Type.ime());
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, Math.max(systemBars.bottom, ime.bottom));
             return insets;
         });
 
@@ -213,9 +240,15 @@ public class SaisieFormActivity extends AppCompatActivity {
         btnBack.setOnClickListener(v -> finish());
 
         groupCollecte = findViewById(R.id.groupCollecte);
+        radioGroupUniteCollecte = findViewById(R.id.radioGroupUniteCollecte);
+        tilOeufsCollectes = findViewById(R.id.tilOeufsCollectes);
         etOeufsCollectes = findViewById(R.id.etOeufsCollectes);
         etOeufsCasses = findViewById(R.id.etOeufsCasses);
         tvResumeCollecte = findViewById(R.id.tvResumeCollecte);
+        radioGroupUniteCollecte.setOnCheckedChangeListener((group, checkedId) -> {
+            tilOeufsCollectes.setHint(isCollecteEnAlveoles() ? "Nombre d'alvéoles collectées" : "Œufs collectés");
+            calculerResumeCollecte();
+        });
 
         groupSoins = findViewById(R.id.groupSoins);
         spinnerTypeSoin = findViewById(R.id.spinnerTypeSoin);
@@ -244,9 +277,25 @@ public class SaisieFormActivity extends AppCompatActivity {
 
         groupVenteOeufs = findViewById(R.id.groupVenteOeufs);
         tvStockOeufsInfo = findViewById(R.id.tvStockOeufsInfo);
+        radioGroupUniteVenteOeufs = findViewById(R.id.radioGroupUniteVenteOeufs);
+        tilQuantiteOeufsVente = findViewById(R.id.tilQuantiteOeufsVente);
+        tilPrixUnitaireOeufs = findViewById(R.id.tilPrixUnitaireOeufs);
         etQuantiteOeufsVente = findViewById(R.id.etQuantiteOeufsVente);
         etPrixUnitaireOeufs = findViewById(R.id.etPrixUnitaireOeufs);
         etMontantVenteOeufs = findViewById(R.id.etMontantVenteOeufs);
+        radioGroupUniteVenteOeufs.setOnCheckedChangeListener((group, checkedId) -> {
+            boolean enAlveoles = isVenteOeufsEnAlveoles();
+            tilQuantiteOeufsVente.setHint(enAlveoles ? "Nombre d'alvéoles vendues" : "Nombre d'œufs vendus");
+            tilPrixUnitaireOeufs.setHint(enAlveoles ? "Prix par alvéole (FCFA, optionnel)" : "Prix unitaire (FCFA, optionnel)");
+            recalculerMontantVenteOeufs();
+        });
+        TextWatcher venteOeufsWatcher = new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) { recalculerMontantVenteOeufs(); }
+            @Override public void afterTextChanged(Editable s) {}
+        };
+        etQuantiteOeufsVente.addTextChangedListener(venteOeufsWatcher);
+        etPrixUnitaireOeufs.addTextChangedListener(venteOeufsWatcher);
 
         groupVenteReforme = findViewById(R.id.groupVenteReforme);
         tvStockReformeInfo = findViewById(R.id.tvStockReformeInfo);
@@ -272,7 +321,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         btnToutSelectionner.setOnClickListener(v -> toggleToutSelectionner());
 
         ArrayAdapter<String> categorieAdapter = new ArrayAdapter<>(this,
-                android.R.layout.simple_spinner_item, CATEGORIES_TRANSACTION);
+                android.R.layout.simple_spinner_item, categoriesPourType());
         categorieAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinnerCategorie.setAdapter(categorieAdapter);
 
@@ -280,6 +329,10 @@ public class SaisieFormActivity extends AppCompatActivity {
                 android.R.layout.simple_spinner_item, TYPES_SOIN);
         typeSoinAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinnerTypeSoin.setAdapter(typeSoinAdapter);
+    }
+
+    private String[] categoriesPourType() {
+        return type == SaisieType.TRANSACTION_SORTIE ? CATEGORIES_TRANSACTION_SORTIE : CATEGORIES_TRANSACTION_ENTREE;
     }
 
     private void applyTypeVisibility() {
@@ -390,8 +443,29 @@ public class SaisieFormActivity extends AppCompatActivity {
         etOeufsCasses.addTextChangedListener(watcher);
     }
 
+    private boolean isCollecteEnAlveoles() {
+        return radioGroupUniteCollecte != null && radioGroupUniteCollecte.getCheckedRadioButtonId() == R.id.radioUniteCollecteAlveole;
+    }
+
+    private boolean isVenteOeufsEnAlveoles() {
+        return radioGroupUniteVenteOeufs != null && radioGroupUniteVenteOeufs.getCheckedRadioButtonId() == R.id.radioUniteVenteAlveole;
+    }
+
+    /** Montant = quantité saisie × prix unitaire saisi, tous deux dans la MÊME unité
+     * (œuf ou alvéole) : pas besoin de conversion pour ce calcul, contrairement à
+     * req.quantiteOeufs/req.prixUnitaire dans onValider() qui doivent, eux, toujours
+     * être exprimés en œufs. Reste modifiable manuellement ensuite (ex: remise). */
+    private void recalculerMontantVenteOeufs() {
+        int saisie = parseIntSafe(etQuantiteOeufsVente.getText());
+        Double prix = parseDoubleOrNull(etPrixUnitaireOeufs.getText());
+        if (saisie > 0 && prix != null && prix > 0) {
+            etMontantVenteOeufs.setText(String.format(Locale.FRANCE, "%.0f", saisie * prix));
+        }
+    }
+
     private void calculerResumeCollecte() {
-        int total = parseIntSafe(etOeufsCollectes.getText());
+        int saisie = parseIntSafe(etOeufsCollectes.getText());
+        int total = isCollecteEnAlveoles() ? AlveoleUtils.alveolesToOeufs(saisie) : saisie;
         int casses = parseIntSafe(etOeufsCasses.getText());
         int vendables = Math.max(0, total - casses);
 
@@ -413,6 +487,15 @@ public class SaisieFormActivity extends AppCompatActivity {
         }
 
         String cacheKey = CachePrefetcher.CACHE_PROJET_DETAIL_PREFIX + projetUniqueId;
+        // Affiche tout de suite les bâtiments connus en local (même cache que
+        // l'accueil, voir CachePrefetcher/HomeActivity) au lieu d'attendre le réseau.
+        ProjetDetailResponse cached = getCachedOrNull(cacheKey, ProjetDetailResponse.class);
+        boolean hadCache = cached != null;
+        if (hadCache) {
+            applyBatiments(cached);
+        } else {
+            populateBatimentSpinner();
+        }
 
         ApiClient.dataApi(this).getProjetDetail(projetUniqueId).enqueue(new Callback<ApiEnvelope<ProjetDetailResponse>>() {
             @Override
@@ -422,35 +505,22 @@ public class SaisieFormActivity extends AppCompatActivity {
                 if (detail != null) {
                     localDatabase.putCache(cacheKey, gson.toJson(detail));
                     applyBatiments(detail);
-                } else {
-                    loadBatimentsFromCache(cacheKey);
                 }
+                // sinon : bâtiments déjà affichés depuis le cache le cas échéant, rien à faire
             }
 
             @Override
             public void onFailure(Call<ApiEnvelope<ProjetDetailResponse>> call, Throwable t) {
-                // Hors ligne : on retombe sur le même cache que l'accueil (voir
-                // CachePrefetcher/HomeActivity) plutôt que d'abandonner directement —
-                // le bâtiment reste optionnel côté backend si le cache est vide aussi.
-                loadBatimentsFromCache(cacheKey);
+                // bâtiments déjà affichés depuis le cache le cas échéant, rien à faire de plus
             }
         });
-    }
-
-    private void loadBatimentsFromCache(String cacheKey) {
-        String cached = localDatabase.getCache(cacheKey);
-        if (cached != null) {
-            applyBatiments(gson.fromJson(cached, ProjetDetailResponse.class));
-        } else {
-            populateBatimentSpinner();
-        }
     }
 
     private void applyBatiments(ProjetDetailResponse detail) {
         if (detail.getOccupationBatiment() != null) {
             batiments = new ArrayList<>();
             for (OccupationBatimentResponse occ : detail.getOccupationBatiment()) {
-                if (occ.getDateSortie() == null) { // occupation encore active
+                if (OccupationUtils.estActive(occ.getDateSortie())) {
                     batiments.add(occ);
                 }
             }
@@ -467,6 +537,10 @@ public class SaisieFormActivity extends AppCompatActivity {
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, labels);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinnerBatiment.setAdapter(adapter);
+        // La liste des bâtiments vient de (ré)arriver (réseau ou cache) : si une
+        // sélection avait été demandée avant que loadBatiments() ait fini de charger
+        // (voir applyPendingBatimentSelection), on la réapplique maintenant.
+        applyPendingBatimentSelection();
     }
 
     private String getSelectedBatimentUniqueId() {
@@ -475,18 +549,46 @@ public class SaisieFormActivity extends AppCompatActivity {
         return batiments.get(position - 1).getBatimentUniqueId();
     }
 
+    /**
+     * En édition d'une saisie existante, prefillFromExisting() (appelé de manière
+     * synchrone dans onCreate) tente de resélectionner le bâtiment AVANT que
+     * loadBatiments() (appel réseau asynchrone, lancé juste avant) ait eu le temps de
+     * répondre — la liste "batiments" est encore vide à ce moment-là, donc la sélection
+     * échouait silencieusement et affichait "Aucun bâtiment précis" alors qu'un
+     * bâtiment était bien enregistré. On mémorise la demande et on la ré-applique
+     * depuis populateBatimentSpinner() dès que la vraie liste est disponible.
+     */
     private void selectBatimentByUniqueId(String uniqueId) {
         if (uniqueId == null) return;
+        pendingBatimentSelection = uniqueId;
+        applyPendingBatimentSelection();
+    }
+
+    private void applyPendingBatimentSelection() {
+        if (pendingBatimentSelection == null) return;
         for (int i = 0; i < batiments.size(); i++) {
-            if (uniqueId.equals(batiments.get(i).getBatimentUniqueId())) {
+            if (pendingBatimentSelection.equals(batiments.get(i).getBatimentUniqueId())) {
                 spinnerBatiment.setSelection(i + 1);
                 return;
             }
         }
     }
 
+    /** Retourne la dernière valeur connue en cache local pour cette clé, ou null si
+     * absente — utilisé par les écrans de stock/effectif pour afficher tout de suite
+     * une valeur déjà connue plutôt que d'attendre le réseau (jusqu'à 15s hors ligne,
+     * voir ApiClient.connectTimeout/readTimeout) : la requête réseau est ensuite
+     * lancée en tâche de fond et ne fait que rafraîchir l'affichage si elle aboutit. */
+    private <T> T getCachedOrNull(String cacheKey, Class<T> clazz) {
+        String cached = localDatabase.getCache(cacheKey);
+        return cached != null ? gson.fromJson(cached, clazz) : null;
+    }
+
     private void loadStock() {
         String cacheKey = CachePrefetcher.CACHE_STOCK_ALIMENT_PREFIX + projetUniqueId;
+        StockAlimentResponse cached = getCachedOrNull(cacheKey, StockAlimentResponse.class);
+        boolean hadCache = cached != null;
+        if (hadCache) displayStock(cached, true);
 
         ApiClient.dataApi(this).getStockAliment(projetUniqueId).enqueue(new Callback<ApiEnvelope<StockAlimentResponse>>() {
             @Override
@@ -494,18 +596,18 @@ public class SaisieFormActivity extends AppCompatActivity {
                 StockAlimentResponse stock = response.isSuccessful() && response.body() != null ? response.body().getData() : null;
                 if (stock != null) {
                     localDatabase.putCache(cacheKey, gson.toJson(stock));
+                    displayStock(stock, false);
+                } else if (!hadCache) {
+                    displayStock(null, false);
                 }
-                displayStock(stock, false);
             }
 
             @Override
             public void onFailure(Call<ApiEnvelope<StockAlimentResponse>> call, Throwable t) {
-                // Hors ligne : on affiche la dernière valeur connue (préchargée après
-                // le login/scan QR ou vue depuis l'accueil, voir CachePrefetcher)
-                // plutôt que de déclarer directement l'info indisponible.
-                String cached = localDatabase.getCache(cacheKey);
-                StockAlimentResponse stock = cached != null ? gson.fromJson(cached, StockAlimentResponse.class) : null;
-                displayStock(stock, true);
+                // Hors ligne : la dernière valeur connue (préchargée après le login/
+                // scan QR ou vue depuis l'accueil, voir CachePrefetcher) est déjà
+                // affichée ci-dessus si elle existe ; sinon on le signale maintenant.
+                if (!hadCache) displayStock(null, true);
             }
         });
     }
@@ -529,6 +631,9 @@ public class SaisieFormActivity extends AppCompatActivity {
      */
     private void loadStockOeufs() {
         String cacheKey = CachePrefetcher.CACHE_STOCK_OEUFS_FARM;
+        StockOeufsResponse cached = getCachedOrNull(cacheKey, StockOeufsResponse.class);
+        boolean hadCache = cached != null;
+        if (hadCache) displayStockOeufs(cached, true);
 
         ApiClient.dataApi(this).getStockOeufs().enqueue(new Callback<ApiEnvelope<StockOeufsResponse>>() {
             @Override
@@ -536,15 +641,15 @@ public class SaisieFormActivity extends AppCompatActivity {
                 StockOeufsResponse stock = response.isSuccessful() && response.body() != null ? response.body().getData() : null;
                 if (stock != null) {
                     localDatabase.putCache(cacheKey, gson.toJson(stock));
+                    displayStockOeufs(stock, false);
+                } else if (!hadCache) {
+                    displayStockOeufs(null, false);
                 }
-                displayStockOeufs(stock, false);
             }
 
             @Override
             public void onFailure(Call<ApiEnvelope<StockOeufsResponse>> call, Throwable t) {
-                String cached = localDatabase.getCache(cacheKey);
-                StockOeufsResponse stock = cached != null ? gson.fromJson(cached, StockOeufsResponse.class) : null;
-                displayStockOeufs(stock, true);
+                if (!hadCache) displayStockOeufs(null, true);
             }
         });
     }
@@ -553,7 +658,8 @@ public class SaisieFormActivity extends AppCompatActivity {
         stockOeufsDisponible = stock != null ? stock.getStockRestant() : null;
         if (stockOeufsDisponible != null) {
             String suffix = fromCache ? " (dernière donnée connue, hors ligne)" : "";
-            tvStockOeufsInfo.setText(String.format(Locale.FRANCE, "Disponible à la vente (ferme) : %d œuf(s)%s", stockOeufsDisponible, suffix));
+            tvStockOeufsInfo.setText(String.format(Locale.FRANCE, "Disponible à la vente (ferme) : %s%s",
+                    AlveoleUtils.formatOeufsAvecAlveoles(stockOeufsDisponible), suffix));
         } else {
             tvStockOeufsInfo.setText(fromCache ? "Stock non disponible (hors ligne)" : "Stock non disponible");
         }
@@ -565,6 +671,9 @@ public class SaisieFormActivity extends AppCompatActivity {
      */
     private void loadEffectifReforme() {
         String cacheKey = CachePrefetcher.CACHE_EFFECTIF_REFORME_PREFIX + projetUniqueId;
+        EffectifReformeResponse cached = getCachedOrNull(cacheKey, EffectifReformeResponse.class);
+        boolean hadCache = cached != null;
+        if (hadCache) displayEffectifReforme(cached, true);
 
         ApiClient.dataApi(this).getEffectifReforme(projetUniqueId).enqueue(new Callback<ApiEnvelope<EffectifReformeResponse>>() {
             @Override
@@ -572,15 +681,15 @@ public class SaisieFormActivity extends AppCompatActivity {
                 EffectifReformeResponse effectif = response.isSuccessful() && response.body() != null ? response.body().getData() : null;
                 if (effectif != null) {
                     localDatabase.putCache(cacheKey, gson.toJson(effectif));
+                    displayEffectifReforme(effectif, false);
+                } else if (!hadCache) {
+                    displayEffectifReforme(null, false);
                 }
-                displayEffectifReforme(effectif, false);
             }
 
             @Override
             public void onFailure(Call<ApiEnvelope<EffectifReformeResponse>> call, Throwable t) {
-                String cached = localDatabase.getCache(cacheKey);
-                EffectifReformeResponse effectif = cached != null ? gson.fromJson(cached, EffectifReformeResponse.class) : null;
-                displayEffectifReforme(effectif, true);
+                if (!hadCache) displayEffectifReforme(null, true);
             }
         });
     }
@@ -602,6 +711,9 @@ public class SaisieFormActivity extends AppCompatActivity {
      */
     private void loadStockReforme() {
         String cacheKey = CachePrefetcher.CACHE_STOCK_REFORME_FARM;
+        StockReformeResponse cachedStock = getCachedOrNull(cacheKey, StockReformeResponse.class);
+        boolean hadCache = cachedStock != null;
+        if (hadCache) displayStockReforme(cachedStock, true);
 
         ApiClient.dataApi(this).getStockReforme().enqueue(new Callback<ApiEnvelope<StockReformeResponse>>() {
             @Override
@@ -609,15 +721,15 @@ public class SaisieFormActivity extends AppCompatActivity {
                 StockReformeResponse stock = response.isSuccessful() && response.body() != null ? response.body().getData() : null;
                 if (stock != null) {
                     localDatabase.putCache(cacheKey, gson.toJson(stock));
+                    displayStockReforme(stock, false);
+                } else if (!hadCache) {
+                    displayStockReforme(null, false);
                 }
-                displayStockReforme(stock, false);
             }
 
             @Override
             public void onFailure(Call<ApiEnvelope<StockReformeResponse>> call, Throwable t) {
-                String cached = localDatabase.getCache(cacheKey);
-                StockReformeResponse stock = cached != null ? gson.fromJson(cached, StockReformeResponse.class) : null;
-                displayStockReforme(stock, true);
+                if (!hadCache) displayStockReforme(null, true);
             }
         });
     }
@@ -668,10 +780,12 @@ public class SaisieFormActivity extends AppCompatActivity {
 
         switch (type) {
             case COLLECTE_OEUFS: {
-                int collectes = parseIntSafe(etOeufsCollectes.getText());
+                boolean enAlveoles = isCollecteEnAlveoles();
+                int saisie = parseIntSafe(etOeufsCollectes.getText());
+                int collectes = enAlveoles ? AlveoleUtils.alveolesToOeufs(saisie) : saisie;
                 int casses = parseIntSafe(etOeufsCasses.getText());
                 if (collectes <= 0) {
-                    toast("Veuillez saisir le nombre d'œufs collectés");
+                    toast(enAlveoles ? "Veuillez saisir le nombre d'alvéoles collectées" : "Veuillez saisir le nombre d'œufs collectés");
                     return;
                 }
                 CollecteOeufsCreateRequest req = new CollecteOeufsCreateRequest();
@@ -679,10 +793,12 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.batimentUniqueId = batimentUniqueId;
                 req.date = date;
                 req.heure = heure;
-                req.oeufsCollectes = collectes;
+                req.oeufsCollectes = collectes; // toujours en œufs, quelle que soit l'unité saisie
                 req.oeufsCasses = casses;
                 requestObject = req;
-                summary = String.format(Locale.FRANCE, "%d œufs collectés (%d cassés)", collectes, casses);
+                summary = enAlveoles
+                        ? String.format(Locale.FRANCE, "%d alvéole(s) — %d œufs collectés (%d cassés)", saisie, collectes, casses)
+                        : String.format(Locale.FRANCE, "%d œufs collectés (%d cassés)", collectes, casses);
                 break;
             }
             case SOINS: {
@@ -782,10 +898,13 @@ public class SaisieFormActivity extends AppCompatActivity {
                 break;
             }
             case VENTE_OEUFS: {
-                int quantite = parseIntSafe(etQuantiteOeufsVente.getText());
+                boolean enAlveoles = isVenteOeufsEnAlveoles();
+                int saisie = parseIntSafe(etQuantiteOeufsVente.getText());
+                int quantite = enAlveoles ? AlveoleUtils.alveolesToOeufs(saisie) : saisie;
+                Double prixSaisi = parseDoubleOrNull(etPrixUnitaireOeufs.getText());
                 Double montant = parseDoubleOrNull(etMontantVenteOeufs.getText());
                 if (quantite <= 0) {
-                    toast("Veuillez saisir le nombre d'œufs vendus");
+                    toast(enAlveoles ? "Veuillez saisir le nombre d'alvéoles vendues" : "Veuillez saisir le nombre d'œufs vendus");
                     return;
                 }
                 if (montant == null || montant <= 0) {
@@ -801,11 +920,15 @@ public class SaisieFormActivity extends AppCompatActivity {
                 VenteOeufsCreateRequest req = new VenteOeufsCreateRequest();
                 req.date = date;
                 req.heure = heure;
-                req.quantiteOeufs = quantite;
-                req.prixUnitaire = parseDoubleOrNull(etPrixUnitaireOeufs.getText());
+                req.quantiteOeufs = quantite; // toujours en œufs, quelle que soit l'unité saisie
+                // prixUnitaire (VenteOeufs.prixUnitaire côté back) est "informatif, par
+                // œuf" — reconverti depuis le prix par alvéole si c'est l'unité choisie.
+                req.prixUnitaire = prixSaisi != null ? (enAlveoles ? prixSaisi / AlveoleUtils.OEUFS_PAR_ALVEOLE : prixSaisi) : null;
                 req.montant = montant;
                 requestObject = req;
-                summary = String.format(Locale.FRANCE, "Vente de %d œufs (%,.0f FCFA)", quantite, montant);
+                summary = enAlveoles
+                        ? String.format(Locale.FRANCE, "Vente de %d alvéole(s) — %d œufs (%,.0f FCFA)", saisie, quantite, montant)
+                        : String.format(Locale.FRANCE, "Vente de %d œufs (%,.0f FCFA)", quantite, montant);
                 break;
             }
             case VENTE_REFORME: {
@@ -965,7 +1088,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 setDateHeure(req.date, null);
                 if (req.montant != null) etMontant.setText(String.valueOf(req.montant));
                 etDescriptionTransaction.setText(req.description);
-                selectSpinnerValue(spinnerCategorie, CATEGORIES_TRANSACTION, req.categorie);
+                selectSpinnerValue(spinnerCategorie, categoriesPourType(), req.categorie);
                 checkCommun.setChecked(Boolean.TRUE.equals(req.commun));
                 if (Boolean.TRUE.equals(req.commun)) {
                     // Écrase la présélection "tout coché" posée par défaut par le

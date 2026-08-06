@@ -1,87 +1,147 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.cardview.widget.CardView
+<!-- Inspiré des cartes de BioEnroll (item_delete_download_formulaire.xml) : icône
+     encadrée + titre en haut, séparateur, puis contenu/statut à gauche et actions à
+     droite en bas — plus lisible que l'ancienne carte tout-sur-une-ligne. -->
+<!-- Wrapper obligatoire : ListView génère des AbsListView.LayoutParams pour la racine
+     de l'item, qui n'étend pas MarginLayoutParams — un layout_margin posé directement
+     sur la CardView (root précédente) était donc silencieusement ignoré, collant les
+     cartes les unes aux autres. En la mettant en enfant d'un FrameLayout classique, ses
+     margins sont bien interprétées par un LayoutParams qui les supporte. -->
+<FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+<androidx.cardview.widget.CardView
+    android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginHorizontal="16dp"
-    android:layout_marginVertical="6dp"
-    app:cardCornerRadius="14dp"
+    android:layout_marginVertical="8dp"
+    app:cardCornerRadius="16dp"
     app:cardElevation="2dp"
-    app:cardBackgroundColor="@android:color/white">
+    app:cardBackgroundColor="@android:color/white"
+    app:cardPreventCornerOverlap="true"
+    app:cardUseCompatPadding="false">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:padding="14dp">
+        android:orientation="vertical"
+        android:padding="16dp">
 
+        <!-- Ligne du haut : icône encadrée (par type de saisie) + titre + statut -->
         <LinearLayout
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <FrameLayout
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="@drawable/bg_icon_frame_saisie">
+
+                <ImageView
+                    android:id="@+id/ivItemIcon"
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
+                    android:layout_gravity="center"
+                    android:scaleType="fitCenter"
+                    android:contentDescription="@null"
+                    tools:src="@drawable/oeufs" />
+            </FrameLayout>
 
             <TextView
                 android:id="@+id/tvItemType"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="12dp"
                 android:textColor="@color/primary"
-                android:textSize="13sp"
+                android:textSize="15sp"
                 android:textStyle="bold"
+                android:maxLines="1"
+                android:ellipsize="end"
                 tools:text="Collecte d'œufs" />
-
-            <TextView
-                android:id="@+id/tvItemSummary"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:textColor="@android:color/black"
-                android:textSize="14sp"
-                tools:text="850 œufs collectés (12 cassés)" />
-
-            <TextView
-                android:id="@+id/tvItemMeta"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:textColor="@android:color/darker_gray"
-                android:textSize="12sp"
-                tools:text="P-001 — Poussins Oct 2025 · 12/07/2026" />
 
             <TextView
                 android:id="@+id/tvItemStatus"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
+                android:layout_marginStart="8dp"
                 android:paddingHorizontal="8dp"
-                android:paddingVertical="2dp"
-                android:textSize="11sp"
+                android:paddingVertical="3dp"
+                android:textSize="10sp"
                 android:textStyle="bold"
-                tools:text="En attente de synchronisation" />
-
+                tools:text="En attente" />
         </LinearLayout>
 
-        <ImageButton
-            android:id="@+id/btnItemEdit"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/ic_menu_edit"
-            android:contentDescription="Modifier"
-            android:padding="8dp" />
+        <!-- Séparateur entre les deux lignes de la carte -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="12dp"
+            android:background="#E5E7EB" />
 
-        <ImageButton
-            android:id="@+id/btnItemDelete"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/ic_menu_delete"
-            android:contentDescription="Supprimer"
-            android:padding="8dp" />
+        <!-- Ligne du bas : résumé + méta à gauche, actions à droite -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tvItemSummary"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@android:color/black"
+                    android:textSize="14sp"
+                    tools:text="850 œufs collectés (12 cassés)" />
+
+                <TextView
+                    android:id="@+id/tvItemMeta"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:textColor="@android:color/darker_gray"
+                    android:textSize="12sp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    tools:text="P-001 — Poussins Oct 2025 · 12/07/2026" />
+            </LinearLayout>
+
+            <ImageButton
+                android:id="@+id/btnItemEdit"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="4dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@android:drawable/ic_menu_edit"
+                android:contentDescription="Modifier"
+                android:padding="8dp" />
+
+            <ImageButton
+                android:id="@+id/btnItemDelete"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@android:drawable/ic_menu_delete"
+                android:contentDescription="Supprimer"
+                android:padding="8dp" />
+
+        </LinearLayout>
 
     </LinearLayout>
 
 </androidx.cardview.widget.CardView>
+
+</FrameLayout>
