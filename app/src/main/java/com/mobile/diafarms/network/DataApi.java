@@ -7,6 +7,7 @@ import com.mobile.diafarms.network.dto.ConsommationAlimentCreateRequest;
 import com.mobile.diafarms.network.dto.CreatedEntityResponse;
 import com.mobile.diafarms.network.dto.AlimentationCreateRequest;
 import com.mobile.diafarms.network.dto.EffectifReformeResponse;
+import com.mobile.diafarms.network.dto.FarmAppSettingsResponse;
 import com.mobile.diafarms.network.dto.MortaliteCreateRequest;
 import com.mobile.diafarms.network.dto.NotificationResponse;
 import com.mobile.diafarms.network.dto.ProjetDetailResponse;
@@ -35,6 +36,11 @@ public interface DataApi {
     // ============== SÉLECTEURS ==============
     @GET("projets/select")
     Call<ApiEnvelope<List<ProjetSelectResponse>>> getProjetsSelect();
+
+    // Quelles actions Finance sont ouvertes à ce rôle (voir HomeActivity.applyFarmAppSettings) —
+    // imposé aussi côté serveur à la connexion/au scan QR (AppAccessRules), pas qu'un masquage d'écran.
+    @GET("farm-settings")
+    Call<ApiEnvelope<FarmAppSettingsResponse>> getFarmAppSettings();
 
     @GET("batiments/select")
     Call<ApiEnvelope<List<BatimentSelectResponse>>> getBatimentsSelect();

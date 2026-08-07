@@ -25,6 +25,10 @@ public enum SaisieType {
     // quantités remontées par Collecte œufs / Réforme.
     VENTE_OEUFS("Vente d'œufs", Categorie.FINANCE),
     VENTE_REFORME("Vente réforme", Categorie.FINANCE),
+    // Contrairement à VENTE_OEUFS/VENTE_REFORME, pas de stock/plafond serveur dédié :
+    // une simple transaction "entrée" commune, catégorie fixe "Vente fientes" — voir
+    // diafarms_back TransactionServiceImpl.create (même endpoint que TRANSACTION_ENTREE).
+    VENTE_FIENTES("Vente de fientes", Categorie.FINANCE),
     TRANSACTION_ENTREE("Entrée d'argent", Categorie.FINANCE),
     TRANSACTION_SORTIE("Sortie d'argent", Categorie.FINANCE);
 

@@ -331,7 +331,10 @@ public class SaisieFormActivity extends AppCompatActivity {
         spinnerTypeSoin.setAdapter(typeSoinAdapter);
     }
 
+    private static final String[] CATEGORIE_VENTE_FIENTES = {"Vente fientes"};
+
     private String[] categoriesPourType() {
+        if (type == SaisieType.VENTE_FIENTES) return CATEGORIE_VENTE_FIENTES;
         return type == SaisieType.TRANSACTION_SORTIE ? CATEGORIES_TRANSACTION_SORTIE : CATEGORIES_TRANSACTION_ENTREE;
     }
 
@@ -348,7 +351,8 @@ public class SaisieFormActivity extends AppCompatActivity {
         groupVenteOeufs.setVisibility(type == SaisieType.VENTE_OEUFS ? View.VISIBLE : View.GONE);
         groupVenteReforme.setVisibility(type == SaisieType.VENTE_REFORME ? View.VISIBLE : View.GONE);
         groupTransaction.setVisibility(
-                (type == SaisieType.TRANSACTION_ENTREE || type == SaisieType.TRANSACTION_SORTIE) ? View.VISIBLE : View.GONE);
+                (type == SaisieType.TRANSACTION_ENTREE || type == SaisieType.TRANSACTION_SORTIE || type == SaisieType.VENTE_FIENTES)
+                        ? View.VISIBLE : View.GONE);
     }
 
     /**
@@ -957,25 +961,29 @@ public class SaisieFormActivity extends AppCompatActivity {
                 break;
             }
             case TRANSACTION_ENTREE:
-            case TRANSACTION_SORTIE: {
+            case TRANSACTION_SORTIE:
+            case VENTE_FIENTES: {
                 Double montant = parseDoubleOrNull(etMontant.getText());
                 String description = textOf(etDescriptionTransaction);
                 if (montant == null || montant <= 0 || description.isEmpty()) {
                     toast("Veuillez saisir le montant et une description");
                     return;
                 }
-                boolean commun = checkCommun.isChecked();
+                // Vente de fientes : toujours commune (acte Finance à l'échelle de la
+                // ferme, comme sur web — voir CreateVenteFienteDialog), la case à cocher
+                // ne s'affiche même pas pour ce type.
+                boolean commun = (type == SaisieType.VENTE_FIENTES) || checkCommun.isChecked();
                 if (!commun && (projetUniqueId == null || projetUniqueId.isEmpty())) {
                     toast("Aucun projet actif : cochez \"commune\" ou sélectionnez un projet depuis l'accueil");
                     return;
                 }
                 List<String> projetsConcernes = commun ? getSelectedProjetsConcernesUniqueIds() : null;
-                if (commun && projetsConcernes.isEmpty()) {
+                if (commun && type != SaisieType.VENTE_FIENTES && projetsConcernes.isEmpty()) {
                     toast("Sélectionnez au moins un projet concerné par cette dépense/rentrée commune");
                     return;
                 }
                 TransactionCreateRequest req = new TransactionCreateRequest();
-                req.type = (type == SaisieType.TRANSACTION_ENTREE) ? "ENTREE" : "SORTIE";
+                req.type = (type == SaisieType.TRANSACTION_SORTIE) ? "SORTIE" : "ENTREE";
                 req.commun = commun;
                 req.projetUniqueId = commun ? null : projetUniqueId;
                 req.projetsConcernesUniqueIds = projetsConcernes;
@@ -985,7 +993,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.categorie = (String) spinnerCategorie.getSelectedItem();
                 requestObject = req;
                 summary = String.format(Locale.FRANCE, "%s %,.0f FCFA — %s",
-                        type == SaisieType.TRANSACTION_ENTREE ? "+" : "-", montant, description);
+                        type == SaisieType.TRANSACTION_SORTIE ? "-" : "+", montant, description);
                 break;
             }
             default:
@@ -1083,7 +1091,8 @@ public class SaisieFormActivity extends AppCompatActivity {
                 break;
             }
             case TRANSACTION_ENTREE:
-            case TRANSACTION_SORTIE: {
+            case TRANSACTION_SORTIE:
+            case VENTE_FIENTES: {
                 TransactionCreateRequest req = gson.fromJson(json, TransactionCreateRequest.class);
                 setDateHeure(req.date, null);
                 if (req.montant != null) etMontant.setText(String.valueOf(req.montant));

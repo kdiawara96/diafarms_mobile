@@ -32,6 +32,7 @@ import com.mobile.diafarms.models.SaisieType;
 import com.mobile.diafarms.models.User;
 import com.mobile.diafarms.network.ApiClient;
 import com.mobile.diafarms.network.dto.ApiEnvelope;
+import com.mobile.diafarms.network.dto.FarmAppSettingsResponse;
 import com.mobile.diafarms.network.dto.NotificationResponse;
 import com.mobile.diafarms.network.dto.OccupationBatimentResponse;
 import com.mobile.diafarms.network.dto.ProjetDetailResponse;
@@ -120,6 +121,7 @@ public class HomeActivity extends AppCompatActivity {
     private CardView btnSortieArgent;
     private CardView btnVenteOeufs;
     private CardView btnVenteReforme;
+    private CardView btnVenteFientes;
     private CardView cardStatsFinance;
     private TextView tvMesEntrees;
     private TextView tvMesSorties;
@@ -213,6 +215,7 @@ public class HomeActivity extends AppCompatActivity {
         btnSortieArgent = findViewById(R.id.btnSortieArgent);
         btnVenteOeufs = findViewById(R.id.btnVenteOeufs);
         btnVenteReforme = findViewById(R.id.btnVenteReforme);
+        btnVenteFientes = findViewById(R.id.btnVenteFientes);
         cardStatsFinance = findViewById(R.id.cardStatsFinance);
         tvMesEntrees = findViewById(R.id.tvMesEntrees);
         tvMesSorties = findViewById(R.id.tvMesSorties);
@@ -274,6 +277,43 @@ public class HomeActivity extends AppCompatActivity {
         tvSectionFinance.setVisibility(isFinance ? View.VISIBLE : View.GONE);
         gridFinance.setVisibility(isFinance ? View.VISIBLE : View.GONE);
         cardStatsFinance.setVisibility(isFinance ? View.VISIBLE : View.GONE);
+
+        // Fermé par défaut (fail-closed, cohérent avec AppAccessRules côté back) tant
+        // que la réponse de /farm-settings n'est pas arrivée — voir loadFarmAppSettings,
+        // appelé juste après. Un compte ADMIN n'a pas de rôle FINANCIER (isFinance()
+        // reste false), donc jamais concerné par ces 5 boutons de toute façon.
+        if (isFinance) {
+            btnVenteOeufs.setVisibility(View.GONE);
+            btnVenteReforme.setVisibility(View.GONE);
+            btnVenteFientes.setVisibility(View.GONE);
+            btnEntreeArgent.setVisibility(View.GONE);
+            btnSortieArgent.setVisibility(View.GONE);
+            loadFarmAppSettings();
+        }
+    }
+
+    /** Quelles actions Finance ce financier a le droit de faire sur mobile (voir
+     * Paramètres côté web, AppAccessRules côté back) — révèle les boutons autorisés
+     * une fois la réponse arrivée. Si la requête échoue (hors ligne...), les boutons
+     * restent masqués (fail-closed) plutôt que de tout montrer par défaut. */
+    private void loadFarmAppSettings() {
+        ApiClient.dataApi(this).getFarmAppSettings().enqueue(new Callback<ApiEnvelope<FarmAppSettingsResponse>>() {
+            @Override
+            public void onResponse(Call<ApiEnvelope<FarmAppSettingsResponse>> call, Response<ApiEnvelope<FarmAppSettingsResponse>> response) {
+                if (!response.isSuccessful() || response.body() == null || response.body().getData() == null) return;
+                FarmAppSettingsResponse s = response.body().getData();
+                btnVenteOeufs.setVisibility(s.isFinancierMobileVenteOeufs() ? View.VISIBLE : View.GONE);
+                btnVenteReforme.setVisibility(s.isFinancierMobileVenteReforme() ? View.VISIBLE : View.GONE);
+                btnVenteFientes.setVisibility(s.isFinancierMobileVenteFientes() ? View.VISIBLE : View.GONE);
+                btnEntreeArgent.setVisibility(s.isFinancierMobileEntree() ? View.VISIBLE : View.GONE);
+                btnSortieArgent.setVisibility(s.isFinancierMobileSortie() ? View.VISIBLE : View.GONE);
+            }
+
+            @Override
+            public void onFailure(Call<ApiEnvelope<FarmAppSettingsResponse>> call, Throwable t) {
+                Log.e(TAG, "Impossible de charger les accès Finance (boutons restent masqués)", t);
+            }
+        });
     }
 
     /** Charge les projets réels de la ferme (GET /projets/select) pour peupler le sélecteur. */
@@ -612,6 +652,7 @@ public class HomeActivity extends AppCompatActivity {
         btnSortieArgent.setOnClickListener(v -> openSaisie(SaisieType.TRANSACTION_SORTIE));
         btnVenteOeufs.setOnClickListener(v -> openSaisie(SaisieType.VENTE_OEUFS));
         btnVenteReforme.setOnClickListener(v -> openSaisie(SaisieType.VENTE_REFORME));
+        btnVenteFientes.setOnClickListener(v -> openSaisie(SaisieType.VENTE_FIENTES));
 
         // Sync — écouteur sur l'ImageButton interne, même raison que btnDiagnostics ci-dessus.
         findViewById(R.id.imgBtnSync).setOnClickListener(v -> forceSync());
@@ -626,7 +667,7 @@ public class HomeActivity extends AppCompatActivity {
         // Vente œufs/réforme (Finance) puisent dans un stock à l'échelle de la ferme
         // entière, pas du projet sélectionné — même exception que les transactions.
         boolean needsProjet = type != SaisieType.TRANSACTION_ENTREE && type != SaisieType.TRANSACTION_SORTIE
-                && type != SaisieType.VENTE_OEUFS && type != SaisieType.VENTE_REFORME;
+                && type != SaisieType.VENTE_OEUFS && type != SaisieType.VENTE_REFORME && type != SaisieType.VENTE_FIENTES;
         if (needsProjet && currentProjet == null) {
             Toast.makeText(this, "Veuillez sélectionner un projet", Toast.LENGTH_SHORT).show();
             return;

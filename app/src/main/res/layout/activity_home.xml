@@ -854,6 +854,54 @@
                             android:gravity="center"/>
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
+
+                <!-- Vente de fientes : simple transaction manuelle (pas de stock côté
+                     serveur, contrairement à œufs/réforme) — visible seulement si l'admin
+                     l'a activée pour ce financier (voir HomeActivity.applyFarmAppSettings). -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/btnVenteFientes"
+                    android:layout_width="0dp"
+                    android:layout_height="120dp"
+                    android:layout_columnWeight="1"
+                    android:layout_margin="6dp"
+                    app:cardCornerRadius="16dp"
+                    app:cardBackgroundColor="#F9FAFB"
+                    app:cardElevation="1dp"
+                    android:foreground="?attr/selectableItemBackground"
+                    android:clickable="true">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="8dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="💩"
+                            android:textSize="28sp"/>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:text="Vente de fientes"
+                            android:textColor="#1F2937"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:gravity="center"/>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Transaction manuelle"
+                            android:textColor="#6B7280"
+                            android:textSize="11sp"
+                            android:gravity="center"/>
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
             </GridLayout>
 
             <!-- Stats Finance (si rôle finance) -->
