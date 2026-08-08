@@ -6,6 +6,7 @@ import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.CheckBox;
 import android.widget.ImageButton;
@@ -38,6 +39,7 @@ import com.mobile.diafarms.network.dto.ApiEnvelope;
 import com.mobile.diafarms.network.dto.CollecteOeufsCreateRequest;
 import com.mobile.diafarms.network.dto.ConsommationAlimentCreateRequest;
 import com.mobile.diafarms.network.dto.EffectifReformeResponse;
+import com.mobile.diafarms.network.dto.MagasinSelectResponse;
 import com.mobile.diafarms.network.dto.MortaliteCreateRequest;
 import com.mobile.diafarms.network.dto.OccupationBatimentResponse;
 import com.mobile.diafarms.network.dto.ProjetDetailResponse;
@@ -45,8 +47,7 @@ import com.mobile.diafarms.network.dto.ProjetSelectResponse;
 import com.mobile.diafarms.network.dto.ReformeCreateRequest;
 import com.mobile.diafarms.network.dto.SoinsCreateRequest;
 import com.mobile.diafarms.network.dto.StockAlimentResponse;
-import com.mobile.diafarms.network.dto.StockOeufsResponse;
-import com.mobile.diafarms.network.dto.StockReformeResponse;
+import com.mobile.diafarms.network.dto.StockMagasinResponse;
 import com.mobile.diafarms.network.dto.TransactionCreateRequest;
 import com.mobile.diafarms.network.dto.VenteOeufsCreateRequest;
 import com.mobile.diafarms.network.dto.VenteReformeCreateRequest;
@@ -104,6 +105,12 @@ public class SaisieFormActivity extends AppCompatActivity {
     // selectBatimentByUniqueId/applyPendingBatimentSelection.
     private String pendingBatimentSelection;
 
+    // Magasins de vente (VENTE) : liste déjà filtrée par le serveur aux magasins liés
+    // à ce vendeur — partagée par les deux spinners (Vente œufs / Vente réforme),
+    // même liste dans les deux cas. Voir loadMagasins/selectMagasinByUniqueId.
+    private List<MagasinSelectResponse> magasins = new ArrayList<>();
+    private String pendingMagasinSelection;
+
     // Vues communes
     private TextView tvTitreForm, tvProjetForm, tvStockInfo;
     private Spinner spinnerBatiment;
@@ -143,11 +150,12 @@ public class SaisieFormActivity extends AppCompatActivity {
     private View groupConsommation;
     private TextInputEditText etQuantiteKgConso;
 
-    // Vente œufs (Finance) — acte commercial à l'échelle de TOUTE LA FERME (pas d'un
-    // projet précis), plafonnée par le stock vendable (collectés - cassés - vendus de
-    // la ferme), calculé côté serveur (voir stockOeufsDisponible, jamais recalculé
-    // sur l'appareil).
+    // Vente œufs (VENTE) — vendue DEPUIS un magasin précis (obligatoire, voir
+    // spinnerMagasinOeufs), plafonnée par le stock vendable DE CE MAGASIN (vrai stock
+    // séparé par magasin), calculé côté serveur (voir stockOeufsDisponible, jamais
+    // recalculé sur l'appareil).
     private View groupVenteOeufs;
+    private Spinner spinnerMagasinOeufs;
     private TextView tvStockOeufsInfo;
     // Unité de saisie de etQuantiteOeufsVente/etPrixUnitaireOeufs (voir AlveoleUtils) —
     // Œuf ou Alvéole (plateau de 30 œufs) ; req.quantiteOeufs envoyé au serveur reste
@@ -157,10 +165,12 @@ public class SaisieFormActivity extends AppCompatActivity {
     private TextInputEditText etQuantiteOeufsVente, etPrixUnitaireOeufs, etMontantVenteOeufs;
     private Integer stockOeufsDisponible;
 
-    // Vente réforme (Finance) — acte commercial à l'échelle de TOUTE LA FERME,
-    // plafonnée par le total réformé (Reforme, Production) de la ferme moins déjà
-    // vendu (voir stockReformeDisponible) — distinct de l'effectif vivant d'UN projet.
+    // Vente réforme (VENTE) — vendue DEPUIS un magasin précis (obligatoire, voir
+    // spinnerMagasinReforme), plafonnée par le total réformé transféré dans CE
+    // MAGASIN moins déjà vendu (voir stockReformeDisponible) — distinct de l'effectif
+    // vivant d'UN projet (effectifReformeDisponible, saisie Réforme Production).
     private View groupVenteReforme;
+    private Spinner spinnerMagasinReforme;
     private TextView tvStockReformeInfo;
     private TextInputEditText etNombreSujetsVente, etPrixUnitaireReforme, etMontantVenteReforme;
     private Integer stockReformeDisponible;
@@ -208,14 +218,12 @@ public class SaisieFormActivity extends AppCompatActivity {
         if (type == SaisieType.REFORME && projetUniqueId != null) {
             loadEffectifReforme();
         }
-        // Vente œufs/réforme (Finance) : plafonnées à l'échelle de la ferme, jamais
-        // d'un projet précis — chargées systématiquement, pas conditionnées à
-        // projetUniqueId (contrairement aux stocks/effectifs Production ci-dessus).
-        if (type == SaisieType.VENTE_OEUFS) {
-            loadStockOeufs();
-        }
-        if (type == SaisieType.VENTE_REFORME) {
-            loadStockReforme();
+        // Vente œufs/réforme (VENTE) : magasin de vente obligatoire — le stock qui
+        // plafonne la vente est désormais celui DE CE MAGASIN précis (vrai stock
+        // séparé par magasin), plus jamais un stock unique pour toute la ferme comme
+        // avant. Voir loadMagasins/loadStockPourMagasinSelectionne.
+        if (type == SaisieType.VENTE_OEUFS || type == SaisieType.VENTE_REFORME) {
+            loadMagasins();
         }
 
         if (editingLocalId != null) {
@@ -276,6 +284,16 @@ public class SaisieFormActivity extends AppCompatActivity {
         etQuantiteKgConso = findViewById(R.id.etQuantiteKgConso);
 
         groupVenteOeufs = findViewById(R.id.groupVenteOeufs);
+        spinnerMagasinOeufs = findViewById(R.id.spinnerMagasinOeufs);
+        spinnerMagasinOeufs.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                loadStockPourMagasinSelectionne();
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) { }
+        });
         tvStockOeufsInfo = findViewById(R.id.tvStockOeufsInfo);
         radioGroupUniteVenteOeufs = findViewById(R.id.radioGroupUniteVenteOeufs);
         tilQuantiteOeufsVente = findViewById(R.id.tilQuantiteOeufsVente);
@@ -298,6 +316,16 @@ public class SaisieFormActivity extends AppCompatActivity {
         etPrixUnitaireOeufs.addTextChangedListener(venteOeufsWatcher);
 
         groupVenteReforme = findViewById(R.id.groupVenteReforme);
+        spinnerMagasinReforme = findViewById(R.id.spinnerMagasinReforme);
+        spinnerMagasinReforme.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                loadStockPourMagasinSelectionne();
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) { }
+        });
         tvStockReformeInfo = findViewById(R.id.tvStockReformeInfo);
         etNombreSujetsVente = findViewById(R.id.etNombreSujetsVente);
         etPrixUnitaireReforme = findViewById(R.id.etPrixUnitaireReforme);
@@ -626,52 +654,146 @@ public class SaisieFormActivity extends AppCompatActivity {
     }
 
     /**
-     * Stock d'œufs vendables de TOUTE LA FERME (collectés - cassés - vendus), même
-     * schéma retrofit → cache → repli hors ligne que loadStock() ci-dessus — la
-     * valeur calculée côté serveur est gardée dans stockOeufsDisponible pour le
-     * garde-fou de onValider() (le serveur reste juge en dernier ressort, mais on
-     * refuse déjà côté client plutôt que de laisser l'utilisateur découvrir le refus
-     * après coup). Pas de clé de cache par projet : un seul stock, pour toute la ferme.
+     * Magasins de vente liés à ce vendeur (déjà filtrés côté serveur) — mêmes deux
+     * spinners (Vente œufs / Vente réforme) alimentés depuis la même liste, même
+     * schéma cache → réseau que loadBatiments(). Pas d'option "Aucun magasin" : le
+     * magasin est obligatoire pour toute vente (contrairement au bâtiment).
      */
-    private void loadStockOeufs() {
-        String cacheKey = CachePrefetcher.CACHE_STOCK_OEUFS_FARM;
-        StockOeufsResponse cached = getCachedOrNull(cacheKey, StockOeufsResponse.class);
-        boolean hadCache = cached != null;
-        if (hadCache) displayStockOeufs(cached, true);
+    private void loadMagasins() {
+        String cacheKey = CachePrefetcher.CACHE_MAGASINS_SELECT;
+        String cachedJson = localDatabase.getCache(cacheKey);
+        if (cachedJson != null) {
+            Type listType = new TypeToken<List<MagasinSelectResponse>>() {}.getType();
+            List<MagasinSelectResponse> parsed = gson.fromJson(cachedJson, listType);
+            if (parsed != null) {
+                magasins = parsed;
+                populateMagasinSpinners();
+            }
+        }
 
-        ApiClient.dataApi(this).getStockOeufs().enqueue(new Callback<ApiEnvelope<StockOeufsResponse>>() {
+        ApiClient.dataApi(this).getMagasinsSelect().enqueue(new Callback<ApiEnvelope<List<MagasinSelectResponse>>>() {
             @Override
-            public void onResponse(Call<ApiEnvelope<StockOeufsResponse>> call, Response<ApiEnvelope<StockOeufsResponse>> response) {
-                StockOeufsResponse stock = response.isSuccessful() && response.body() != null ? response.body().getData() : null;
-                if (stock != null) {
-                    localDatabase.putCache(cacheKey, gson.toJson(stock));
-                    displayStockOeufs(stock, false);
-                } else if (!hadCache) {
-                    displayStockOeufs(null, false);
+            public void onResponse(Call<ApiEnvelope<List<MagasinSelectResponse>>> call, Response<ApiEnvelope<List<MagasinSelectResponse>>> response) {
+                List<MagasinSelectResponse> data = response.isSuccessful() && response.body() != null ? response.body().getData() : null;
+                if (data != null) {
+                    magasins = data;
+                    localDatabase.putCache(cacheKey, gson.toJson(data));
+                    populateMagasinSpinners();
                 }
+                // sinon : magasins déjà affichés depuis le cache le cas échéant, rien à faire
             }
 
             @Override
-            public void onFailure(Call<ApiEnvelope<StockOeufsResponse>> call, Throwable t) {
-                if (!hadCache) displayStockOeufs(null, true);
+            public void onFailure(Call<ApiEnvelope<List<MagasinSelectResponse>>> call, Throwable t) {
+                // magasins déjà affichés depuis le cache le cas échéant, rien à faire de plus
             }
         });
     }
 
-    private void displayStockOeufs(StockOeufsResponse stock, boolean fromCache) {
-        stockOeufsDisponible = stock != null ? stock.getStockRestant() : null;
-        if (stockOeufsDisponible != null) {
-            String suffix = fromCache ? " (dernière donnée connue, hors ligne)" : "";
-            tvStockOeufsInfo.setText(String.format(Locale.FRANCE, "Disponible à la vente (ferme) : %s%s",
-                    AlveoleUtils.formatOeufsAvecAlveoles(stockOeufsDisponible), suffix));
-        } else {
-            tvStockOeufsInfo.setText(fromCache ? "Stock non disponible (hors ligne)" : "Stock non disponible");
+    private void populateMagasinSpinners() {
+        List<String> labels = new ArrayList<>();
+        for (MagasinSelectResponse m : magasins) {
+            labels.add(m.getNom());
+        }
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, labels);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerMagasinOeufs.setAdapter(adapter);
+        spinnerMagasinReforme.setAdapter(adapter);
+        applyPendingMagasinSelection();
+    }
+
+    private String getSelectedMagasinUniqueId(Spinner spinner) {
+        int position = spinner.getSelectedItemPosition();
+        if (position < 0 || position >= magasins.size()) return null;
+        return magasins.get(position).getUniqueId();
+    }
+
+    /** Même raisonnement que selectBatimentByUniqueId/applyPendingBatimentSelection —
+     * voir leur commentaire pour la course entre prefillFromExisting() (synchrone) et
+     * loadMagasins() (réseau asynchrone). */
+    private void selectMagasinByUniqueId(String uniqueId) {
+        if (uniqueId == null) return;
+        pendingMagasinSelection = uniqueId;
+        applyPendingMagasinSelection();
+    }
+
+    private void applyPendingMagasinSelection() {
+        if (pendingMagasinSelection == null) return;
+        for (int i = 0; i < magasins.size(); i++) {
+            if (pendingMagasinSelection.equals(magasins.get(i).getUniqueId())) {
+                spinnerMagasinOeufs.setSelection(i);
+                spinnerMagasinReforme.setSelection(i);
+                // Appelé explicitement (pas seulement via OnItemSelectedListener) car
+                // Spinner.setSelection() ne déclenche pas le listener quand la position
+                // ne change pas (ex. le magasin voulu est déjà en position 0 par défaut).
+                loadStockPourMagasinSelectionne();
+                return;
+            }
+        }
+    }
+
+    /** Le stock qui plafonne la vente est celui DU MAGASIN sélectionné, pas de toute
+     * la ferme (vrai stock séparé par magasin) — déclenché à chaque changement de
+     * sélection des spinners magasin (voir bindViews) et par applyPendingMagasinSelection. */
+    private void loadStockPourMagasinSelectionne() {
+        Spinner spinner = (type == SaisieType.VENTE_OEUFS) ? spinnerMagasinOeufs : spinnerMagasinReforme;
+        String magasinUniqueId = getSelectedMagasinUniqueId(spinner);
+        if (magasinUniqueId == null) {
+            displayStockMagasin(null, false);
+            return;
+        }
+        loadStockForMagasin(magasinUniqueId);
+    }
+
+    private void loadStockForMagasin(String magasinUniqueId) {
+        String cacheKey = CachePrefetcher.CACHE_STOCK_MAGASIN_PREFIX + magasinUniqueId;
+        StockMagasinResponse cached = getCachedOrNull(cacheKey, StockMagasinResponse.class);
+        boolean hadCache = cached != null;
+        if (hadCache) displayStockMagasin(cached, true);
+
+        ApiClient.dataApi(this).getStockMagasin(magasinUniqueId).enqueue(new Callback<ApiEnvelope<StockMagasinResponse>>() {
+            @Override
+            public void onResponse(Call<ApiEnvelope<StockMagasinResponse>> call, Response<ApiEnvelope<StockMagasinResponse>> response) {
+                StockMagasinResponse stock = response.isSuccessful() && response.body() != null ? response.body().getData() : null;
+                if (stock != null) {
+                    localDatabase.putCache(cacheKey, gson.toJson(stock));
+                    displayStockMagasin(stock, false);
+                } else if (!hadCache) {
+                    displayStockMagasin(null, false);
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiEnvelope<StockMagasinResponse>> call, Throwable t) {
+                if (!hadCache) displayStockMagasin(null, true);
+            }
+        });
+    }
+
+    private void displayStockMagasin(StockMagasinResponse stock, boolean fromCache) {
+        String suffix = fromCache ? " (dernière donnée connue, hors ligne)" : "";
+        if (type == SaisieType.VENTE_OEUFS) {
+            stockOeufsDisponible = stock != null ? stock.getOeufsDisponible() : null;
+            if (stockOeufsDisponible != null) {
+                tvStockOeufsInfo.setText(String.format(Locale.FRANCE, "Disponible dans ce magasin : %s%s",
+                        AlveoleUtils.formatOeufsAvecAlveoles(stockOeufsDisponible), suffix));
+            } else {
+                tvStockOeufsInfo.setText(fromCache ? "Stock non disponible (hors ligne)" : "Stock non disponible");
+            }
+        } else if (type == SaisieType.VENTE_REFORME) {
+            stockReformeDisponible = stock != null ? stock.getReformeDisponible() : null;
+            if (stockReformeDisponible != null) {
+                tvStockReformeInfo.setText(String.format(Locale.FRANCE, "Disponible dans ce magasin : %d sujet(s)%s", stockReformeDisponible, suffix));
+            } else {
+                tvStockReformeInfo.setText(fromCache ? "Stock non disponible (hors ligne)" : "Stock non disponible");
+            }
         }
     }
 
     /**
      * Effectif vivant DU PROJET sélectionné (nbSujets - mortalité - déjà réformés) —
-     * plafond de la saisie Réforme (Production), même schéma que loadStockOeufs().
+     * plafond de la saisie Réforme (Production), même schéma cache → réseau que
+     * loadStockForMagasin() plus bas.
      */
     private void loadEffectifReforme() {
         String cacheKey = CachePrefetcher.CACHE_EFFECTIF_REFORME_PREFIX + projetUniqueId;
@@ -705,46 +827,6 @@ public class SaisieFormActivity extends AppCompatActivity {
             tvEffectifReformeInfo.setText(String.format(Locale.FRANCE, "Sujets vivants disponibles : %d%s", effectifReformeDisponible, suffix));
         } else {
             tvEffectifReformeInfo.setText(fromCache ? "Effectif non disponible (hors ligne)" : "Effectif non disponible");
-        }
-    }
-
-    /**
-     * Stock de sujets réformés vendables de TOUTE LA FERME (Reforme - déjà vendu),
-     * plafond de la vente réforme (Finance) — distinct de l'effectif vivant d'UN
-     * projet ci-dessus. Même schéma que loadStockOeufs().
-     */
-    private void loadStockReforme() {
-        String cacheKey = CachePrefetcher.CACHE_STOCK_REFORME_FARM;
-        StockReformeResponse cachedStock = getCachedOrNull(cacheKey, StockReformeResponse.class);
-        boolean hadCache = cachedStock != null;
-        if (hadCache) displayStockReforme(cachedStock, true);
-
-        ApiClient.dataApi(this).getStockReforme().enqueue(new Callback<ApiEnvelope<StockReformeResponse>>() {
-            @Override
-            public void onResponse(Call<ApiEnvelope<StockReformeResponse>> call, Response<ApiEnvelope<StockReformeResponse>> response) {
-                StockReformeResponse stock = response.isSuccessful() && response.body() != null ? response.body().getData() : null;
-                if (stock != null) {
-                    localDatabase.putCache(cacheKey, gson.toJson(stock));
-                    displayStockReforme(stock, false);
-                } else if (!hadCache) {
-                    displayStockReforme(null, false);
-                }
-            }
-
-            @Override
-            public void onFailure(Call<ApiEnvelope<StockReformeResponse>> call, Throwable t) {
-                if (!hadCache) displayStockReforme(null, true);
-            }
-        });
-    }
-
-    private void displayStockReforme(StockReformeResponse stock, boolean fromCache) {
-        stockReformeDisponible = stock != null ? stock.getStockRestant() : null;
-        if (stockReformeDisponible != null) {
-            String suffix = fromCache ? " (dernière donnée connue, hors ligne)" : "";
-            tvStockReformeInfo.setText(String.format(Locale.FRANCE, "Disponible à la vente (ferme) : %d sujet(s)%s", stockReformeDisponible, suffix));
-        } else {
-            tvStockReformeInfo.setText(fromCache ? "Stock non disponible (hors ligne)" : "Stock non disponible");
         }
     }
 
@@ -784,6 +866,10 @@ public class SaisieFormActivity extends AppCompatActivity {
 
         switch (type) {
             case COLLECTE_OEUFS: {
+                if (batimentUniqueId == null) {
+                    toast("Veuillez sélectionner le bâtiment");
+                    return;
+                }
                 boolean enAlveoles = isCollecteEnAlveoles();
                 int saisie = parseIntSafe(etOeufsCollectes.getText());
                 int collectes = enAlveoles ? AlveoleUtils.alveolesToOeufs(saisie) : saisie;
@@ -806,6 +892,10 @@ public class SaisieFormActivity extends AppCompatActivity {
                 break;
             }
             case SOINS: {
+                if (batimentUniqueId == null) {
+                    toast("Veuillez sélectionner le bâtiment");
+                    return;
+                }
                 String produit = textOf(etProduit);
                 if (produit.isEmpty()) {
                     toast("Veuillez préciser le produit utilisé");
@@ -827,6 +917,10 @@ public class SaisieFormActivity extends AppCompatActivity {
                 break;
             }
             case MORTALITE: {
+                if (batimentUniqueId == null) {
+                    toast("Veuillez sélectionner le bâtiment");
+                    return;
+                }
                 int nombreMorts = parseIntSafe(etNombreMorts.getText());
                 if (nombreMorts <= 0) {
                     toast("Veuillez saisir le nombre de sujets morts");
@@ -865,6 +959,10 @@ public class SaisieFormActivity extends AppCompatActivity {
                 break;
             }
             case ALIMENTATION_ACHAT: {
+                if (batimentUniqueId == null) {
+                    toast("Veuillez sélectionner le bâtiment");
+                    return;
+                }
                 String nom = textOf(etNomAliment);
                 Double quantiteKg = parseDoubleOrNull(etQuantiteKgAchat.getText());
                 if (nom.isEmpty() || quantiteKg == null || quantiteKg <= 0) {
@@ -902,6 +1000,11 @@ public class SaisieFormActivity extends AppCompatActivity {
                 break;
             }
             case VENTE_OEUFS: {
+                String magasinUniqueId = getSelectedMagasinUniqueId(spinnerMagasinOeufs);
+                if (magasinUniqueId == null) {
+                    toast("Veuillez sélectionner le magasin de vente");
+                    return;
+                }
                 boolean enAlveoles = isVenteOeufsEnAlveoles();
                 int saisie = parseIntSafe(etQuantiteOeufsVente.getText());
                 int quantite = enAlveoles ? AlveoleUtils.alveolesToOeufs(saisie) : saisie;
@@ -915,15 +1018,16 @@ public class SaisieFormActivity extends AppCompatActivity {
                     toast("Veuillez saisir le montant de la vente");
                     return;
                 }
-                // Garde-fou client en plus de la validation serveur (voir loadStockOeufs) :
+                // Garde-fou client en plus de la validation serveur (voir loadStockForMagasin) :
                 // évite un aller-retour réseau pour découvrir le refus après coup.
                 if (stockOeufsDisponible != null && quantite > stockOeufsDisponible) {
-                    toast("Quantité supérieure au stock disponible (" + stockOeufsDisponible + " œuf(s))");
+                    toast("Quantité supérieure au stock disponible dans ce magasin (" + stockOeufsDisponible + " œuf(s))");
                     return;
                 }
                 VenteOeufsCreateRequest req = new VenteOeufsCreateRequest();
                 req.date = date;
                 req.heure = heure;
+                req.magasinUniqueId = magasinUniqueId;
                 req.quantiteOeufs = quantite; // toujours en œufs, quelle que soit l'unité saisie
                 // prixUnitaire (VenteOeufs.prixUnitaire côté back) est "informatif, par
                 // œuf" — reconverti depuis le prix par alvéole si c'est l'unité choisie.
@@ -936,6 +1040,11 @@ public class SaisieFormActivity extends AppCompatActivity {
                 break;
             }
             case VENTE_REFORME: {
+                String magasinUniqueIdReforme = getSelectedMagasinUniqueId(spinnerMagasinReforme);
+                if (magasinUniqueIdReforme == null) {
+                    toast("Veuillez sélectionner le magasin de vente");
+                    return;
+                }
                 int nombreSujets = parseIntSafe(etNombreSujetsVente.getText());
                 Double montant = parseDoubleOrNull(etMontantVenteReforme.getText());
                 if (nombreSujets <= 0) {
@@ -947,12 +1056,13 @@ public class SaisieFormActivity extends AppCompatActivity {
                     return;
                 }
                 if (stockReformeDisponible != null && nombreSujets > stockReformeDisponible) {
-                    toast("Quantité supérieure au stock disponible (" + stockReformeDisponible + " sujet(s))");
+                    toast("Quantité supérieure au stock disponible dans ce magasin (" + stockReformeDisponible + " sujet(s))");
                     return;
                 }
                 VenteReformeCreateRequest req = new VenteReformeCreateRequest();
                 req.date = date;
                 req.heure = heure;
+                req.magasinUniqueId = magasinUniqueIdReforme;
                 req.nombreSujets = nombreSujets;
                 req.prixUnitaire = parseDoubleOrNull(etPrixUnitaireReforme.getText());
                 req.montant = montant;
@@ -1080,6 +1190,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 if (req.quantiteOeufs != null) etQuantiteOeufsVente.setText(String.valueOf(req.quantiteOeufs));
                 if (req.prixUnitaire != null) etPrixUnitaireOeufs.setText(String.valueOf(req.prixUnitaire));
                 if (req.montant != null) etMontantVenteOeufs.setText(String.valueOf(req.montant));
+                selectMagasinByUniqueId(req.magasinUniqueId);
                 break;
             }
             case VENTE_REFORME: {
@@ -1088,6 +1199,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 if (req.nombreSujets != null) etNombreSujetsVente.setText(String.valueOf(req.nombreSujets));
                 if (req.prixUnitaire != null) etPrixUnitaireReforme.setText(String.valueOf(req.prixUnitaire));
                 if (req.montant != null) etMontantVenteReforme.setText(String.valueOf(req.montant));
+                selectMagasinByUniqueId(req.magasinUniqueId);
                 break;
             }
             case TRANSACTION_ENTREE:

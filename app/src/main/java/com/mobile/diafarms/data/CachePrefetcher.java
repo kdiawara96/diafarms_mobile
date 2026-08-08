@@ -8,12 +8,12 @@ import com.google.gson.Gson;
 import com.mobile.diafarms.network.ApiClient;
 import com.mobile.diafarms.network.dto.ApiEnvelope;
 import com.mobile.diafarms.network.dto.EffectifReformeResponse;
+import com.mobile.diafarms.network.dto.MagasinSelectResponse;
 import com.mobile.diafarms.network.dto.NotificationResponse;
 import com.mobile.diafarms.network.dto.ProjetDetailResponse;
 import com.mobile.diafarms.network.dto.ProjetSelectResponse;
 import com.mobile.diafarms.network.dto.StockAlimentResponse;
-import com.mobile.diafarms.network.dto.StockOeufsResponse;
-import com.mobile.diafarms.network.dto.StockReformeResponse;
+import com.mobile.diafarms.network.dto.StockMagasinResponse;
 import com.mobile.diafarms.util.DebugLog;
 
 import java.util.ArrayList;
@@ -40,10 +40,10 @@ public class CachePrefetcher {
     public static final String CACHE_STOCK_ALIMENT_PREFIX = "stock_aliment_";
     // Effectif vivant (Production, ReformeImpl) : par projet, comme le stock aliment.
     public static final String CACHE_EFFECTIF_REFORME_PREFIX = "effectif_reforme_";
-    // Stock d'œufs / de réforme vendables (Finance) : à l'échelle de la ferme entière,
-    // une seule clé de cache — pas de préfixe par projet.
-    public static final String CACHE_STOCK_OEUFS_FARM = "stock_oeufs_farm";
-    public static final String CACHE_STOCK_REFORME_FARM = "stock_reforme_farm";
+    // Magasins de vente (VENTE) : liste déjà filtrée aux magasins liés au vendeur côté
+    // serveur, et stock par magasin précis (un vendeur peut être lié à plusieurs).
+    public static final String CACHE_MAGASINS_SELECT = "magasins_select";
+    public static final String CACHE_STOCK_MAGASIN_PREFIX = "stock_magasin_";
 
     private static final String TAG = "CachePrefetcher";
     private static final Gson gson = new Gson();
@@ -70,6 +70,37 @@ public class CachePrefetcher {
         });
     }
 
+    /** Précharge la liste des magasins liés à ce vendeur (rôle VENTE), et le stock de
+     * chacun — inoffensif pour les autres rôles : la liste sera simplement vide. Appelé
+     * depuis prefetchProjectsDetails ci-dessous (donc à chaque ouverture de l'accueil,
+     * pas seulement au premier bootstrap) pour que le stock par magasin reste à jour. */
+    private static void prefetchMagasins(Context appContext, LocalDatabase localDatabase) {
+        ApiClient.dataApi(appContext).getMagasinsSelect().enqueue(new Callback<ApiEnvelope<List<MagasinSelectResponse>>>() {
+            @Override
+            public void onResponse(Call<ApiEnvelope<List<MagasinSelectResponse>>> call, Response<ApiEnvelope<List<MagasinSelectResponse>>> response) {
+                if (!response.isSuccessful() || response.body() == null || response.body().getData() == null) return;
+                List<MagasinSelectResponse> magasins = response.body().getData();
+                localDatabase.putCache(CACHE_MAGASINS_SELECT, gson.toJson(magasins));
+                for (MagasinSelectResponse magasin : magasins) {
+                    ApiClient.dataApi(appContext).getStockMagasin(magasin.getUniqueId()).enqueue(new Callback<ApiEnvelope<StockMagasinResponse>>() {
+                        @Override
+                        public void onResponse(Call<ApiEnvelope<StockMagasinResponse>> call, Response<ApiEnvelope<StockMagasinResponse>> response) {
+                            if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
+                                localDatabase.putCache(CACHE_STOCK_MAGASIN_PREFIX + magasin.getUniqueId(), gson.toJson(response.body().getData()));
+                            }
+                        }
+
+                        @Override
+                        public void onFailure(@NonNull Call<ApiEnvelope<StockMagasinResponse>> call, Throwable t) { }
+                    });
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiEnvelope<List<MagasinSelectResponse>>> call, Throwable t) { }
+        });
+    }
+
     /** Précharge le détail/alertes/stock de chaque projet d'une liste déjà récupérée
      * (évite de refaire l'appel /projets/select quand l'appelant l'a déjà en main). */
     public static void prefetchProjectsDetails(Context context, LocalDatabase localDatabase, List<ProjetSelectResponse> projets) {
@@ -77,7 +108,7 @@ public class CachePrefetcher {
         for (ProjetSelectResponse projet : projets) {
             prefetchOneProjet(appContext, localDatabase, projet.getUniqueId());
         }
-        prefetchFarmWide(appContext, localDatabase);
+        prefetchMagasins(appContext, localDatabase);
     }
 
     private static void prefetchOneProjet(Context appContext, LocalDatabase localDatabase, String projetUniqueId) {
@@ -127,35 +158,6 @@ public class CachePrefetcher {
 
             @Override
             public void onFailure(@NonNull Call<ApiEnvelope<EffectifReformeResponse>> call, Throwable t) { }
-        });
-    }
-
-    /** Précharge les stocks Finance à l'échelle de la ferme (vente œufs/réforme) —
-     * une seule fois, pas par projet contrairement à prefetchOneProjet ci-dessus,
-     * puisque ces ventes ne sont plus rattachées à un projet précis. */
-    private static void prefetchFarmWide(Context appContext, LocalDatabase localDatabase) {
-        ApiClient.dataApi(appContext).getStockOeufs().enqueue(new Callback<ApiEnvelope<StockOeufsResponse>>() {
-            @Override
-            public void onResponse(Call<ApiEnvelope<StockOeufsResponse>> call, Response<ApiEnvelope<StockOeufsResponse>> response) {
-                if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
-                    localDatabase.putCache(CACHE_STOCK_OEUFS_FARM, gson.toJson(response.body().getData()));
-                }
-            }
-
-            @Override
-            public void onFailure(@NonNull Call<ApiEnvelope<StockOeufsResponse>> call, Throwable t) { }
-        });
-
-        ApiClient.dataApi(appContext).getStockReforme().enqueue(new Callback<ApiEnvelope<StockReformeResponse>>() {
-            @Override
-            public void onResponse(Call<ApiEnvelope<StockReformeResponse>> call, Response<ApiEnvelope<StockReformeResponse>> response) {
-                if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
-                    localDatabase.putCache(CACHE_STOCK_REFORME_FARM, gson.toJson(response.body().getData()));
-                }
-            }
-
-            @Override
-            public void onFailure(@NonNull Call<ApiEnvelope<StockReformeResponse>> call, Throwable t) { }
         });
     }
 

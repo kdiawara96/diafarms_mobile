@@ -384,7 +384,7 @@
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
-            <!-- ===================== VENTE D'ŒUFS (Finance : ferme entière, pas un projet) ===================== -->
+            <!-- ===================== VENTE D'ŒUFS (VENTE : depuis un magasin précis, obligatoire) ===================== -->
             <LinearLayout
                 android:id="@+id/groupVenteOeufs"
                 android:layout_width="match_parent"
@@ -393,13 +393,24 @@
                 android:visibility="gone">
 
                 <TextView
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="Magasin de vente" android:textColor="@android:color/black" android:textSize="14sp"
+                    android:layout_marginBottom="4dp" />
+                <Spinner
+                    android:id="@+id/spinnerMagasinOeufs"
+                    android:layout_width="match_parent" android:layout_height="48dp"
+                    android:background="@drawable/bg_input_border" />
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <TextView
                     android:id="@+id/tvStockOeufsInfo"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="12dp"
                     android:textSize="13sp"
                     android:textColor="@android:color/darker_gray"
-                    tools:text="Disponible à la vente (ferme) : 250 œuf(s) (8 alvéole(s) + 10)" />
+                    tools:text="Disponible dans ce magasin : 250 œuf(s) (8 alvéole(s) + 10)" />
 
                 <TextView
                     android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -454,7 +465,7 @@
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
-            <!-- ===================== VENTE RÉFORME (Finance : ferme entière, pas un projet) ===================== -->
+            <!-- ===================== VENTE RÉFORME (VENTE : depuis un magasin précis, obligatoire) ===================== -->
             <LinearLayout
                 android:id="@+id/groupVenteReforme"
                 android:layout_width="match_parent"
@@ -463,13 +474,24 @@
                 android:visibility="gone">
 
                 <TextView
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="Magasin de vente" android:textColor="@android:color/black" android:textSize="14sp"
+                    android:layout_marginBottom="4dp" />
+                <Spinner
+                    android:id="@+id/spinnerMagasinReforme"
+                    android:layout_width="match_parent" android:layout_height="48dp"
+                    android:background="@drawable/bg_input_border" />
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <TextView
                     android:id="@+id/tvStockReformeInfo"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="12dp"
                     android:textSize="13sp"
                     android:textColor="@android:color/darker_gray"
-                    tools:text="Disponible à la vente (ferme) : 40 sujet(s)" />
+                    tools:text="Disponible dans ce magasin : 40 sujet(s)" />
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent" android:layout_height="wrap_content"

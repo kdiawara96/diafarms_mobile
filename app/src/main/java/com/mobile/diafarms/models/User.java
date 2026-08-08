@@ -63,18 +63,32 @@ public class User {
         return false;
     }
 
-    // Le backend nomme les rôles "PRODUCTEUR"/"FINANCIER"/"ADMIN" (voir MlApplication.java
-    // et RoleDTO côté diafarms_back) : on matche les deux formes pour rester tolérant.
+    // Le backend nommait les rôles "PRODUCTEUR"/"FINANCIER"/"ADMIN" (voir MlApplication.java
+    // côté diafarms_back), renommés depuis en PRODUCTION/COMPTABLE/VENTE/RESPONSABLE/ADMIN
+    // (RESPONSABLE n'a aucune présence mobile) — on matche les deux formes pour rester
+    // tolérant sur un appareil dont le token/cache daterait d'avant la migration.
     public boolean isProduction() {
         return hasRole("PRODUCTEUR") || hasRole("PRODUCTION");
     }
 
+    // L'ancien FINANCIER cumulait ce que COMPTABLE et VENTE font désormais séparément
+    // (voir isComptable/isVente ci-dessous, chacun avec son propre jeu d'actions
+    // mobile fixe) — gardé pour tout code qui n'a besoin que de savoir si l'un des
+    // deux rôles finance s'applique, sans distinguer lequel.
     public boolean isFinance() {
-        return hasRole("FINANCIER") || hasRole("FINANCE");
+        return isComptable() || isVente();
+    }
+
+    public boolean isComptable() {
+        return hasRole("FINANCIER") || hasRole("COMPTABLE");
+    }
+
+    public boolean isVente() {
+        return hasRole("VENTE");
     }
 
     public boolean isAdmin() {
-        return hasRole("ADMIN");
+        return hasRole("ADMIN") || hasRole("SUPER_ADMIN");
     }
 
     public boolean isDoubleRole() {

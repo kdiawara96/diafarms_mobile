@@ -87,6 +87,7 @@ public class HomeActivity extends AppCompatActivity {
     private TextView tvAgentName;
     private TextView badgeProduction;
     private TextView badgeFinance;
+    private TextView badgeVente;
     private View indicatorSync;
 
     // Vues Projet
@@ -172,6 +173,7 @@ public class HomeActivity extends AppCompatActivity {
         tvAgentName = findViewById(R.id.tvAgentName);
         badgeProduction = findViewById(R.id.badgeProduction);
         badgeFinance = findViewById(R.id.badgeFinance);
+        badgeVente = findViewById(R.id.badgeVente);
         indicatorSync = findViewById(R.id.indicatorSync);
         // Le clic est posé sur l'ImageButton interne, pas sur le FrameLayout englobant :
         // un ImageButton est cliquable par défaut et absorbe le tap avant qu'il
@@ -229,17 +231,24 @@ public class HomeActivity extends AppCompatActivity {
     private void setupHeader() {
         tvAgentName.setText(currentUser.getNom());
         badgeProduction.setVisibility(currentUser.isProduction() ? View.VISIBLE : View.GONE);
-        badgeFinance.setVisibility(currentUser.isFinance() ? View.VISIBLE : View.GONE);
+        badgeFinance.setVisibility(currentUser.isComptable() ? View.VISIBLE : View.GONE);
+        badgeVente.setVisibility(currentUser.isVente() ? View.VISIBLE : View.GONE);
     }
 
     /** Infos de l'agent connecté + déconnexion classique (verrouillage, pas de
-     * suppression — voir SessionManager.lockSession). */
+     * suppression — voir SessionManager.lockSession). RESPONSABLE n'apparaît jamais
+     * ici : aucune présence mobile pour ce rôle (voir User.isComptable/isVente,
+     * qui remplacent l'ancien isFinance unique). */
     private void showProfileDialog() {
         StringBuilder roles = new StringBuilder();
         if (currentUser.isProduction()) roles.append("Production");
-        if (currentUser.isFinance()) {
+        if (currentUser.isComptable()) {
             if (roles.length() > 0) roles.append(" · ");
-            roles.append("Finance");
+            roles.append("Comptable");
+        }
+        if (currentUser.isVente()) {
+            if (roles.length() > 0) roles.append(" · ");
+            roles.append("Vente");
         }
         if (currentUser.isAdmin()) {
             if (roles.length() > 0) roles.append(" · ");
@@ -269,19 +278,24 @@ public class HomeActivity extends AppCompatActivity {
 
     private void setupVisibilityByRole() {
         boolean isProduction = currentUser.isProduction();
-        boolean isFinance = currentUser.isFinance();
+        boolean isComptable = currentUser.isComptable();
+        boolean isVente = currentUser.isVente();
+        boolean isFinance = isComptable || isVente; // section "Finance" = l'un ou l'autre
 
         tvSectionProduction.setVisibility(isProduction ? View.VISIBLE : View.GONE);
         gridProduction.setVisibility(isProduction ? View.VISIBLE : View.GONE);
 
         tvSectionFinance.setVisibility(isFinance ? View.VISIBLE : View.GONE);
         gridFinance.setVisibility(isFinance ? View.VISIBLE : View.GONE);
-        cardStatsFinance.setVisibility(isFinance ? View.VISIBLE : View.GONE);
+        // Entrées/sorties du jour — concept propre au COMPTABLE, pas au VENTE (voir
+        // updateFinanceStats).
+        cardStatsFinance.setVisibility(isComptable ? View.VISIBLE : View.GONE);
 
         // Fermé par défaut (fail-closed, cohérent avec AppAccessRules côté back) tant
         // que la réponse de /farm-settings n'est pas arrivée — voir loadFarmAppSettings,
-        // appelé juste après. Un compte ADMIN n'a pas de rôle FINANCIER (isFinance()
-        // reste false), donc jamais concerné par ces 5 boutons de toute façon.
+        // appelé juste après. Un COMPTABLE ne voit JAMAIS les boutons vente (et
+        // inversement) quel que soit le réglage admin : le rôle lui-même détermine le
+        // jeu de boutons concerné, le toggle ne fait qu'activer/désactiver ce jeu en bloc.
         if (isFinance) {
             btnVenteOeufs.setVisibility(View.GONE);
             btnVenteReforme.setVisibility(View.GONE);
@@ -292,9 +306,10 @@ public class HomeActivity extends AppCompatActivity {
         }
     }
 
-    /** Quelles actions Finance ce financier a le droit de faire sur mobile (voir
-     * Paramètres côté web, AppAccessRules côté back) — révèle les boutons autorisés
-     * une fois la réponse arrivée. Si la requête échoue (hors ligne...), les boutons
+    /** Le COMPTABLE a un jeu d'actions fixe (entrée/sortie) et le VENTE un autre (vente
+     * œufs/réforme/fientes) — chacun activé/désactivé en bloc par l'admin (voir
+     * Paramètres côté web, AppAccessRules côté back), plus de granularité par action
+     * comme l'ancien FINANCIER. Si la requête échoue (hors ligne...), les boutons
      * restent masqués (fail-closed) plutôt que de tout montrer par défaut. */
     private void loadFarmAppSettings() {
         ApiClient.dataApi(this).getFarmAppSettings().enqueue(new Callback<ApiEnvelope<FarmAppSettingsResponse>>() {
@@ -302,11 +317,15 @@ public class HomeActivity extends AppCompatActivity {
             public void onResponse(Call<ApiEnvelope<FarmAppSettingsResponse>> call, Response<ApiEnvelope<FarmAppSettingsResponse>> response) {
                 if (!response.isSuccessful() || response.body() == null || response.body().getData() == null) return;
                 FarmAppSettingsResponse s = response.body().getData();
-                btnVenteOeufs.setVisibility(s.isFinancierMobileVenteOeufs() ? View.VISIBLE : View.GONE);
-                btnVenteReforme.setVisibility(s.isFinancierMobileVenteReforme() ? View.VISIBLE : View.GONE);
-                btnVenteFientes.setVisibility(s.isFinancierMobileVenteFientes() ? View.VISIBLE : View.GONE);
-                btnEntreeArgent.setVisibility(s.isFinancierMobileEntree() ? View.VISIBLE : View.GONE);
-                btnSortieArgent.setVisibility(s.isFinancierMobileSortie() ? View.VISIBLE : View.GONE);
+                if (currentUser.isComptable()) {
+                    btnEntreeArgent.setVisibility(s.isComptableMobileEnabled() ? View.VISIBLE : View.GONE);
+                    btnSortieArgent.setVisibility(s.isComptableMobileEnabled() ? View.VISIBLE : View.GONE);
+                }
+                if (currentUser.isVente()) {
+                    btnVenteOeufs.setVisibility(s.isVenteMobileEnabled() ? View.VISIBLE : View.GONE);
+                    btnVenteReforme.setVisibility(s.isVenteMobileEnabled() ? View.VISIBLE : View.GONE);
+                    btnVenteFientes.setVisibility(s.isVenteMobileEnabled() ? View.VISIBLE : View.GONE);
+                }
             }
 
             @Override
@@ -784,9 +803,12 @@ public class HomeActivity extends AppCompatActivity {
         return "Il y a " + (diffHours / 24) + "j";
     }
 
-    /** Additionne les transactions locales (LOCAL + SYNCED) du jour, saisies par cet agent. */
+    /** Additionne les transactions locales (LOCAL + SYNCED) du jour, saisies par cet agent
+     * — spécifique aux entrées/sorties du COMPTABLE, pas aux ventes (SaisieType.VENTE_*,
+     * suivies séparément) : sans ça un VENTE pur verrait une carte à 0/0 sans rapport
+     * avec son activité réelle. */
     private void updateFinanceStats() {
-        if (!currentUser.isFinance()) return;
+        if (!currentUser.isComptable()) return;
 
         String today = new SimpleDateFormat("yyyy-MM-dd", Locale.FRANCE).format(new java.util.Date());
 

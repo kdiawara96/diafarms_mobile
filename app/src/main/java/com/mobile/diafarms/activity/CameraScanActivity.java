@@ -383,9 +383,13 @@ public class CameraScanActivity extends AppCompatActivity {
 
         StringBuilder roles = new StringBuilder();
         if (user.isProduction()) roles.append("Production");
-        if (user.isFinance()) {
+        if (user.isComptable()) {
             if (roles.length() > 0) roles.append(" · ");
-            roles.append("Finance");
+            roles.append("Comptable");
+        }
+        if (user.isVente()) {
+            if (roles.length() > 0) roles.append(" · ");
+            roles.append("Vente");
         }
         if (user.isAdmin()) {
             if (roles.length() > 0) roles.append(" · ");

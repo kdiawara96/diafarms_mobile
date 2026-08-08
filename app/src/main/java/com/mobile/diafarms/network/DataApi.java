@@ -8,6 +8,7 @@ import com.mobile.diafarms.network.dto.CreatedEntityResponse;
 import com.mobile.diafarms.network.dto.AlimentationCreateRequest;
 import com.mobile.diafarms.network.dto.EffectifReformeResponse;
 import com.mobile.diafarms.network.dto.FarmAppSettingsResponse;
+import com.mobile.diafarms.network.dto.MagasinSelectResponse;
 import com.mobile.diafarms.network.dto.MortaliteCreateRequest;
 import com.mobile.diafarms.network.dto.NotificationResponse;
 import com.mobile.diafarms.network.dto.ProjetDetailResponse;
@@ -15,6 +16,7 @@ import com.mobile.diafarms.network.dto.ProjetSelectResponse;
 import com.mobile.diafarms.network.dto.ReformeCreateRequest;
 import com.mobile.diafarms.network.dto.SoinsCreateRequest;
 import com.mobile.diafarms.network.dto.StockAlimentResponse;
+import com.mobile.diafarms.network.dto.StockMagasinResponse;
 import com.mobile.diafarms.network.dto.StockOeufsResponse;
 import com.mobile.diafarms.network.dto.StockReformeResponse;
 import com.mobile.diafarms.network.dto.TransactionCreateRequest;
@@ -44,6 +46,14 @@ public interface DataApi {
 
     @GET("batiments/select")
     Call<ApiEnvelope<List<BatimentSelectResponse>>> getBatimentsSelect();
+
+    // Un vendeur (rôle VENTE) ne voit que les magasins auxquels il est lié — voir
+    // MagasinVenteServiceImpl.list() côté back, déjà filtré côté serveur.
+    @GET("magasins/list")
+    Call<ApiEnvelope<List<MagasinSelectResponse>>> getMagasinsSelect();
+
+    @GET("magasins/{uniqueId}/stock")
+    Call<ApiEnvelope<StockMagasinResponse>> getStockMagasin(@Path("uniqueId") String magasinUniqueId);
 
     @GET("projets/findbyUniqueId/{uniqueId}")
     Call<ApiEnvelope<ProjetDetailResponse>> getProjetDetail(@Path("uniqueId") String uniqueId);
