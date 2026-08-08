@@ -141,6 +141,17 @@
 
                 <TextView
                     android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="Bâtiment de stockage *" android:textColor="@android:color/black" android:textSize="14sp"
+                    android:layout_marginBottom="4dp" />
+                <Spinner
+                    android:id="@+id/spinnerBatimentStockage"
+                    android:layout_width="match_parent" android:layout_height="48dp"
+                    android:background="@drawable/bg_input_border" />
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <TextView
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:text="Unité de saisie" android:textColor="@android:color/black" android:textSize="14sp"
                     android:layout_marginBottom="4dp" />
                 <RadioGroup

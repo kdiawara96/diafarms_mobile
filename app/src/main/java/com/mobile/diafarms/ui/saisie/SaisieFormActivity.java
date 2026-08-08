@@ -36,6 +36,7 @@ import com.mobile.diafarms.models.SaisieType;
 import com.mobile.diafarms.network.ApiClient;
 import com.mobile.diafarms.network.dto.AlimentationCreateRequest;
 import com.mobile.diafarms.network.dto.ApiEnvelope;
+import com.mobile.diafarms.network.dto.BatimentSelectResponse;
 import com.mobile.diafarms.network.dto.CollecteOeufsCreateRequest;
 import com.mobile.diafarms.network.dto.ConsommationAlimentCreateRequest;
 import com.mobile.diafarms.network.dto.EffectifReformeResponse;
@@ -111,6 +112,12 @@ public class SaisieFormActivity extends AppCompatActivity {
     private List<MagasinSelectResponse> magasins = new ArrayList<>();
     private String pendingMagasinSelection;
 
+    // Bâtiments de STOCKAGE (Collecte œufs, obligatoire) — liste complète de la ferme
+    // (pas filtrée serveur comme magasins), filtrée côté client au type STOCKAGE. Voir
+    // loadBatimentsStockage/selectBatimentStockageByUniqueId.
+    private List<BatimentSelectResponse> batimentsStockage = new ArrayList<>();
+    private String pendingBatimentStockageSelection;
+
     // Vues communes
     private TextView tvTitreForm, tvProjetForm, tvStockInfo;
     private Spinner spinnerBatiment;
@@ -119,6 +126,7 @@ public class SaisieFormActivity extends AppCompatActivity {
 
     // Collecte
     private View groupCollecte;
+    private Spinner spinnerBatimentStockage;
     // Unité de saisie du champ etOeufsCollectes (voir AlveoleUtils) — Œuf ou Alvéole
     // (plateau de 30 œufs) ; oeufsCasses reste toujours en œufs individuels.
     private RadioGroup radioGroupUniteCollecte;
@@ -225,6 +233,12 @@ public class SaisieFormActivity extends AppCompatActivity {
         if (type == SaisieType.VENTE_OEUFS || type == SaisieType.VENTE_REFORME) {
             loadMagasins();
         }
+        // Bâtiment de stockage obligatoire (Production) : où ces œufs seront
+        // physiquement déposés, plafonne les transferts vers un magasin de vente
+        // plus tard (MagasinTransfertServiceImpl côté back).
+        if (type == SaisieType.COLLECTE_OEUFS) {
+            loadBatimentsStockage();
+        }
 
         if (editingLocalId != null) {
             prefillFromExisting();
@@ -248,6 +262,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         btnBack.setOnClickListener(v -> finish());
 
         groupCollecte = findViewById(R.id.groupCollecte);
+        spinnerBatimentStockage = findViewById(R.id.spinnerBatimentStockage);
         radioGroupUniteCollecte = findViewById(R.id.radioGroupUniteCollecte);
         tilOeufsCollectes = findViewById(R.id.tilOeufsCollectes);
         etOeufsCollectes = findViewById(R.id.etOeufsCollectes);
@@ -732,6 +747,85 @@ public class SaisieFormActivity extends AppCompatActivity {
         }
     }
 
+    /** Bâtiments de STOCKAGE de la ferme (Collecte œufs, obligatoire) — liste complète
+     * non filtrée côté serveur (contrairement aux magasins), filtrée ici au type
+     * STOCKAGE. Pas d'option "Aucun" : le bâtiment de stockage est obligatoire. Même
+     * schéma cache → réseau que loadMagasins(). */
+    private void loadBatimentsStockage() {
+        String cacheKey = CachePrefetcher.CACHE_BATIMENTS_SELECT;
+        String cachedJson = localDatabase.getCache(cacheKey);
+        if (cachedJson != null) {
+            Type listType = new TypeToken<List<BatimentSelectResponse>>() {}.getType();
+            List<BatimentSelectResponse> parsed = gson.fromJson(cachedJson, listType);
+            if (parsed != null) {
+                batimentsStockage = filterStockage(parsed);
+                populateBatimentStockageSpinner();
+            }
+        }
+
+        ApiClient.dataApi(this).getBatimentsSelect().enqueue(new Callback<ApiEnvelope<List<BatimentSelectResponse>>>() {
+            @Override
+            public void onResponse(Call<ApiEnvelope<List<BatimentSelectResponse>>> call, Response<ApiEnvelope<List<BatimentSelectResponse>>> response) {
+                List<BatimentSelectResponse> data = response.isSuccessful() && response.body() != null ? response.body().getData() : null;
+                if (data != null) {
+                    localDatabase.putCache(cacheKey, gson.toJson(data));
+                    batimentsStockage = filterStockage(data);
+                    populateBatimentStockageSpinner();
+                }
+                // sinon : bâtiments déjà affichés depuis le cache le cas échéant, rien à faire
+            }
+
+            @Override
+            public void onFailure(Call<ApiEnvelope<List<BatimentSelectResponse>>> call, Throwable t) {
+                // bâtiments déjà affichés depuis le cache le cas échéant, rien à faire de plus
+            }
+        });
+    }
+
+    private List<BatimentSelectResponse> filterStockage(List<BatimentSelectResponse> all) {
+        List<BatimentSelectResponse> result = new ArrayList<>();
+        for (BatimentSelectResponse b : all) {
+            if ("STOCKAGE".equalsIgnoreCase(b.getType())) result.add(b);
+        }
+        return result;
+    }
+
+    private void populateBatimentStockageSpinner() {
+        List<String> labels = new ArrayList<>();
+        for (BatimentSelectResponse b : batimentsStockage) {
+            labels.add(b.getNom());
+        }
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, labels);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerBatimentStockage.setAdapter(adapter);
+        applyPendingBatimentStockageSelection();
+    }
+
+    private String getSelectedBatimentStockageUniqueId() {
+        int position = spinnerBatimentStockage.getSelectedItemPosition();
+        if (position < 0 || position >= batimentsStockage.size()) return null;
+        return batimentsStockage.get(position).getUniqueId();
+    }
+
+    /** Même raisonnement que selectBatimentByUniqueId/applyPendingBatimentSelection —
+     * voir leur commentaire pour la course entre prefillFromExisting() (synchrone) et
+     * loadBatimentsStockage() (réseau asynchrone). */
+    private void selectBatimentStockageByUniqueId(String uniqueId) {
+        if (uniqueId == null) return;
+        pendingBatimentStockageSelection = uniqueId;
+        applyPendingBatimentStockageSelection();
+    }
+
+    private void applyPendingBatimentStockageSelection() {
+        if (pendingBatimentStockageSelection == null) return;
+        for (int i = 0; i < batimentsStockage.size(); i++) {
+            if (pendingBatimentStockageSelection.equals(batimentsStockage.get(i).getUniqueId())) {
+                spinnerBatimentStockage.setSelection(i);
+                return;
+            }
+        }
+    }
+
     /** Le stock qui plafonne la vente est celui DU MAGASIN sélectionné, pas de toute
      * la ferme (vrai stock séparé par magasin) — déclenché à chaque changement de
      * sélection des spinners magasin (voir bindViews) et par applyPendingMagasinSelection. */
@@ -870,6 +964,11 @@ public class SaisieFormActivity extends AppCompatActivity {
                     toast("Veuillez sélectionner le bâtiment");
                     return;
                 }
+                String batimentStockageUniqueId = getSelectedBatimentStockageUniqueId();
+                if (batimentStockageUniqueId == null) {
+                    toast("Veuillez sélectionner le bâtiment de stockage");
+                    return;
+                }
                 boolean enAlveoles = isCollecteEnAlveoles();
                 int saisie = parseIntSafe(etOeufsCollectes.getText());
                 int collectes = enAlveoles ? AlveoleUtils.alveolesToOeufs(saisie) : saisie;
@@ -881,6 +980,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 CollecteOeufsCreateRequest req = new CollecteOeufsCreateRequest();
                 req.projetUniqueId = projetUniqueId;
                 req.batimentUniqueId = batimentUniqueId;
+                req.batimentStockageUniqueId = batimentStockageUniqueId;
                 req.date = date;
                 req.heure = heure;
                 req.oeufsCollectes = collectes; // toujours en œufs, quelle que soit l'unité saisie
@@ -1139,6 +1239,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 if (req.oeufsCollectes != null) etOeufsCollectes.setText(String.valueOf(req.oeufsCollectes));
                 if (req.oeufsCasses != null) etOeufsCasses.setText(String.valueOf(req.oeufsCasses));
                 selectBatimentByUniqueId(req.batimentUniqueId);
+                selectBatimentStockageByUniqueId(req.batimentStockageUniqueId);
                 break;
             }
             case SOINS: {

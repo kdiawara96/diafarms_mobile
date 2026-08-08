@@ -7,6 +7,7 @@ import androidx.annotation.NonNull;
 import com.google.gson.Gson;
 import com.mobile.diafarms.network.ApiClient;
 import com.mobile.diafarms.network.dto.ApiEnvelope;
+import com.mobile.diafarms.network.dto.BatimentSelectResponse;
 import com.mobile.diafarms.network.dto.EffectifReformeResponse;
 import com.mobile.diafarms.network.dto.MagasinSelectResponse;
 import com.mobile.diafarms.network.dto.NotificationResponse;
@@ -44,6 +45,10 @@ public class CachePrefetcher {
     // serveur, et stock par magasin précis (un vendeur peut être lié à plusieurs).
     public static final String CACHE_MAGASINS_SELECT = "magasins_select";
     public static final String CACHE_STOCK_MAGASIN_PREFIX = "stock_magasin_";
+    // Bâtiments de la ferme (PRODUCTION) : liste complète non filtrée par le serveur —
+    // SaisieFormActivity filtre côté client au type STOCKAGE pour son sélecteur
+    // obligatoire de Collecte œufs (voir BatimentSelectResponse.getType).
+    public static final String CACHE_BATIMENTS_SELECT = "batiments_select";
 
     private static final String TAG = "CachePrefetcher";
     private static final Gson gson = new Gson();
@@ -101,6 +106,22 @@ public class CachePrefetcher {
         });
     }
 
+    /** Précharge la liste des bâtiments de la ferme — inoffensif pour un rôle sans
+     * accès Production, la liste sera juste inutilisée. Voir CACHE_BATIMENTS_SELECT. */
+    private static void prefetchBatiments(Context appContext, LocalDatabase localDatabase) {
+        ApiClient.dataApi(appContext).getBatimentsSelect().enqueue(new Callback<ApiEnvelope<List<BatimentSelectResponse>>>() {
+            @Override
+            public void onResponse(Call<ApiEnvelope<List<BatimentSelectResponse>>> call, Response<ApiEnvelope<List<BatimentSelectResponse>>> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
+                    localDatabase.putCache(CACHE_BATIMENTS_SELECT, gson.toJson(response.body().getData()));
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiEnvelope<List<BatimentSelectResponse>>> call, Throwable t) { }
+        });
+    }
+
     /** Précharge le détail/alertes/stock de chaque projet d'une liste déjà récupérée
      * (évite de refaire l'appel /projets/select quand l'appelant l'a déjà en main). */
     public static void prefetchProjectsDetails(Context context, LocalDatabase localDatabase, List<ProjetSelectResponse> projets) {
@@ -109,6 +130,7 @@ public class CachePrefetcher {
             prefetchOneProjet(appContext, localDatabase, projet.getUniqueId());
         }
         prefetchMagasins(appContext, localDatabase);
+        prefetchBatiments(appContext, localDatabase);
     }
 
     private static void prefetchOneProjet(Context appContext, LocalDatabase localDatabase, String projetUniqueId) {
