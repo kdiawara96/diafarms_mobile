@@ -127,11 +127,11 @@ public class SaisieFormActivity extends AppCompatActivity {
     // Collecte
     private View groupCollecte;
     private Spinner spinnerBatimentStockage;
-    // Unité de saisie du champ etOeufsCollectes (voir AlveoleUtils) — Œuf ou Alvéole
-    // (plateau de 30 œufs) ; oeufsCasses reste toujours en œufs individuels.
-    private RadioGroup radioGroupUniteCollecte;
-    private TextInputLayout tilOeufsCollectes;
-    private TextInputEditText etOeufsCollectes, etOeufsCasses;
+    private TextView tvStockBatimentStockage;
+    // Compté en deux temps comme sur le terrain (voir AlveoleUtils) : alvéoles pleines
+    // + œufs qui ne remplissent pas un plateau entier, total = alvéoles×30 + œufs.
+    // oeufsCasses reste toujours en œufs individuels.
+    private TextInputEditText etAlveolesCollectees, etOeufsCollectes, etOeufsCasses;
     private TextView tvResumeCollecte;
 
     // Soins
@@ -263,15 +263,20 @@ public class SaisieFormActivity extends AppCompatActivity {
 
         groupCollecte = findViewById(R.id.groupCollecte);
         spinnerBatimentStockage = findViewById(R.id.spinnerBatimentStockage);
-        radioGroupUniteCollecte = findViewById(R.id.radioGroupUniteCollecte);
-        tilOeufsCollectes = findViewById(R.id.tilOeufsCollectes);
+        tvStockBatimentStockage = findViewById(R.id.tvStockBatimentStockage);
+        spinnerBatimentStockage.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                loadStockBatimentStockageSelectionne();
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) { }
+        });
+        etAlveolesCollectees = findViewById(R.id.etAlveolesCollectees);
         etOeufsCollectes = findViewById(R.id.etOeufsCollectes);
         etOeufsCasses = findViewById(R.id.etOeufsCasses);
         tvResumeCollecte = findViewById(R.id.tvResumeCollecte);
-        radioGroupUniteCollecte.setOnCheckedChangeListener((group, checkedId) -> {
-            tilOeufsCollectes.setHint(isCollecteEnAlveoles() ? "Nombre d'alvéoles collectées" : "Œufs collectés");
-            calculerResumeCollecte();
-        });
 
         groupSoins = findViewById(R.id.groupSoins);
         spinnerTypeSoin = findViewById(R.id.spinnerTypeSoin);
@@ -486,12 +491,9 @@ public class SaisieFormActivity extends AppCompatActivity {
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) { calculerResumeCollecte(); }
             @Override public void afterTextChanged(Editable s) {}
         };
+        etAlveolesCollectees.addTextChangedListener(watcher);
         etOeufsCollectes.addTextChangedListener(watcher);
         etOeufsCasses.addTextChangedListener(watcher);
-    }
-
-    private boolean isCollecteEnAlveoles() {
-        return radioGroupUniteCollecte != null && radioGroupUniteCollecte.getCheckedRadioButtonId() == R.id.radioUniteCollecteAlveole;
     }
 
     private boolean isVenteOeufsEnAlveoles() {
@@ -510,9 +512,16 @@ public class SaisieFormActivity extends AppCompatActivity {
         }
     }
 
+    /** Total = alvéoles×30 + œufs saisis hors alvéole, voir groupCollecte dans le
+     * layout (deux champs simultanés, plus de bascule d'unité). */
+    private int oeufsCollectesReel() {
+        int alveoles = parseIntSafe(etAlveolesCollectees.getText());
+        int oeufsSupp = parseIntSafe(etOeufsCollectes.getText());
+        return AlveoleUtils.alveolesToOeufs(alveoles) + oeufsSupp;
+    }
+
     private void calculerResumeCollecte() {
-        int saisie = parseIntSafe(etOeufsCollectes.getText());
-        int total = isCollecteEnAlveoles() ? AlveoleUtils.alveolesToOeufs(saisie) : saisie;
+        int total = oeufsCollectesReel();
         int casses = parseIntSafe(etOeufsCasses.getText());
         int vendables = Math.max(0, total - casses);
 
@@ -821,9 +830,54 @@ public class SaisieFormActivity extends AppCompatActivity {
         for (int i = 0; i < batimentsStockage.size(); i++) {
             if (pendingBatimentStockageSelection.equals(batimentsStockage.get(i).getUniqueId())) {
                 spinnerBatimentStockage.setSelection(i);
+                // Appelé explicitement (pas seulement via OnItemSelectedListener) car
+                // Spinner.setSelection() ne déclenche pas le listener quand la position
+                // ne change pas (ex. le bâtiment voulu est déjà en position 0 par défaut).
+                loadStockBatimentStockageSelectionne();
                 return;
             }
         }
+    }
+
+    /** Stock d'œufs pas encore transféré vers un magasin, dans le bâtiment de stockage
+     * sélectionné — pure info contextuelle (voir tvStockBatimentStockage dans le
+     * layout), ne plafonne rien : une collecte AJOUTE au stock, elle ne le consomme
+     * pas. Même schéma cache → réseau que loadStockForMagasin. */
+    private void loadStockBatimentStockageSelectionne() {
+        String batimentUniqueId = getSelectedBatimentStockageUniqueId();
+        if (batimentUniqueId == null) {
+            tvStockBatimentStockage.setText("");
+            return;
+        }
+
+        String cacheKey = CachePrefetcher.CACHE_STOCK_BATIMENT_STOCKAGE_PREFIX + batimentUniqueId;
+        Integer cached = getCachedOrNull(cacheKey, Integer.class);
+        boolean hadCache = cached != null;
+        if (hadCache) displayStockBatimentStockage(cached, true);
+
+        ApiClient.dataApi(this).getDisponibleBatimentStockage(batimentUniqueId).enqueue(new Callback<ApiEnvelope<Integer>>() {
+            @Override
+            public void onResponse(Call<ApiEnvelope<Integer>> call, Response<ApiEnvelope<Integer>> response) {
+                Integer stock = response.isSuccessful() && response.body() != null ? response.body().getData() : null;
+                if (stock != null) {
+                    localDatabase.putCache(cacheKey, gson.toJson(stock));
+                    displayStockBatimentStockage(stock, false);
+                } else if (!hadCache) {
+                    tvStockBatimentStockage.setText("");
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiEnvelope<Integer>> call, Throwable t) {
+                if (!hadCache) tvStockBatimentStockage.setText("");
+            }
+        });
+    }
+
+    private void displayStockBatimentStockage(int stock, boolean fromCache) {
+        String suffix = fromCache ? " (dernière donnée connue, hors ligne)" : "";
+        tvStockBatimentStockage.setText(String.format(Locale.FRANCE, "Actuellement dans ce bâtiment : %s%s",
+                AlveoleUtils.formatOeufsAvecAlveoles(stock), suffix));
     }
 
     /** Le stock qui plafonne la vente est celui DU MAGASIN sélectionné, pas de toute
@@ -969,12 +1023,12 @@ public class SaisieFormActivity extends AppCompatActivity {
                     toast("Veuillez sélectionner le bâtiment de stockage");
                     return;
                 }
-                boolean enAlveoles = isCollecteEnAlveoles();
-                int saisie = parseIntSafe(etOeufsCollectes.getText());
-                int collectes = enAlveoles ? AlveoleUtils.alveolesToOeufs(saisie) : saisie;
+                int alveoles = parseIntSafe(etAlveolesCollectees.getText());
+                int oeufsSupp = parseIntSafe(etOeufsCollectes.getText());
+                int collectes = oeufsCollectesReel();
                 int casses = parseIntSafe(etOeufsCasses.getText());
                 if (collectes <= 0) {
-                    toast(enAlveoles ? "Veuillez saisir le nombre d'alvéoles collectées" : "Veuillez saisir le nombre d'œufs collectés");
+                    toast("Veuillez saisir le nombre d'alvéoles et/ou d'œufs collectés");
                     return;
                 }
                 CollecteOeufsCreateRequest req = new CollecteOeufsCreateRequest();
@@ -983,11 +1037,11 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.batimentStockageUniqueId = batimentStockageUniqueId;
                 req.date = date;
                 req.heure = heure;
-                req.oeufsCollectes = collectes; // toujours en œufs, quelle que soit l'unité saisie
+                req.oeufsCollectes = collectes; // toujours en œufs, alvéoles + œufs supplémentaires additionnés
                 req.oeufsCasses = casses;
                 requestObject = req;
-                summary = enAlveoles
-                        ? String.format(Locale.FRANCE, "%d alvéole(s) — %d œufs collectés (%d cassés)", saisie, collectes, casses)
+                summary = alveoles > 0
+                        ? String.format(Locale.FRANCE, "%d alvéole(s) + %d œufs — %d au total (%d cassés)", alveoles, oeufsSupp, collectes, casses)
                         : String.format(Locale.FRANCE, "%d œufs collectés (%d cassés)", collectes, casses);
                 break;
             }
@@ -1236,7 +1290,13 @@ public class SaisieFormActivity extends AppCompatActivity {
             case COLLECTE_OEUFS: {
                 CollecteOeufsCreateRequest req = gson.fromJson(json, CollecteOeufsCreateRequest.class);
                 setDateHeure(req.date, req.heure);
-                if (req.oeufsCollectes != null) etOeufsCollectes.setText(String.valueOf(req.oeufsCollectes));
+                if (req.oeufsCollectes != null) {
+                    // Rescindé en alvéoles + reste pour l'affichage, symétrique de
+                    // oeufsCollectesReel() — la valeur stockée est toujours un total en
+                    // œufs, jamais décomposée (voir onValider()).
+                    etAlveolesCollectees.setText(String.valueOf(req.oeufsCollectes / AlveoleUtils.OEUFS_PAR_ALVEOLE));
+                    etOeufsCollectes.setText(String.valueOf(req.oeufsCollectes % AlveoleUtils.OEUFS_PAR_ALVEOLE));
+                }
                 if (req.oeufsCasses != null) etOeufsCasses.setText(String.valueOf(req.oeufsCasses));
                 selectBatimentByUniqueId(req.batimentUniqueId);
                 selectBatimentStockageByUniqueId(req.batimentStockageUniqueId);

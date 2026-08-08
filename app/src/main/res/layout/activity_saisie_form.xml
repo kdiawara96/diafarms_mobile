@@ -148,36 +148,46 @@
                     android:layout_width="match_parent" android:layout_height="48dp"
                     android:background="@drawable/bg_input_border" />
 
+                <TextView
+                    android:id="@+id/tvStockBatimentStockage"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:textSize="12sp"
+                    android:textColor="@android:color/darker_gray"
+                    tools:text="Actuellement dans ce bâtiment : 250 œuf(s) (8 alvéole(s) + 10)" />
+
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 
-                <TextView
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:text="Unité de saisie" android:textColor="@android:color/black" android:textSize="14sp"
-                    android:layout_marginBottom="4dp" />
-                <RadioGroup
-                    android:id="@+id/radioGroupUniteCollecte"
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:layout_marginBottom="12dp">
-                    <RadioButton
-                        android:id="@+id/radioUniteCollecteOeuf"
-                        android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
-                        android:text="Œuf" android:checked="true" />
-                    <RadioButton
-                        android:id="@+id/radioUniteCollecteAlveole"
-                        android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
-                        android:text="Alvéole (30 œufs)" />
-                </RadioGroup>
+                <!-- Compté en deux temps comme sur le terrain : d'abord les alvéoles
+                     pleines (plateaux de 30), puis les œufs qui restent sans remplir un
+                     plateau entier — un seul champ œufs/alvéoles obligeait à convertir
+                     mentalement à chaque saisie. Total envoyé = alvéoles×30 + œufs. -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
 
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/tilOeufsCollectes"
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Œufs collectés">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etOeufsCollectes"
-                        android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:inputType="number" />
-                </com.google.android.material.textfield.TextInputLayout>
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                        android:layout_marginEnd="8dp"
+                        android:hint="Alvéoles collectées">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etAlveolesCollectees"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:inputType="number" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                        android:layout_marginStart="8dp"
+                        android:hint="+ Œufs (hors alvéole)">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etOeufsCollectes"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:inputType="number" />
+                    </com.google.android.material.textfield.TextInputLayout>
+                </LinearLayout>
 
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 

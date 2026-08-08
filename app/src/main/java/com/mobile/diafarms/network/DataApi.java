@@ -31,6 +31,7 @@ import retrofit2.http.GET;
 import retrofit2.http.PUT;
 import retrofit2.http.POST;
 import retrofit2.http.Path;
+import retrofit2.http.Query;
 
 /** Endpoints diafarms_back consommés par les écrans de saisie mobile. */
 public interface DataApi {
@@ -46,6 +47,12 @@ public interface DataApi {
 
     @GET("batiments/select")
     Call<ApiEnvelope<List<BatimentSelectResponse>>> getBatimentsSelect();
+
+    // Stock d'œufs pas encore transféré vers un magasin, dans ce bâtiment de stockage
+    // précis — pure info contextuelle à la collecte (voir SaisieFormActivity), ne
+    // plafonne rien : une collecte AJOUTE au stock du bâtiment, elle ne le consomme pas.
+    @GET("magasin-transferts/disponible-batiment")
+    Call<ApiEnvelope<Integer>> getDisponibleBatimentStockage(@Query("batimentStockageUniqueId") String batimentStockageUniqueId);
 
     // Un vendeur (rôle VENTE) ne voit que les magasins auxquels il est lié — voir
     // MagasinVenteServiceImpl.list() côté back, déjà filtré côté serveur.

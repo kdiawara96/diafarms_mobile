@@ -49,6 +49,8 @@ public class CachePrefetcher {
     // SaisieFormActivity filtre côté client au type STOCKAGE pour son sélecteur
     // obligatoire de Collecte œufs (voir BatimentSelectResponse.getType).
     public static final String CACHE_BATIMENTS_SELECT = "batiments_select";
+    // Stock d'œufs pas encore transféré, par bâtiment de stockage précis.
+    public static final String CACHE_STOCK_BATIMENT_STOCKAGE_PREFIX = "stock_batiment_stockage_";
 
     private static final String TAG = "CachePrefetcher";
     private static final Gson gson = new Gson();
