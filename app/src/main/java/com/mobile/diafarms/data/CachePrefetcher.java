@@ -45,12 +45,14 @@ public class CachePrefetcher {
     // serveur, et stock par magasin précis (un vendeur peut être lié à plusieurs).
     public static final String CACHE_MAGASINS_SELECT = "magasins_select";
     public static final String CACHE_STOCK_MAGASIN_PREFIX = "stock_magasin_";
-    // Bâtiments de la ferme (PRODUCTION) : liste complète non filtrée par le serveur —
-    // SaisieFormActivity filtre côté client au type STOCKAGE pour son sélecteur
-    // obligatoire de Collecte œufs (voir BatimentSelectResponse.getType).
+    // Magasins de STOCKAGE (PRODUCTION) : liste complète, filtrée côté serveur au type
+    // STOCKAGE (voir SaisieFormActivity, sélecteur obligatoire de Collecte œufs), et
+    // stock (œufs pas encore transférés) par magasin de stockage précis.
+    public static final String CACHE_MAGASINS_STOCKAGE_SELECT = "magasins_stockage_select";
+    public static final String CACHE_STOCK_MAGASIN_STOCKAGE_PREFIX = "stock_magasin_stockage_";
+    // Poulaillers de la ferme (PRODUCTION) : liste complète non filtrée par le serveur —
+    // bâtiment d'élevage optionnel de Collecte œufs (distinct du magasin de stockage).
     public static final String CACHE_BATIMENTS_SELECT = "batiments_select";
-    // Stock d'œufs pas encore transféré, par bâtiment de stockage précis.
-    public static final String CACHE_STOCK_BATIMENT_STOCKAGE_PREFIX = "stock_batiment_stockage_";
 
     private static final String TAG = "CachePrefetcher";
     private static final Gson gson = new Gson();
@@ -82,7 +84,7 @@ public class CachePrefetcher {
      * depuis prefetchProjectsDetails ci-dessous (donc à chaque ouverture de l'accueil,
      * pas seulement au premier bootstrap) pour que le stock par magasin reste à jour. */
     private static void prefetchMagasins(Context appContext, LocalDatabase localDatabase) {
-        ApiClient.dataApi(appContext).getMagasinsSelect().enqueue(new Callback<ApiEnvelope<List<MagasinSelectResponse>>>() {
+        ApiClient.dataApi(appContext).getMagasinsSelect("VENTE").enqueue(new Callback<ApiEnvelope<List<MagasinSelectResponse>>>() {
             @Override
             public void onResponse(Call<ApiEnvelope<List<MagasinSelectResponse>>> call, Response<ApiEnvelope<List<MagasinSelectResponse>>> response) {
                 if (!response.isSuccessful() || response.body() == null || response.body().getData() == null) return;
@@ -108,7 +110,37 @@ public class CachePrefetcher {
         });
     }
 
-    /** Précharge la liste des bâtiments de la ferme — inoffensif pour un rôle sans
+    /** Précharge la liste des magasins de STOCKAGE de la ferme (obligatoire pour la
+     * Collecte œufs) et le stock disponible (pas encore transféré) de chacun —
+     * inoffensif pour un rôle sans accès Production, la liste sera juste inutilisée. */
+    private static void prefetchMagasinsStockage(Context appContext, LocalDatabase localDatabase) {
+        ApiClient.dataApi(appContext).getMagasinsSelect("STOCKAGE").enqueue(new Callback<ApiEnvelope<List<MagasinSelectResponse>>>() {
+            @Override
+            public void onResponse(Call<ApiEnvelope<List<MagasinSelectResponse>>> call, Response<ApiEnvelope<List<MagasinSelectResponse>>> response) {
+                if (!response.isSuccessful() || response.body() == null || response.body().getData() == null) return;
+                List<MagasinSelectResponse> magasins = response.body().getData();
+                localDatabase.putCache(CACHE_MAGASINS_STOCKAGE_SELECT, gson.toJson(magasins));
+                for (MagasinSelectResponse magasin : magasins) {
+                    ApiClient.dataApi(appContext).getDisponibleMagasinStockage(magasin.getUniqueId()).enqueue(new Callback<ApiEnvelope<Integer>>() {
+                        @Override
+                        public void onResponse(Call<ApiEnvelope<Integer>> call, Response<ApiEnvelope<Integer>> response) {
+                            if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
+                                localDatabase.putCache(CACHE_STOCK_MAGASIN_STOCKAGE_PREFIX + magasin.getUniqueId(), gson.toJson(response.body().getData()));
+                            }
+                        }
+
+                        @Override
+                        public void onFailure(@NonNull Call<ApiEnvelope<Integer>> call, Throwable t) { }
+                    });
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiEnvelope<List<MagasinSelectResponse>>> call, Throwable t) { }
+        });
+    }
+
+    /** Précharge la liste des poulaillers de la ferme — inoffensif pour un rôle sans
      * accès Production, la liste sera juste inutilisée. Voir CACHE_BATIMENTS_SELECT. */
     private static void prefetchBatiments(Context appContext, LocalDatabase localDatabase) {
         ApiClient.dataApi(appContext).getBatimentsSelect().enqueue(new Callback<ApiEnvelope<List<BatimentSelectResponse>>>() {
@@ -132,6 +164,7 @@ public class CachePrefetcher {
             prefetchOneProjet(appContext, localDatabase, projet.getUniqueId());
         }
         prefetchMagasins(appContext, localDatabase);
+        prefetchMagasinsStockage(appContext, localDatabase);
         prefetchBatiments(appContext, localDatabase);
     }
 

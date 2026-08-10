@@ -36,7 +36,6 @@ import com.mobile.diafarms.models.SaisieType;
 import com.mobile.diafarms.network.ApiClient;
 import com.mobile.diafarms.network.dto.AlimentationCreateRequest;
 import com.mobile.diafarms.network.dto.ApiEnvelope;
-import com.mobile.diafarms.network.dto.BatimentSelectResponse;
 import com.mobile.diafarms.network.dto.CollecteOeufsCreateRequest;
 import com.mobile.diafarms.network.dto.ConsommationAlimentCreateRequest;
 import com.mobile.diafarms.network.dto.EffectifReformeResponse;
@@ -112,10 +111,9 @@ public class SaisieFormActivity extends AppCompatActivity {
     private List<MagasinSelectResponse> magasins = new ArrayList<>();
     private String pendingMagasinSelection;
 
-    // Bâtiments de STOCKAGE (Collecte œufs, obligatoire) — liste complète de la ferme
-    // (pas filtrée serveur comme magasins), filtrée côté client au type STOCKAGE. Voir
-    // loadBatimentsStockage/selectBatimentStockageByUniqueId.
-    private List<BatimentSelectResponse> batimentsStockage = new ArrayList<>();
+    // Magasins de STOCKAGE (Collecte œufs, obligatoire) — déjà filtrés côté serveur au
+    // type STOCKAGE (voir loadMagasinsStockage/selectBatimentStockageByUniqueId).
+    private List<MagasinSelectResponse> batimentsStockage = new ArrayList<>();
     private String pendingBatimentStockageSelection;
 
     // Vues communes
@@ -237,7 +235,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         // physiquement déposés, plafonne les transferts vers un magasin de vente
         // plus tard (MagasinTransfertServiceImpl côté back).
         if (type == SaisieType.COLLECTE_OEUFS) {
-            loadBatimentsStockage();
+            loadMagasinsStockage();
         }
 
         if (editingLocalId != null) {
@@ -695,7 +693,7 @@ public class SaisieFormActivity extends AppCompatActivity {
             }
         }
 
-        ApiClient.dataApi(this).getMagasinsSelect().enqueue(new Callback<ApiEnvelope<List<MagasinSelectResponse>>>() {
+        ApiClient.dataApi(this).getMagasinsSelect("VENTE").enqueue(new Callback<ApiEnvelope<List<MagasinSelectResponse>>>() {
             @Override
             public void onResponse(Call<ApiEnvelope<List<MagasinSelectResponse>>> call, Response<ApiEnvelope<List<MagasinSelectResponse>>> response) {
                 List<MagasinSelectResponse> data = response.isSuccessful() && response.body() != null ? response.body().getData() : null;
@@ -756,52 +754,44 @@ public class SaisieFormActivity extends AppCompatActivity {
         }
     }
 
-    /** Bâtiments de STOCKAGE de la ferme (Collecte œufs, obligatoire) — liste complète
-     * non filtrée côté serveur (contrairement aux magasins), filtrée ici au type
-     * STOCKAGE. Pas d'option "Aucun" : le bâtiment de stockage est obligatoire. Même
-     * schéma cache → réseau que loadMagasins(). */
-    private void loadBatimentsStockage() {
-        String cacheKey = CachePrefetcher.CACHE_BATIMENTS_SELECT;
+    /** Magasins de STOCKAGE de la ferme (Collecte œufs, obligatoire) — déjà filtrés
+     * côté serveur au type STOCKAGE (voir DataApi.getMagasinsSelect). Pas d'option
+     * "Aucun" : le magasin de stockage est obligatoire. Même schéma cache → réseau
+     * que loadMagasins(). */
+    private void loadMagasinsStockage() {
+        String cacheKey = CachePrefetcher.CACHE_MAGASINS_STOCKAGE_SELECT;
         String cachedJson = localDatabase.getCache(cacheKey);
         if (cachedJson != null) {
-            Type listType = new TypeToken<List<BatimentSelectResponse>>() {}.getType();
-            List<BatimentSelectResponse> parsed = gson.fromJson(cachedJson, listType);
+            Type listType = new TypeToken<List<MagasinSelectResponse>>() {}.getType();
+            List<MagasinSelectResponse> parsed = gson.fromJson(cachedJson, listType);
             if (parsed != null) {
-                batimentsStockage = filterStockage(parsed);
+                batimentsStockage = parsed;
                 populateBatimentStockageSpinner();
             }
         }
 
-        ApiClient.dataApi(this).getBatimentsSelect().enqueue(new Callback<ApiEnvelope<List<BatimentSelectResponse>>>() {
+        ApiClient.dataApi(this).getMagasinsSelect("STOCKAGE").enqueue(new Callback<ApiEnvelope<List<MagasinSelectResponse>>>() {
             @Override
-            public void onResponse(Call<ApiEnvelope<List<BatimentSelectResponse>>> call, Response<ApiEnvelope<List<BatimentSelectResponse>>> response) {
-                List<BatimentSelectResponse> data = response.isSuccessful() && response.body() != null ? response.body().getData() : null;
+            public void onResponse(Call<ApiEnvelope<List<MagasinSelectResponse>>> call, Response<ApiEnvelope<List<MagasinSelectResponse>>> response) {
+                List<MagasinSelectResponse> data = response.isSuccessful() && response.body() != null ? response.body().getData() : null;
                 if (data != null) {
                     localDatabase.putCache(cacheKey, gson.toJson(data));
-                    batimentsStockage = filterStockage(data);
+                    batimentsStockage = data;
                     populateBatimentStockageSpinner();
                 }
-                // sinon : bâtiments déjà affichés depuis le cache le cas échéant, rien à faire
+                // sinon : magasins déjà affichés depuis le cache le cas échéant, rien à faire
             }
 
             @Override
-            public void onFailure(Call<ApiEnvelope<List<BatimentSelectResponse>>> call, Throwable t) {
-                // bâtiments déjà affichés depuis le cache le cas échéant, rien à faire de plus
+            public void onFailure(Call<ApiEnvelope<List<MagasinSelectResponse>>> call, Throwable t) {
+                // magasins déjà affichés depuis le cache le cas échéant, rien à faire de plus
             }
         });
     }
 
-    private List<BatimentSelectResponse> filterStockage(List<BatimentSelectResponse> all) {
-        List<BatimentSelectResponse> result = new ArrayList<>();
-        for (BatimentSelectResponse b : all) {
-            if ("STOCKAGE".equalsIgnoreCase(b.getType())) result.add(b);
-        }
-        return result;
-    }
-
     private void populateBatimentStockageSpinner() {
         List<String> labels = new ArrayList<>();
-        for (BatimentSelectResponse b : batimentsStockage) {
+        for (MagasinSelectResponse b : batimentsStockage) {
             labels.add(b.getNom());
         }
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, labels);
@@ -818,7 +808,7 @@ public class SaisieFormActivity extends AppCompatActivity {
 
     /** Même raisonnement que selectBatimentByUniqueId/applyPendingBatimentSelection —
      * voir leur commentaire pour la course entre prefillFromExisting() (synchrone) et
-     * loadBatimentsStockage() (réseau asynchrone). */
+     * loadMagasinsStockage() (réseau asynchrone). */
     private void selectBatimentStockageByUniqueId(String uniqueId) {
         if (uniqueId == null) return;
         pendingBatimentStockageSelection = uniqueId;
@@ -850,12 +840,12 @@ public class SaisieFormActivity extends AppCompatActivity {
             return;
         }
 
-        String cacheKey = CachePrefetcher.CACHE_STOCK_BATIMENT_STOCKAGE_PREFIX + batimentUniqueId;
+        String cacheKey = CachePrefetcher.CACHE_STOCK_MAGASIN_STOCKAGE_PREFIX + batimentUniqueId;
         Integer cached = getCachedOrNull(cacheKey, Integer.class);
         boolean hadCache = cached != null;
         if (hadCache) displayStockBatimentStockage(cached, true);
 
-        ApiClient.dataApi(this).getDisponibleBatimentStockage(batimentUniqueId).enqueue(new Callback<ApiEnvelope<Integer>>() {
+        ApiClient.dataApi(this).getDisponibleMagasinStockage(batimentUniqueId).enqueue(new Callback<ApiEnvelope<Integer>>() {
             @Override
             public void onResponse(Call<ApiEnvelope<Integer>> call, Response<ApiEnvelope<Integer>> response) {
                 Integer stock = response.isSuccessful() && response.body() != null ? response.body().getData() : null;
@@ -876,7 +866,7 @@ public class SaisieFormActivity extends AppCompatActivity {
 
     private void displayStockBatimentStockage(int stock, boolean fromCache) {
         String suffix = fromCache ? " (dernière donnée connue, hors ligne)" : "";
-        tvStockBatimentStockage.setText(String.format(Locale.FRANCE, "Actuellement dans ce bâtiment : %s%s",
+        tvStockBatimentStockage.setText(String.format(Locale.FRANCE, "Actuellement dans ce magasin : %s%s",
                 AlveoleUtils.formatOeufsAvecAlveoles(stock), suffix));
     }
 
@@ -1020,7 +1010,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 }
                 String batimentStockageUniqueId = getSelectedBatimentStockageUniqueId();
                 if (batimentStockageUniqueId == null) {
-                    toast("Veuillez sélectionner le bâtiment de stockage");
+                    toast("Veuillez sélectionner le magasin de stockage");
                     return;
                 }
                 int alveoles = parseIntSafe(etAlveolesCollectees.getText());
@@ -1034,7 +1024,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 CollecteOeufsCreateRequest req = new CollecteOeufsCreateRequest();
                 req.projetUniqueId = projetUniqueId;
                 req.batimentUniqueId = batimentUniqueId;
-                req.batimentStockageUniqueId = batimentStockageUniqueId;
+                req.magasinStockageUniqueId = batimentStockageUniqueId;
                 req.date = date;
                 req.heure = heure;
                 req.oeufsCollectes = collectes; // toujours en œufs, alvéoles + œufs supplémentaires additionnés
@@ -1299,7 +1289,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 }
                 if (req.oeufsCasses != null) etOeufsCasses.setText(String.valueOf(req.oeufsCasses));
                 selectBatimentByUniqueId(req.batimentUniqueId);
-                selectBatimentStockageByUniqueId(req.batimentStockageUniqueId);
+                selectBatimentStockageByUniqueId(req.magasinStockageUniqueId);
                 break;
             }
             case SOINS: {

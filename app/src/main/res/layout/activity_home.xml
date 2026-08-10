@@ -302,7 +302,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
-                    android:text="Bâtiments : —"
+                    android:text="Poulaillers : —"
                     android:textSize="11sp"
                     android:textColor="#6B7280"/>
             </LinearLayout>

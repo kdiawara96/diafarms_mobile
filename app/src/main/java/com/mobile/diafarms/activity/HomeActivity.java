@@ -432,7 +432,7 @@ public class HomeActivity extends AppCompatActivity {
         tvPoulesCount.setText("—");
         tvTauxPonte.setText("—");
         tvJoursRestants.setText("—");
-        tvBatimentsOccupes.setText("Bâtiments : —");
+        tvBatimentsOccupes.setText("Poulaillers : —");
         alertesList = new ArrayList<>();
         cardAlertes.setVisibility(View.GONE);
     }
@@ -624,14 +624,14 @@ public class HomeActivity extends AppCompatActivity {
 
         List<OccupationBatimentResponse> occupations = detail.getOccupationBatiment();
         if (occupations == null || occupations.isEmpty()) {
-            tvBatimentsOccupes.setText("Bâtiments : aucun bâtiment assigné");
+            tvBatimentsOccupes.setText("Poulaillers : aucun poulailler assigné");
         } else {
             String noms = occupations.stream()
                     .filter(o -> OccupationUtils.estActive(o.getDateSortie())) // occupations encore actives
                     .map(o -> o.getNomBatiment() + (o.getNbSujetsDansBatiment() != null
                             ? " (" + o.getNbSujetsDansBatiment() + ")" : ""))
                     .collect(Collectors.joining(", "));
-            tvBatimentsOccupes.setText("Bâtiments : " + (noms.isEmpty() ? "aucun actif" : noms));
+            tvBatimentsOccupes.setText("Poulaillers : " + (noms.isEmpty() ? "aucun actif" : noms));
         }
     }
 

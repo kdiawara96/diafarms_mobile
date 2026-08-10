@@ -45,19 +45,22 @@ public interface DataApi {
     @GET("farm-settings")
     Call<ApiEnvelope<FarmAppSettingsResponse>> getFarmAppSettings();
 
+    // Poulaillers uniquement (élevage) — le stockage/la vente vivent désormais dans
+    // Magasin (voir getMagasinsSelect ci-dessous, type VENTE/STOCKAGE).
     @GET("batiments/select")
     Call<ApiEnvelope<List<BatimentSelectResponse>>> getBatimentsSelect();
 
-    // Stock d'œufs pas encore transféré vers un magasin, dans ce bâtiment de stockage
-    // précis — pure info contextuelle à la collecte (voir SaisieFormActivity), ne
-    // plafonne rien : une collecte AJOUTE au stock du bâtiment, elle ne le consomme pas.
+    // Stock d'œufs pas encore transféré vers un magasin de vente, dans ce magasin de
+    // stockage précis — pure info contextuelle à la collecte (voir SaisieFormActivity),
+    // ne plafonne rien : une collecte AJOUTE au stock, elle ne le consomme pas.
     @GET("magasin-transferts/disponible-batiment")
-    Call<ApiEnvelope<Integer>> getDisponibleBatimentStockage(@Query("batimentStockageUniqueId") String batimentStockageUniqueId);
+    Call<ApiEnvelope<Integer>> getDisponibleMagasinStockage(@Query("magasinStockageUniqueId") String magasinStockageUniqueId);
 
-    // Un vendeur (rôle VENTE) ne voit que les magasins auxquels il est lié — voir
-    // MagasinVenteServiceImpl.list() côté back, déjà filtré côté serveur.
+    // Un vendeur (rôle VENTE) ne voit que les magasins de vente auxquels il est lié —
+    // voir MagasinServiceImpl.list() côté back, déjà filtré côté serveur. type =
+    // "VENTE" ou "STOCKAGE" (voir Magasin.TypeMagasin), omis = tous types confondus.
     @GET("magasins/list")
-    Call<ApiEnvelope<List<MagasinSelectResponse>>> getMagasinsSelect();
+    Call<ApiEnvelope<List<MagasinSelectResponse>>> getMagasinsSelect(@Query("type") String type);
 
     @GET("magasins/{uniqueId}/stock")
     Call<ApiEnvelope<StockMagasinResponse>> getStockMagasin(@Path("uniqueId") String magasinUniqueId);
