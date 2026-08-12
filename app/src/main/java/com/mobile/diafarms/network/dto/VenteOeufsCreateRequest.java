@@ -10,6 +10,7 @@ public class VenteOeufsCreateRequest {
     public String date;      // "yyyy-MM-dd"
     public String heure;     // "HH:mm", optionnel
     public String magasinUniqueId;
+    public String clientUniqueId; // optionnel — voir VenteOeufs.client
     public Integer quantiteOeufs;
     public Double prixUnitaire; // optionnel, informatif
     public Double montant;

@@ -8,6 +8,7 @@ public class VenteReformeCreateRequest {
     public String date;      // "yyyy-MM-dd"
     public String heure;     // "HH:mm", optionnel
     public String magasinUniqueId;
+    public String clientUniqueId; // optionnel — voir VenteReforme.client
     public Integer nombreSujets;
     public Double prixUnitaire; // optionnel, informatif
     public Double montant;

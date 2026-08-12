@@ -30,7 +30,15 @@ public enum SaisieType {
     // diafarms_back TransactionServiceImpl.create (même endpoint que TRANSACTION_ENTREE).
     VENTE_FIENTES("Vente de fientes", Categorie.FINANCE),
     TRANSACTION_ENTREE("Entrée d'argent", Categorie.FINANCE),
-    TRANSACTION_SORTIE("Sortie d'argent", Categorie.FINANCE);
+    TRANSACTION_SORTIE("Sortie d'argent", Categorie.FINANCE),
+    // Un client créé ici n'est utilisable dans une vente/commande qu'une fois
+    // synchronisé (voir DataApi.getClientsSelect, CachePrefetcher.prefetchClients) —
+    // pas de résolution de dépendance entre saisies locales, voir SyncManager (une
+    // saisie à la fois, ordre non garanti entre un client et une vente qui le référence).
+    CLIENT_CREATE("Nouveau client", Categorie.FINANCE),
+    // Toujours un client (obligatoire, contrairement à une vente) — voir
+    // diafarms_back Commande.client et CommandeCreateRequest.
+    COMMANDE_CREATE("Nouvelle commande", Categorie.FINANCE);
 
     public enum Categorie { PRODUCTION, FINANCE }
 

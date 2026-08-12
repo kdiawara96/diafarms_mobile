@@ -123,6 +123,8 @@ public class HomeActivity extends AppCompatActivity {
     private CardView btnVenteOeufs;
     private CardView btnVenteReforme;
     private CardView btnVenteFientes;
+    private CardView btnNouveauClient;
+    private CardView btnNouvelleCommande;
     private CardView cardStatsFinance;
     private TextView tvMesEntrees;
     private TextView tvMesSorties;
@@ -218,6 +220,8 @@ public class HomeActivity extends AppCompatActivity {
         btnVenteOeufs = findViewById(R.id.btnVenteOeufs);
         btnVenteReforme = findViewById(R.id.btnVenteReforme);
         btnVenteFientes = findViewById(R.id.btnVenteFientes);
+        btnNouveauClient = findViewById(R.id.btnNouveauClient);
+        btnNouvelleCommande = findViewById(R.id.btnNouvelleCommande);
         cardStatsFinance = findViewById(R.id.cardStatsFinance);
         tvMesEntrees = findViewById(R.id.tvMesEntrees);
         tvMesSorties = findViewById(R.id.tvMesSorties);
@@ -300,6 +304,8 @@ public class HomeActivity extends AppCompatActivity {
             btnVenteOeufs.setVisibility(View.GONE);
             btnVenteReforme.setVisibility(View.GONE);
             btnVenteFientes.setVisibility(View.GONE);
+            btnNouveauClient.setVisibility(View.GONE);
+            btnNouvelleCommande.setVisibility(View.GONE);
             btnEntreeArgent.setVisibility(View.GONE);
             btnSortieArgent.setVisibility(View.GONE);
             loadFarmAppSettings();
@@ -325,6 +331,8 @@ public class HomeActivity extends AppCompatActivity {
                     btnVenteOeufs.setVisibility(s.isVenteMobileEnabled() ? View.VISIBLE : View.GONE);
                     btnVenteReforme.setVisibility(s.isVenteMobileEnabled() ? View.VISIBLE : View.GONE);
                     btnVenteFientes.setVisibility(s.isVenteMobileEnabled() ? View.VISIBLE : View.GONE);
+                    btnNouveauClient.setVisibility(s.isVenteMobileEnabled() ? View.VISIBLE : View.GONE);
+                    btnNouvelleCommande.setVisibility(s.isVenteMobileEnabled() ? View.VISIBLE : View.GONE);
                 }
             }
 
@@ -672,6 +680,8 @@ public class HomeActivity extends AppCompatActivity {
         btnVenteOeufs.setOnClickListener(v -> openSaisie(SaisieType.VENTE_OEUFS));
         btnVenteReforme.setOnClickListener(v -> openSaisie(SaisieType.VENTE_REFORME));
         btnVenteFientes.setOnClickListener(v -> openSaisie(SaisieType.VENTE_FIENTES));
+        btnNouveauClient.setOnClickListener(v -> openSaisie(SaisieType.CLIENT_CREATE));
+        btnNouvelleCommande.setOnClickListener(v -> openSaisie(SaisieType.COMMANDE_CREATE));
 
         // Sync — écouteur sur l'ImageButton interne, même raison que btnDiagnostics ci-dessus.
         findViewById(R.id.imgBtnSync).setOnClickListener(v -> forceSync());
@@ -685,8 +695,11 @@ public class HomeActivity extends AppCompatActivity {
     private void openSaisie(SaisieType type) {
         // Vente œufs/réforme (Finance) puisent dans un stock à l'échelle de la ferme
         // entière, pas du projet sélectionné — même exception que les transactions.
+        // Client/Commande ne sont pas non plus rattachés à un projet (voir Client.java/
+        // Commande.java côté back : farm-scopés, pas projet-scopés).
         boolean needsProjet = type != SaisieType.TRANSACTION_ENTREE && type != SaisieType.TRANSACTION_SORTIE
-                && type != SaisieType.VENTE_OEUFS && type != SaisieType.VENTE_REFORME && type != SaisieType.VENTE_FIENTES;
+                && type != SaisieType.VENTE_OEUFS && type != SaisieType.VENTE_REFORME && type != SaisieType.VENTE_FIENTES
+                && type != SaisieType.CLIENT_CREATE && type != SaisieType.COMMANDE_CREATE;
         if (needsProjet && currentProjet == null) {
             Toast.makeText(this, "Veuillez sélectionner un projet", Toast.LENGTH_SHORT).show();
             return;

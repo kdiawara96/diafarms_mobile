@@ -45,25 +45,36 @@
 
             <View android:layout_width="match_parent" android:layout_height="20dp" />
 
-            <!-- Bâtiment (optionnel, commun à tous les types) -->
-            <TextView
+            <!-- Bâtiment (optionnel, commun à tous les types sauf Client/Commande, voir
+                 SaisieFormActivity.applyTypeVisibility) -->
+            <LinearLayout
+                android:id="@+id/groupBatimentTop"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Poulailler (optionnel)"
-                android:textColor="@android:color/black"
-                android:textSize="14sp"
-                android:layout_marginBottom="4dp" />
+                android:orientation="vertical">
 
-            <Spinner
-                android:id="@+id/spinnerBatiment"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:background="@drawable/bg_input_border" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Poulailler (optionnel)"
+                    android:textColor="@android:color/black"
+                    android:textSize="14sp"
+                    android:layout_marginBottom="4dp" />
 
-            <View android:layout_width="match_parent" android:layout_height="16dp" />
+                <Spinner
+                    android:id="@+id/spinnerBatiment"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:background="@drawable/bg_input_border" />
 
-            <!-- Date / Heure -->
+                <View android:layout_width="match_parent" android:layout_height="16dp" />
+            </LinearLayout>
+
+            <!-- Date / Heure (masqué pour Client, voir applyTypeVisibility — pas de date
+                 dans ClientCreate côté back ; pour Commande, etDate représente la date de
+                 commande, heure inutilisée mais laissée visible comme pour Transaction) -->
             <LinearLayout
+                android:id="@+id/groupDateHeureTop"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal">
@@ -424,6 +435,20 @@
 
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 
+                <!-- Optionnel — seuls les clients déjà synchronisés apparaissent (voir
+                     SaisieFormActivity.loadClients) : "Vente directe" reste le choix par
+                     défaut, comme côté web. -->
+                <TextView
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="Client (optionnel)" android:textColor="@android:color/black" android:textSize="14sp"
+                    android:layout_marginBottom="4dp" />
+                <Spinner
+                    android:id="@+id/spinnerClientVenteOeufs"
+                    android:layout_width="match_parent" android:layout_height="48dp"
+                    android:background="@drawable/bg_input_border" />
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
                 <TextView
                     android:id="@+id/tvStockOeufsInfo"
                     android:layout_width="match_parent"
@@ -506,6 +531,17 @@
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 
                 <TextView
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="Client (optionnel)" android:textColor="@android:color/black" android:textSize="14sp"
+                    android:layout_marginBottom="4dp" />
+                <Spinner
+                    android:id="@+id/spinnerClientVenteReforme"
+                    android:layout_width="match_parent" android:layout_height="48dp"
+                    android:background="@drawable/bg_input_border" />
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <TextView
                     android:id="@+id/tvStockReformeInfo"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -543,6 +579,184 @@
                         android:id="@+id/etMontantVenteReforme"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
                         android:inputType="numberDecimal" />
+                </com.google.android.material.textfield.TextInputLayout>
+            </LinearLayout>
+
+            <!-- ===================== NOUVEAU CLIENT (VENTE) ===================== -->
+            <LinearLayout
+                android:id="@+id/groupClient"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Nom du client">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etClientNom"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="textPersonName" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Téléphone (optionnel)">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etClientTelephone"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="phone" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Adresse (optionnel)">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etClientAdresse"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="textPostalAddress" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Email (optionnel)">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etClientEmail"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="textEmailAddress" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="8dp" />
+
+                <TextView
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="Ce client sera disponible pour une vente/commande une fois synchronisé (voir l'accueil)."
+                    android:textSize="12sp"
+                    android:textColor="@android:color/darker_gray" />
+            </LinearLayout>
+
+            <!-- ===================== NOUVELLE COMMANDE (VENTE : client obligatoire, déjà
+                 synchronisé — voir SaisieFormActivity.loadClients) ===================== -->
+            <LinearLayout
+                android:id="@+id/groupCommande"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="Client *" android:textColor="@android:color/black" android:textSize="14sp"
+                    android:layout_marginBottom="4dp" />
+                <Spinner
+                    android:id="@+id/spinnerClientCommande"
+                    android:layout_width="match_parent" android:layout_height="48dp"
+                    android:background="@drawable/bg_input_border" />
+
+                <TextView
+                    android:id="@+id/tvAucunClientCommande"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Aucun client synchronisé — créez-en un d'abord (en ligne) ou synchronisez."
+                    android:textSize="12sp"
+                    android:textColor="@color/red_error"
+                    android:visibility="gone" />
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <TextView
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="Magasin de vente" android:textColor="@android:color/black" android:textSize="14sp"
+                    android:layout_marginBottom="4dp" />
+                <Spinner
+                    android:id="@+id/spinnerMagasinCommande"
+                    android:layout_width="match_parent" android:layout_height="48dp"
+                    android:background="@drawable/bg_input_border" />
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <TextView
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="Type" android:textColor="@android:color/black" android:textSize="14sp"
+                    android:layout_marginBottom="4dp" />
+                <RadioGroup
+                    android:id="@+id/radioGroupTypeCommande"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="12dp">
+                    <RadioButton
+                        android:id="@+id/radioCommandeOeufs"
+                        android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                        android:text="Œufs" android:checked="true" />
+                    <RadioButton
+                        android:id="@+id/radioCommandeReforme"
+                        android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                        android:text="Réforme" />
+                </RadioGroup>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Quantité commandée">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etQuantiteCommande"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="number" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Prix unitaire estimé (FCFA, optionnel)">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etPrixUnitaireCommande"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="numberDecimal" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Montant estimé (FCFA)">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etMontantEstimeCommande"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="numberDecimal" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Acompte versé (FCFA, optionnel)">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etAcompteCommande"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="numberDecimal" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <TextView
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="Livraison prévue (optionnel)" android:textColor="@android:color/black" android:textSize="14sp"
+                    android:layout_marginBottom="4dp" />
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etDateLivraisonCommande"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:focusable="false"
+                        android:clickable="true"
+                        android:cursorVisible="false" />
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 

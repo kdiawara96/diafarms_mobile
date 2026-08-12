@@ -2,7 +2,10 @@ package com.mobile.diafarms.network;
 
 import com.mobile.diafarms.network.dto.ApiEnvelope;
 import com.mobile.diafarms.network.dto.BatimentSelectResponse;
+import com.mobile.diafarms.network.dto.ClientCreateRequest;
+import com.mobile.diafarms.network.dto.ClientSelectResponse;
 import com.mobile.diafarms.network.dto.CollecteOeufsCreateRequest;
+import com.mobile.diafarms.network.dto.CommandeCreateRequest;
 import com.mobile.diafarms.network.dto.ConsommationAlimentCreateRequest;
 import com.mobile.diafarms.network.dto.CreatedEntityResponse;
 import com.mobile.diafarms.network.dto.AlimentationCreateRequest;
@@ -65,6 +68,10 @@ public interface DataApi {
     @GET("magasins/{uniqueId}/stock")
     Call<ApiEnvelope<StockMagasinResponse>> getStockMagasin(@Path("uniqueId") String magasinUniqueId);
 
+    // Clients déjà synchronisés côté serveur, farm-scopée — voir ClientSelectResponse.
+    @GET("clients/select")
+    Call<ApiEnvelope<List<ClientSelectResponse>>> getClientsSelect();
+
     @GET("projets/findbyUniqueId/{uniqueId}")
     Call<ApiEnvelope<ProjetDetailResponse>> getProjetDetail(@Path("uniqueId") String uniqueId);
 
@@ -106,6 +113,14 @@ public interface DataApi {
 
     @POST("ventes-reforme/create")
     Call<ApiEnvelope<CreatedEntityResponse>> createVenteReforme(@Body VenteReformeCreateRequest request);
+
+    // ============== CLIENT (VENTE) ==============
+    @POST("clients/create")
+    Call<ApiEnvelope<CreatedEntityResponse>> createClient(@Body ClientCreateRequest request);
+
+    // ============== COMMANDE (VENTE : ce qu'un client demande avant la vente) ==============
+    @POST("commandes/create")
+    Call<ApiEnvelope<CreatedEntityResponse>> createCommande(@Body CommandeCreateRequest request);
 
     // ============== ALIMENTATION — ACHAT (aliment entrant, par projet) ==============
     @POST("alimentations/create/{uniqueIdProjet}")

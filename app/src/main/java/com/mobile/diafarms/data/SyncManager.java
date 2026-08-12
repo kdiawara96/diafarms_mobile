@@ -8,7 +8,9 @@ import com.mobile.diafarms.network.ApiClient;
 import com.mobile.diafarms.network.DataApi;
 import com.mobile.diafarms.network.dto.AlimentationCreateRequest;
 import com.mobile.diafarms.network.dto.ApiEnvelope;
+import com.mobile.diafarms.network.dto.ClientCreateRequest;
 import com.mobile.diafarms.network.dto.CollecteOeufsCreateRequest;
+import com.mobile.diafarms.network.dto.CommandeCreateRequest;
 import com.mobile.diafarms.network.dto.ConsommationAlimentCreateRequest;
 import com.mobile.diafarms.network.dto.CreatedEntityResponse;
 import com.mobile.diafarms.network.dto.MortaliteCreateRequest;
@@ -118,6 +120,12 @@ public class SyncManager {
             case TRANSACTION_ENTREE:
             case TRANSACTION_SORTIE:
                 api.createTransaction(gson.fromJson(json, TransactionCreateRequest.class)).enqueue(callback);
+                break;
+            case CLIENT_CREATE:
+                api.createClient(gson.fromJson(json, ClientCreateRequest.class)).enqueue(callback);
+                break;
+            case COMMANDE_CREATE:
+                api.createCommande(gson.fromJson(json, CommandeCreateRequest.class)).enqueue(callback);
                 break;
         }
     }

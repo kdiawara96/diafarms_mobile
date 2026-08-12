@@ -36,7 +36,10 @@ import com.mobile.diafarms.models.SaisieType;
 import com.mobile.diafarms.network.ApiClient;
 import com.mobile.diafarms.network.dto.AlimentationCreateRequest;
 import com.mobile.diafarms.network.dto.ApiEnvelope;
+import com.mobile.diafarms.network.dto.ClientCreateRequest;
+import com.mobile.diafarms.network.dto.ClientSelectResponse;
 import com.mobile.diafarms.network.dto.CollecteOeufsCreateRequest;
+import com.mobile.diafarms.network.dto.CommandeCreateRequest;
 import com.mobile.diafarms.network.dto.ConsommationAlimentCreateRequest;
 import com.mobile.diafarms.network.dto.EffectifReformeResponse;
 import com.mobile.diafarms.network.dto.MagasinSelectResponse;
@@ -116,8 +119,15 @@ public class SaisieFormActivity extends AppCompatActivity {
     private List<MagasinSelectResponse> batimentsStockage = new ArrayList<>();
     private String pendingBatimentStockageSelection;
 
+    // Clients déjà synchronisés côté serveur (VENTE) — partagés par les 3 sélecteurs
+    // (Vente œufs/réforme : optionnel : Commande : obligatoire), même schéma que
+    // "magasins" ci-dessus. Voir loadClients/CachePrefetcher.CACHE_CLIENTS_SELECT.
+    private List<ClientSelectResponse> clients = new ArrayList<>();
+    private String pendingClientSelection;
+
     // Vues communes
     private TextView tvTitreForm, tvProjetForm, tvStockInfo;
+    private View groupBatimentTop, groupDateHeureTop;
     private Spinner spinnerBatiment;
     private TextInputEditText etDate, etHeure;
     private MaterialButton btnValiderForm;
@@ -162,6 +172,7 @@ public class SaisieFormActivity extends AppCompatActivity {
     // recalculé sur l'appareil).
     private View groupVenteOeufs;
     private Spinner spinnerMagasinOeufs;
+    private Spinner spinnerClientVenteOeufs;
     private TextView tvStockOeufsInfo;
     // Unité de saisie de etQuantiteOeufsVente/etPrixUnitaireOeufs (voir AlveoleUtils) —
     // Œuf ou Alvéole (plateau de 30 œufs) ; req.quantiteOeufs envoyé au serveur reste
@@ -177,9 +188,26 @@ public class SaisieFormActivity extends AppCompatActivity {
     // vivant d'UN projet (effectifReformeDisponible, saisie Réforme Production).
     private View groupVenteReforme;
     private Spinner spinnerMagasinReforme;
+    private Spinner spinnerClientVenteReforme;
     private TextView tvStockReformeInfo;
     private TextInputEditText etNombreSujetsVente, etPrixUnitaireReforme, etMontantVenteReforme;
     private Integer stockReformeDisponible;
+
+    // Nouveau client (VENTE) — voir Client.java côté back, aucune notion de date ici.
+    private View groupClient;
+    private TextInputEditText etClientNom, etClientTelephone, etClientAdresse, etClientEmail;
+
+    // Nouvelle commande (VENTE) — client TOUJOURS obligatoire et déjà synchronisé
+    // (spinnerClientCommande, pas d'option "aucun"), contrairement aux ventes. Voir
+    // Commande.java côté back.
+    private View groupCommande;
+    private Spinner spinnerClientCommande;
+    private TextView tvAucunClientCommande;
+    private Spinner spinnerMagasinCommande;
+    private RadioGroup radioGroupTypeCommande;
+    private TextInputEditText etQuantiteCommande, etPrixUnitaireCommande, etMontantEstimeCommande, etAcompteCommande;
+    private TextInputEditText etDateLivraisonCommande;
+    private final Calendar dateLivraisonCal = Calendar.getInstance();
 
     // Transaction
     private View groupTransaction;
@@ -227,9 +255,15 @@ public class SaisieFormActivity extends AppCompatActivity {
         // Vente œufs/réforme (VENTE) : magasin de vente obligatoire — le stock qui
         // plafonne la vente est désormais celui DE CE MAGASIN précis (vrai stock
         // séparé par magasin), plus jamais un stock unique pour toute la ferme comme
-        // avant. Voir loadMagasins/loadStockPourMagasinSelectionne.
-        if (type == SaisieType.VENTE_OEUFS || type == SaisieType.VENTE_REFORME) {
+        // avant. Voir loadMagasins/loadStockPourMagasinSelectionne. Une commande vise
+        // aussi un magasin de vente (destination), même liste.
+        if (type == SaisieType.VENTE_OEUFS || type == SaisieType.VENTE_REFORME || type == SaisieType.COMMANDE_CREATE) {
             loadMagasins();
+        }
+        // Client optionnel sur une vente, obligatoire sur une commande — voir
+        // loadClients (uniquement les clients déjà synchronisés côté serveur).
+        if (type == SaisieType.VENTE_OEUFS || type == SaisieType.VENTE_REFORME || type == SaisieType.COMMANDE_CREATE) {
+            loadClients();
         }
         // Bâtiment de stockage obligatoire (Production) : où ces œufs seront
         // physiquement déposés, plafonne les transferts vers un magasin de vente
@@ -252,6 +286,8 @@ public class SaisieFormActivity extends AppCompatActivity {
     private void bindViews() {
         tvTitreForm = findViewById(R.id.tvTitreForm);
         tvProjetForm = findViewById(R.id.tvProjetForm);
+        groupBatimentTop = findViewById(R.id.groupBatimentTop);
+        groupDateHeureTop = findViewById(R.id.groupDateHeureTop);
         spinnerBatiment = findViewById(R.id.spinnerBatiment);
         etDate = findViewById(R.id.etDate);
         etHeure = findViewById(R.id.etHeure);
@@ -312,6 +348,7 @@ public class SaisieFormActivity extends AppCompatActivity {
             @Override
             public void onNothingSelected(AdapterView<?> parent) { }
         });
+        spinnerClientVenteOeufs = findViewById(R.id.spinnerClientVenteOeufs);
         tvStockOeufsInfo = findViewById(R.id.tvStockOeufsInfo);
         radioGroupUniteVenteOeufs = findViewById(R.id.radioGroupUniteVenteOeufs);
         tilQuantiteOeufsVente = findViewById(R.id.tilQuantiteOeufsVente);
@@ -344,10 +381,46 @@ public class SaisieFormActivity extends AppCompatActivity {
             @Override
             public void onNothingSelected(AdapterView<?> parent) { }
         });
+        spinnerClientVenteReforme = findViewById(R.id.spinnerClientVenteReforme);
         tvStockReformeInfo = findViewById(R.id.tvStockReformeInfo);
         etNombreSujetsVente = findViewById(R.id.etNombreSujetsVente);
         etPrixUnitaireReforme = findViewById(R.id.etPrixUnitaireReforme);
         etMontantVenteReforme = findViewById(R.id.etMontantVenteReforme);
+
+        groupClient = findViewById(R.id.groupClient);
+        etClientNom = findViewById(R.id.etClientNom);
+        etClientTelephone = findViewById(R.id.etClientTelephone);
+        etClientAdresse = findViewById(R.id.etClientAdresse);
+        etClientEmail = findViewById(R.id.etClientEmail);
+
+        groupCommande = findViewById(R.id.groupCommande);
+        spinnerClientCommande = findViewById(R.id.spinnerClientCommande);
+        tvAucunClientCommande = findViewById(R.id.tvAucunClientCommande);
+        spinnerMagasinCommande = findViewById(R.id.spinnerMagasinCommande);
+        radioGroupTypeCommande = findViewById(R.id.radioGroupTypeCommande);
+        etQuantiteCommande = findViewById(R.id.etQuantiteCommande);
+        etPrixUnitaireCommande = findViewById(R.id.etPrixUnitaireCommande);
+        etMontantEstimeCommande = findViewById(R.id.etMontantEstimeCommande);
+        etAcompteCommande = findViewById(R.id.etAcompteCommande);
+        etDateLivraisonCommande = findViewById(R.id.etDateLivraisonCommande);
+        etDateLivraisonCommande.setHint("Aucune");
+        etDateLivraisonCommande.setOnClickListener(v -> {
+            Calendar base = dateLivraisonCal;
+            DatePickerDialog dialog = new DatePickerDialog(this, (view, year, month, day) -> {
+                dateLivraisonCal.set(year, month, day);
+                etDateLivraisonCommande.setText(isoDate.format(dateLivraisonCal.getTime()));
+            }, base.get(Calendar.YEAR), base.get(Calendar.MONTH), base.get(Calendar.DAY_OF_MONTH));
+            // Pas de setMaxDate ici (contrairement à etDate) : une livraison prévue est
+            // par nature une date future, jamais bornée à aujourd'hui.
+            dialog.show();
+        });
+        TextWatcher commandeWatcher = new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) { recalculerMontantEstimeCommande(); }
+            @Override public void afterTextChanged(Editable s) {}
+        };
+        etQuantiteCommande.addTextChangedListener(commandeWatcher);
+        etPrixUnitaireCommande.addTextChangedListener(commandeWatcher);
 
         groupTransaction = findViewById(R.id.groupTransaction);
         spinnerCategorie = findViewById(R.id.spinnerCategorie);
@@ -396,9 +469,19 @@ public class SaisieFormActivity extends AppCompatActivity {
         groupConsommation.setVisibility(type == SaisieType.ALIMENTATION_CONSOMMATION ? View.VISIBLE : View.GONE);
         groupVenteOeufs.setVisibility(type == SaisieType.VENTE_OEUFS ? View.VISIBLE : View.GONE);
         groupVenteReforme.setVisibility(type == SaisieType.VENTE_REFORME ? View.VISIBLE : View.GONE);
+        groupClient.setVisibility(type == SaisieType.CLIENT_CREATE ? View.VISIBLE : View.GONE);
+        groupCommande.setVisibility(type == SaisieType.COMMANDE_CREATE ? View.VISIBLE : View.GONE);
         groupTransaction.setVisibility(
                 (type == SaisieType.TRANSACTION_ENTREE || type == SaisieType.TRANSACTION_SORTIE || type == SaisieType.VENTE_FIENTES)
                         ? View.VISIBLE : View.GONE);
+
+        // Ni un client ni une commande n'ont de notion de bâtiment (poulailler) — voir
+        // Client.java/Commande.java côté back, tous deux farm-scopés. Un client
+        // (ClientCreate) n'a en plus aucune notion de date : le bloc Date/Heure est
+        // masqué en plus pour ce type (une commande garde etDate = dateCommande).
+        boolean isClientOuCommande = type == SaisieType.CLIENT_CREATE || type == SaisieType.COMMANDE_CREATE;
+        groupBatimentTop.setVisibility(isClientOuCommande ? View.GONE : View.VISIBLE);
+        groupDateHeureTop.setVisibility(type == SaisieType.CLIENT_CREATE ? View.GONE : View.VISIBLE);
     }
 
     /**
@@ -507,6 +590,16 @@ public class SaisieFormActivity extends AppCompatActivity {
         Double prix = parseDoubleOrNull(etPrixUnitaireOeufs.getText());
         if (saisie > 0 && prix != null && prix > 0) {
             etMontantVenteOeufs.setText(String.format(Locale.FRANCE, "%.0f", saisie * prix));
+        }
+    }
+
+    /** Montant estimé = quantité × prix unitaire, reste modifiable manuellement ensuite
+     * (ex: négociation) — même principe que recalculerMontantVenteOeufs(). */
+    private void recalculerMontantEstimeCommande() {
+        int quantite = parseIntSafe(etQuantiteCommande.getText());
+        Double prix = parseDoubleOrNull(etPrixUnitaireCommande.getText());
+        if (quantite > 0 && prix != null && prix > 0) {
+            etMontantEstimeCommande.setText(String.format(Locale.FRANCE, "%.0f", quantite * prix));
         }
     }
 
@@ -721,6 +814,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinnerMagasinOeufs.setAdapter(adapter);
         spinnerMagasinReforme.setAdapter(adapter);
+        spinnerMagasinCommande.setAdapter(adapter);
         applyPendingMagasinSelection();
     }
 
@@ -745,10 +839,105 @@ public class SaisieFormActivity extends AppCompatActivity {
             if (pendingMagasinSelection.equals(magasins.get(i).getUniqueId())) {
                 spinnerMagasinOeufs.setSelection(i);
                 spinnerMagasinReforme.setSelection(i);
+                spinnerMagasinCommande.setSelection(i);
                 // Appelé explicitement (pas seulement via OnItemSelectedListener) car
                 // Spinner.setSelection() ne déclenche pas le listener quand la position
                 // ne change pas (ex. le magasin voulu est déjà en position 0 par défaut).
                 loadStockPourMagasinSelectionne();
+                return;
+            }
+        }
+    }
+
+    /**
+     * Clients déjà synchronisés côté serveur (farm-scopée, pas de filtre par vendeur) —
+     * partagés par les 3 sélecteurs (Vente œufs/réforme : optionnel avec un premier
+     * élément "Vente directe" ; Commande : obligatoire, sans cet élément). Même schéma
+     * cache → réseau que loadMagasins(). Un client créé hors ligne (voir CLIENT_CREATE)
+     * n'apparaît ici qu'une fois synchronisé — voir SaisieType.CLIENT_CREATE.
+     */
+    private void loadClients() {
+        String cacheKey = CachePrefetcher.CACHE_CLIENTS_SELECT;
+        String cachedJson = localDatabase.getCache(cacheKey);
+        if (cachedJson != null) {
+            Type listType = new TypeToken<List<ClientSelectResponse>>() {}.getType();
+            List<ClientSelectResponse> parsed = gson.fromJson(cachedJson, listType);
+            if (parsed != null) {
+                clients = parsed;
+                populateClientSpinners();
+            }
+        }
+
+        ApiClient.dataApi(this).getClientsSelect().enqueue(new Callback<ApiEnvelope<List<ClientSelectResponse>>>() {
+            @Override
+            public void onResponse(Call<ApiEnvelope<List<ClientSelectResponse>>> call, Response<ApiEnvelope<List<ClientSelectResponse>>> response) {
+                List<ClientSelectResponse> data = response.isSuccessful() && response.body() != null ? response.body().getData() : null;
+                if (data != null) {
+                    clients = data;
+                    localDatabase.putCache(cacheKey, gson.toJson(data));
+                    populateClientSpinners();
+                }
+                // sinon : clients déjà affichés depuis le cache le cas échéant, rien à faire
+            }
+
+            @Override
+            public void onFailure(Call<ApiEnvelope<List<ClientSelectResponse>>> call, Throwable t) {
+                // clients déjà affichés depuis le cache le cas échéant, rien à faire de plus
+            }
+        });
+    }
+
+    private static final String LABEL_VENTE_DIRECTE = "Vente directe (sans client)";
+
+    private void populateClientSpinners() {
+        // Vente œufs/réforme : "Vente directe" en position 0, comme le web (client
+        // optionnel par défaut absent).
+        List<String> labelsVente = new ArrayList<>();
+        labelsVente.add(LABEL_VENTE_DIRECTE);
+        for (ClientSelectResponse c : clients) labelsVente.add(c.getNom());
+        ArrayAdapter<String> adapterVente = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, labelsVente);
+        adapterVente.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerClientVenteOeufs.setAdapter(adapterVente);
+        spinnerClientVenteReforme.setAdapter(adapterVente);
+
+        // Commande : client obligatoire, pas d'option "aucun" — si la liste est vide,
+        // le message tvAucunClientCommande prend le relais (voir onValider pour le
+        // blocage explicite).
+        List<String> labelsCommande = new ArrayList<>();
+        for (ClientSelectResponse c : clients) labelsCommande.add(c.getNom());
+        ArrayAdapter<String> adapterCommande = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, labelsCommande);
+        adapterCommande.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerClientCommande.setAdapter(adapterCommande);
+        tvAucunClientCommande.setVisibility(clients.isEmpty() ? View.VISIBLE : View.GONE);
+        spinnerClientCommande.setEnabled(!clients.isEmpty());
+
+        applyPendingClientSelection();
+    }
+
+    /** Position dans "clients" (pas dans le spinner : les sélecteurs Vente ont un
+     * décalage de 1 à cause de "Vente directe" en position 0). null = aucun client
+     * sélectionné (vente directe, ou rien sélectionné côté Commande). */
+    private String getSelectedClientUniqueId(Spinner spinner, boolean hasVenteDirecteOption) {
+        int position = spinner.getSelectedItemPosition();
+        int index = hasVenteDirecteOption ? position - 1 : position;
+        if (index < 0 || index >= clients.size()) return null;
+        return clients.get(index).getUniqueId();
+    }
+
+    /** Même raisonnement que selectMagasinByUniqueId/applyPendingMagasinSelection. */
+    private void selectClientByUniqueId(String uniqueId) {
+        if (uniqueId == null) return;
+        pendingClientSelection = uniqueId;
+        applyPendingClientSelection();
+    }
+
+    private void applyPendingClientSelection() {
+        if (pendingClientSelection == null) return;
+        for (int i = 0; i < clients.size(); i++) {
+            if (pendingClientSelection.equals(clients.get(i).getUniqueId())) {
+                spinnerClientVenteOeufs.setSelection(i + 1);
+                spinnerClientVenteReforme.setSelection(i + 1);
+                spinnerClientCommande.setSelection(i);
                 return;
             }
         }
@@ -874,6 +1063,10 @@ public class SaisieFormActivity extends AppCompatActivity {
      * la ferme (vrai stock séparé par magasin) — déclenché à chaque changement de
      * sélection des spinners magasin (voir bindViews) et par applyPendingMagasinSelection. */
     private void loadStockPourMagasinSelectionne() {
+        // Une commande vise aussi un magasin (spinnerMagasinCommande) mais son stock n'a
+        // pas d'affichage dédié dans groupCommande (juste informatif sur une vente) —
+        // rien à faire ici pour ce type.
+        if (type != SaisieType.VENTE_OEUFS && type != SaisieType.VENTE_REFORME) return;
         Spinner spinner = (type == SaisieType.VENTE_OEUFS) ? spinnerMagasinOeufs : spinnerMagasinReforme;
         String magasinUniqueId = getSelectedMagasinUniqueId(spinner);
         if (magasinUniqueId == null) {
@@ -1172,6 +1365,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.date = date;
                 req.heure = heure;
                 req.magasinUniqueId = magasinUniqueId;
+                req.clientUniqueId = getSelectedClientUniqueId(spinnerClientVenteOeufs, true);
                 req.quantiteOeufs = quantite; // toujours en œufs, quelle que soit l'unité saisie
                 // prixUnitaire (VenteOeufs.prixUnitaire côté back) est "informatif, par
                 // œuf" — reconverti depuis le prix par alvéole si c'est l'unité choisie.
@@ -1207,6 +1401,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.date = date;
                 req.heure = heure;
                 req.magasinUniqueId = magasinUniqueIdReforme;
+                req.clientUniqueId = getSelectedClientUniqueId(spinnerClientVenteReforme, true);
                 req.nombreSujets = nombreSujets;
                 req.prixUnitaire = parseDoubleOrNull(etPrixUnitaireReforme.getText());
                 req.montant = montant;
@@ -1248,6 +1443,66 @@ public class SaisieFormActivity extends AppCompatActivity {
                 requestObject = req;
                 summary = String.format(Locale.FRANCE, "%s %,.0f FCFA — %s",
                         type == SaisieType.TRANSACTION_SORTIE ? "-" : "+", montant, description);
+                break;
+            }
+            case CLIENT_CREATE: {
+                String nom = textOf(etClientNom);
+                if (nom.isEmpty()) {
+                    toast("Veuillez saisir le nom du client");
+                    return;
+                }
+                ClientCreateRequest req = new ClientCreateRequest();
+                req.nom = nom;
+                req.telephone = nullIfBlank(textOf(etClientTelephone));
+                req.adresse = nullIfBlank(textOf(etClientAdresse));
+                req.email = nullIfBlank(textOf(etClientEmail));
+                requestObject = req;
+                summary = "Nouveau client — " + nom;
+                break;
+            }
+            case COMMANDE_CREATE: {
+                if (clients.isEmpty()) {
+                    toast("Aucun client synchronisé — créez-en un d'abord (en ligne) ou synchronisez");
+                    return;
+                }
+                String clientUniqueId = getSelectedClientUniqueId(spinnerClientCommande, false);
+                if (clientUniqueId == null) {
+                    toast("Veuillez sélectionner un client");
+                    return;
+                }
+                String magasinUniqueIdCommande = getSelectedMagasinUniqueId(spinnerMagasinCommande);
+                if (magasinUniqueIdCommande == null) {
+                    toast("Veuillez sélectionner le magasin de vente");
+                    return;
+                }
+                boolean estReforme = radioGroupTypeCommande.getCheckedRadioButtonId() == R.id.radioCommandeReforme;
+                int quantite = parseIntSafe(etQuantiteCommande.getText());
+                Double montantEstime = parseDoubleOrNull(etMontantEstimeCommande.getText());
+                if (quantite <= 0) {
+                    toast("Veuillez saisir la quantité commandée");
+                    return;
+                }
+                if (montantEstime == null || montantEstime <= 0) {
+                    toast("Veuillez saisir le montant estimé");
+                    return;
+                }
+                String clientNomCommande = null;
+                for (ClientSelectResponse c : clients) {
+                    if (c.getUniqueId().equals(clientUniqueId)) { clientNomCommande = c.getNom(); break; }
+                }
+                CommandeCreateRequest req = new CommandeCreateRequest();
+                req.clientUniqueId = clientUniqueId;
+                req.magasinUniqueId = magasinUniqueIdCommande;
+                req.type = estReforme ? "REFORME" : "OEUFS";
+                req.quantite = quantite;
+                req.prixUnitaireEstime = parseDoubleOrNull(etPrixUnitaireCommande.getText());
+                req.montantEstime = montantEstime;
+                req.montantAcompte = parseDoubleOrNull(etAcompteCommande.getText());
+                req.dateCommande = date;
+                req.dateLivraisonPrevue = nullIfBlank(textOf(etDateLivraisonCommande));
+                requestObject = req;
+                summary = String.format(Locale.FRANCE, "Commande de %d %s pour %s (%,.0f FCFA)",
+                        quantite, estReforme ? "sujet(s)" : "œuf(s)", clientNomCommande, montantEstime);
                 break;
             }
             default:
@@ -1342,6 +1597,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 if (req.prixUnitaire != null) etPrixUnitaireOeufs.setText(String.valueOf(req.prixUnitaire));
                 if (req.montant != null) etMontantVenteOeufs.setText(String.valueOf(req.montant));
                 selectMagasinByUniqueId(req.magasinUniqueId);
+                selectClientByUniqueId(req.clientUniqueId);
                 break;
             }
             case VENTE_REFORME: {
@@ -1351,6 +1607,28 @@ public class SaisieFormActivity extends AppCompatActivity {
                 if (req.prixUnitaire != null) etPrixUnitaireReforme.setText(String.valueOf(req.prixUnitaire));
                 if (req.montant != null) etMontantVenteReforme.setText(String.valueOf(req.montant));
                 selectMagasinByUniqueId(req.magasinUniqueId);
+                selectClientByUniqueId(req.clientUniqueId);
+                break;
+            }
+            case CLIENT_CREATE: {
+                ClientCreateRequest req = gson.fromJson(json, ClientCreateRequest.class);
+                etClientNom.setText(req.nom);
+                etClientTelephone.setText(req.telephone);
+                etClientAdresse.setText(req.adresse);
+                etClientEmail.setText(req.email);
+                break;
+            }
+            case COMMANDE_CREATE: {
+                CommandeCreateRequest req = gson.fromJson(json, CommandeCreateRequest.class);
+                setDateHeure(req.dateCommande, null);
+                if (req.quantite != null) etQuantiteCommande.setText(String.valueOf(req.quantite));
+                if (req.prixUnitaireEstime != null) etPrixUnitaireCommande.setText(String.valueOf(req.prixUnitaireEstime));
+                if (req.montantEstime != null) etMontantEstimeCommande.setText(String.valueOf(req.montantEstime));
+                if (req.montantAcompte != null) etAcompteCommande.setText(String.valueOf(req.montantAcompte));
+                if (req.dateLivraisonPrevue != null) etDateLivraisonCommande.setText(req.dateLivraisonPrevue);
+                radioGroupTypeCommande.check("REFORME".equals(req.type) ? R.id.radioCommandeReforme : R.id.radioCommandeOeufs);
+                selectMagasinByUniqueId(req.magasinUniqueId);
+                selectClientByUniqueId(req.clientUniqueId);
                 break;
             }
             case TRANSACTION_ENTREE:

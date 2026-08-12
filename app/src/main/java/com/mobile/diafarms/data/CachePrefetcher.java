@@ -8,6 +8,7 @@ import com.google.gson.Gson;
 import com.mobile.diafarms.network.ApiClient;
 import com.mobile.diafarms.network.dto.ApiEnvelope;
 import com.mobile.diafarms.network.dto.BatimentSelectResponse;
+import com.mobile.diafarms.network.dto.ClientSelectResponse;
 import com.mobile.diafarms.network.dto.EffectifReformeResponse;
 import com.mobile.diafarms.network.dto.MagasinSelectResponse;
 import com.mobile.diafarms.network.dto.NotificationResponse;
@@ -53,6 +54,10 @@ public class CachePrefetcher {
     // Poulaillers de la ferme (PRODUCTION) : liste complète non filtrée par le serveur —
     // bâtiment d'élevage optionnel de Collecte œufs (distinct du magasin de stockage).
     public static final String CACHE_BATIMENTS_SELECT = "batiments_select";
+    // Clients de la ferme (VENTE) : uniquement ceux déjà synchronisés côté serveur —
+    // voir ClientSelectResponse et SaisieFormActivity (sélecteur optionnel d'une vente,
+    // obligatoire d'une commande).
+    public static final String CACHE_CLIENTS_SELECT = "clients_select";
 
     private static final String TAG = "CachePrefetcher";
     private static final Gson gson = new Gson();
@@ -156,6 +161,23 @@ public class CachePrefetcher {
         });
     }
 
+    /** Précharge la liste des clients déjà synchronisés côté serveur (farm-scopée, pas
+     * de filtre par rôle côté back) — inoffensif pour un rôle sans accès Vente, la
+     * liste sera juste inutilisée. Voir CACHE_CLIENTS_SELECT. */
+    private static void prefetchClients(Context appContext, LocalDatabase localDatabase) {
+        ApiClient.dataApi(appContext).getClientsSelect().enqueue(new Callback<ApiEnvelope<List<ClientSelectResponse>>>() {
+            @Override
+            public void onResponse(Call<ApiEnvelope<List<ClientSelectResponse>>> call, Response<ApiEnvelope<List<ClientSelectResponse>>> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
+                    localDatabase.putCache(CACHE_CLIENTS_SELECT, gson.toJson(response.body().getData()));
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiEnvelope<List<ClientSelectResponse>>> call, Throwable t) { }
+        });
+    }
+
     /** Précharge le détail/alertes/stock de chaque projet d'une liste déjà récupérée
      * (évite de refaire l'appel /projets/select quand l'appelant l'a déjà en main). */
     public static void prefetchProjectsDetails(Context context, LocalDatabase localDatabase, List<ProjetSelectResponse> projets) {
@@ -166,6 +188,7 @@ public class CachePrefetcher {
         prefetchMagasins(appContext, localDatabase);
         prefetchMagasinsStockage(appContext, localDatabase);
         prefetchBatiments(appContext, localDatabase);
+        prefetchClients(appContext, localDatabase);
     }
 
     private static void prefetchOneProjet(Context appContext, LocalDatabase localDatabase, String projetUniqueId) {
