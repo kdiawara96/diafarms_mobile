@@ -701,9 +701,54 @@
                         android:text="Réforme" />
                 </RadioGroup>
 
+                <!-- Œufs comptés en deux temps, comme la Collecte (alvéoles pleines + œufs
+                     qui ne remplissent pas un plateau entier) — voir
+                     SaisieFormActivity.recalculerQuantiteEtMontantCommande. -->
+                <LinearLayout
+                    android:id="@+id/groupQuantiteOeufsCommande"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                            android:layout_marginEnd="8dp"
+                            android:hint="Alvéoles">
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/etAlveolesCommande"
+                                android:layout_width="match_parent" android:layout_height="wrap_content"
+                                android:inputType="number" />
+                        </com.google.android.material.textfield.TextInputLayout>
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                            android:layout_marginStart="8dp"
+                            android:hint="+ Œufs (hors alvéole)">
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/etOeufsCommande"
+                                android:layout_width="match_parent" android:layout_height="wrap_content"
+                                android:inputType="number" />
+                        </com.google.android.material.textfield.TextInputLayout>
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tvResumeQuantiteCommande"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:textSize="12sp"
+                        android:textColor="@android:color/darker_gray"
+                        tools:text="Soit 320 œuf(s) au total" />
+                </LinearLayout>
+
                 <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilQuantiteReformeCommande"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Quantité commandée">
+                    android:hint="Nombre de sujets"
+                    android:visibility="gone">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etQuantiteCommande"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -713,6 +758,7 @@
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 
                 <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilPrixUnitaireCommande"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:hint="Prix unitaire estimé (FCFA, optionnel)">
                     <com.google.android.material.textfield.TextInputEditText
