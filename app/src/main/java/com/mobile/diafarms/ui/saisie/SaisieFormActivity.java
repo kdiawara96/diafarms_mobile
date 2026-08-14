@@ -205,14 +205,12 @@ public class SaisieFormActivity extends AppCompatActivity {
     private TextView tvAucunClientCommande;
     private Spinner spinnerMagasinCommande;
     private RadioGroup radioGroupTypeCommande;
-    // Œufs comptés en deux temps (alvéoles + œufs hors alvéole), comme la Collecte —
-    // voir groupQuantiteOeufsCommande/recalculerQuantiteEtMontantCommande. Réforme
-    // reste un simple nombre de sujets (etQuantiteCommande, pas de notion d'alvéole).
-    private View groupQuantiteOeufsCommande;
-    private View tilQuantiteReformeCommande;
-    private TextInputEditText etAlveolesCommande, etOeufsCommande;
-    private TextView tvResumeQuantiteCommande;
-    private TextInputLayout tilPrixUnitaireCommande;
+    // Unité de saisie (Œuf/Alvéole), visible seulement pour le type Œufs — même
+    // patron que radioGroupUniteVenteOeufs (groupVenteOeufs) : jamais l'alvéole
+    // envoyée au serveur, voir isCommandeEnAlveoles()/onValider().
+    private View groupUniteCommande;
+    private RadioGroup radioGroupUniteCommande;
+    private TextInputLayout tilQuantiteCommande, tilPrixUnitaireCommande;
     private TextInputEditText etQuantiteCommande, etPrixUnitaireCommande, etMontantEstimeCommande, etAcompteCommande;
     private TextInputEditText etDateLivraisonCommande;
     private final Calendar dateLivraisonCal = Calendar.getInstance();
@@ -406,22 +404,24 @@ public class SaisieFormActivity extends AppCompatActivity {
         tvAucunClientCommande = findViewById(R.id.tvAucunClientCommande);
         spinnerMagasinCommande = findViewById(R.id.spinnerMagasinCommande);
         radioGroupTypeCommande = findViewById(R.id.radioGroupTypeCommande);
-        groupQuantiteOeufsCommande = findViewById(R.id.groupQuantiteOeufsCommande);
-        tilQuantiteReformeCommande = findViewById(R.id.tilQuantiteReformeCommande);
-        etAlveolesCommande = findViewById(R.id.etAlveolesCommande);
-        etOeufsCommande = findViewById(R.id.etOeufsCommande);
-        tvResumeQuantiteCommande = findViewById(R.id.tvResumeQuantiteCommande);
+        groupUniteCommande = findViewById(R.id.groupUniteCommande);
+        radioGroupUniteCommande = findViewById(R.id.radioGroupUniteCommande);
+        tilQuantiteCommande = findViewById(R.id.tilQuantiteCommande);
         tilPrixUnitaireCommande = findViewById(R.id.tilPrixUnitaireCommande);
         etQuantiteCommande = findViewById(R.id.etQuantiteCommande);
         etPrixUnitaireCommande = findViewById(R.id.etPrixUnitaireCommande);
         etMontantEstimeCommande = findViewById(R.id.etMontantEstimeCommande);
         radioGroupTypeCommande.setOnCheckedChangeListener((group, checkedId) -> {
             boolean estReforme = checkedId == R.id.radioCommandeReforme;
-            groupQuantiteOeufsCommande.setVisibility(estReforme ? View.GONE : View.VISIBLE);
-            tilQuantiteReformeCommande.setVisibility(estReforme ? View.VISIBLE : View.GONE);
-            tilPrixUnitaireCommande.setHint(estReforme ? "Prix unitaire estimé (FCFA, optionnel)" : "Prix unitaire estimé (FCFA, par œuf, optionnel)");
+            groupUniteCommande.setVisibility(estReforme ? View.GONE : View.VISIBLE);
+            applyLabelsQuantiteCommande();
             recalculerMontantEstimeCommande();
         });
+        radioGroupUniteCommande.setOnCheckedChangeListener((group, checkedId) -> {
+            applyLabelsQuantiteCommande();
+            recalculerMontantEstimeCommande();
+        });
+        applyLabelsQuantiteCommande();
         etAcompteCommande = findViewById(R.id.etAcompteCommande);
         etDateLivraisonCommande = findViewById(R.id.etDateLivraisonCommande);
         etDateLivraisonCommande.setHint("Aucune");
@@ -440,8 +440,6 @@ public class SaisieFormActivity extends AppCompatActivity {
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) { recalculerMontantEstimeCommande(); }
             @Override public void afterTextChanged(Editable s) {}
         };
-        etAlveolesCommande.addTextChangedListener(commandeWatcher);
-        etOeufsCommande.addTextChangedListener(commandeWatcher);
         etQuantiteCommande.addTextChangedListener(commandeWatcher);
         etPrixUnitaireCommande.addTextChangedListener(commandeWatcher);
 
@@ -616,29 +614,39 @@ public class SaisieFormActivity extends AppCompatActivity {
         }
     }
 
-    /** Œufs : alvéoles×30 + œufs saisis hors alvéole (comme oeufsCollectesReel() plus
-     * bas) ; Réforme : simple nombre de sujets (etQuantiteCommande). */
-    private int quantiteCommandeReelle() {
-        boolean estReforme = radioGroupTypeCommande.getCheckedRadioButtonId() == R.id.radioCommandeReforme;
-        if (estReforme) return parseIntSafe(etQuantiteCommande.getText());
-        int alveoles = parseIntSafe(etAlveolesCommande.getText());
-        int oeufsSupp = parseIntSafe(etOeufsCommande.getText());
-        return AlveoleUtils.alveolesToOeufs(alveoles) + oeufsSupp;
+    private boolean isCommandeReforme() {
+        return radioGroupTypeCommande.getCheckedRadioButtonId() == R.id.radioCommandeReforme;
     }
 
-    /** Montant estimé = quantité (toujours en œufs pour OEUFS, jamais l'alvéole) ×
-     * prix unitaire, reste modifiable manuellement ensuite (ex: négociation) — même
-     * principe que recalculerMontantVenteOeufs(). */
-    private void recalculerMontantEstimeCommande() {
-        int quantite = quantiteCommandeReelle();
-        boolean estReforme = radioGroupTypeCommande.getCheckedRadioButtonId() == R.id.radioCommandeReforme;
-        if (!estReforme) {
-            tvResumeQuantiteCommande.setText(quantite > 0
-                    ? String.format(Locale.FRANCE, "Soit %d œuf(s) au total", quantite) : "");
+    private boolean isCommandeEnAlveoles() {
+        return !isCommandeReforme() && radioGroupUniteCommande.getCheckedRadioButtonId() == R.id.radioUniteCommandeAlveole;
+    }
+
+    /** Libellés des champs quantité/prix selon le type (Œufs/Réforme) et, pour Œufs,
+     * l'unité choisie (Œuf/Alvéole) — même patron que le listener de
+     * radioGroupUniteVenteOeufs (bindViews). */
+    private void applyLabelsQuantiteCommande() {
+        if (isCommandeReforme()) {
+            tilQuantiteCommande.setHint("Nombre de sujets");
+            tilPrixUnitaireCommande.setHint("Prix unitaire estimé (FCFA, optionnel)");
+        } else {
+            boolean enAlveoles = isCommandeEnAlveoles();
+            tilQuantiteCommande.setHint(enAlveoles ? "Nombre d'alvéoles commandées" : "Nombre d'œufs commandés");
+            tilPrixUnitaireCommande.setHint(enAlveoles ? "Prix par alvéole (FCFA, optionnel)" : "Prix unitaire (FCFA, optionnel)");
         }
+    }
+
+    /** Montant = quantité saisie × prix unitaire saisi, tous deux dans la MÊME unité
+     * (œuf/alvéole, ou sujet pour Réforme) — pas besoin de conversion pour ce calcul,
+     * contrairement à req.quantite/req.prixUnitaireEstime dans onValider() qui
+     * doivent, eux, toujours être exprimés en œufs pour le type OEUFS. Reste
+     * modifiable manuellement ensuite (ex: négociation), même principe que
+     * recalculerMontantVenteOeufs(). */
+    private void recalculerMontantEstimeCommande() {
+        int saisie = parseIntSafe(etQuantiteCommande.getText());
         Double prix = parseDoubleOrNull(etPrixUnitaireCommande.getText());
-        if (quantite > 0 && prix != null && prix > 0) {
-            etMontantEstimeCommande.setText(String.format(Locale.FRANCE, "%.0f", quantite * prix));
+        if (saisie > 0 && prix != null && prix > 0) {
+            etMontantEstimeCommande.setText(String.format(Locale.FRANCE, "%.0f", saisie * prix));
         }
     }
 
@@ -1514,11 +1522,16 @@ public class SaisieFormActivity extends AppCompatActivity {
                     toast("Veuillez sélectionner le magasin de vente");
                     return;
                 }
-                boolean estReforme = radioGroupTypeCommande.getCheckedRadioButtonId() == R.id.radioCommandeReforme;
-                int quantite = quantiteCommandeReelle();
+                boolean estReforme = isCommandeReforme();
+                boolean enAlveoles = isCommandeEnAlveoles();
+                int saisie = parseIntSafe(etQuantiteCommande.getText());
+                // Toujours reconverti en œufs pour l'API/la base — voir Commande.quantite
+                // côté back, qui ne connaît jamais l'alvéole (même principe que VenteOeufs).
+                int quantite = (!estReforme && enAlveoles) ? AlveoleUtils.alveolesToOeufs(saisie) : saisie;
                 Double montantEstime = parseDoubleOrNull(etMontantEstimeCommande.getText());
                 if (quantite <= 0) {
-                    toast(estReforme ? "Veuillez saisir le nombre de sujets commandés" : "Veuillez saisir la quantité commandée (alvéoles et/ou œufs)");
+                    toast(estReforme ? "Veuillez saisir le nombre de sujets commandés"
+                            : (enAlveoles ? "Veuillez saisir le nombre d'alvéoles commandées" : "Veuillez saisir la quantité commandée"));
                     return;
                 }
                 if (montantEstime == null || montantEstime <= 0) {
@@ -1529,12 +1542,19 @@ public class SaisieFormActivity extends AppCompatActivity {
                 for (ClientSelectResponse c : clients) {
                     if (c.getUniqueId().equals(clientUniqueId)) { clientNomCommande = c.getNom(); break; }
                 }
+                Double prixSaisiCommande = parseDoubleOrNull(etPrixUnitaireCommande.getText());
+                // prixUnitaireEstime (Commande.prixUnitaireEstime côté back) est
+                // "informatif, par œuf" — reconverti depuis le prix par alvéole si c'est
+                // l'unité choisie, même principe que VenteOeufs.
+                Double prixReelCommande = prixSaisiCommande != null
+                        ? (!estReforme && enAlveoles ? prixSaisiCommande / AlveoleUtils.OEUFS_PAR_ALVEOLE : prixSaisiCommande)
+                        : null;
                 CommandeCreateRequest req = new CommandeCreateRequest();
                 req.clientUniqueId = clientUniqueId;
                 req.magasinUniqueId = magasinUniqueIdCommande;
                 req.type = estReforme ? "REFORME" : "OEUFS";
                 req.quantite = quantite;
-                req.prixUnitaireEstime = parseDoubleOrNull(etPrixUnitaireCommande.getText());
+                req.prixUnitaireEstime = prixReelCommande;
                 req.montantEstime = montantEstime;
                 req.montantAcompte = parseDoubleOrNull(etAcompteCommande.getText());
                 req.dateCommande = date;
@@ -1660,21 +1680,14 @@ public class SaisieFormActivity extends AppCompatActivity {
             case COMMANDE_CREATE: {
                 CommandeCreateRequest req = gson.fromJson(json, CommandeCreateRequest.class);
                 setDateHeure(req.dateCommande, null);
-                // Bascule d'abord le type (déclenche le listener qui affiche le bon
-                // groupe de champs quantité, voir bindViews) avant de remplir les
-                // valeurs — sinon on écrirait dans des champs encore masqués.
+                // Bascule d'abord le type (déclenche le listener qui affiche/masque
+                // groupUniteCommande, voir bindViews) avant de remplir les valeurs.
+                // Réédition toujours en œufs (unité Œuf par défaut), jamais en alvéole —
+                // même principe que VENTE_OEUFS : la valeur stockée est toujours un total
+                // en œufs, pas la saisie d'origine.
                 boolean estReforme = "REFORME".equals(req.type);
                 radioGroupTypeCommande.check(estReforme ? R.id.radioCommandeReforme : R.id.radioCommandeOeufs);
-                if (req.quantite != null) {
-                    if (estReforme) {
-                        etQuantiteCommande.setText(String.valueOf(req.quantite));
-                    } else {
-                        // Rescindé en alvéoles + reste, symétrique de quantiteCommandeReelle()
-                        // — la valeur stockée est toujours un total en œufs (voir onValider()).
-                        etAlveolesCommande.setText(String.valueOf(req.quantite / AlveoleUtils.OEUFS_PAR_ALVEOLE));
-                        etOeufsCommande.setText(String.valueOf(req.quantite % AlveoleUtils.OEUFS_PAR_ALVEOLE));
-                    }
-                }
+                if (req.quantite != null) etQuantiteCommande.setText(String.valueOf(req.quantite));
                 if (req.prixUnitaireEstime != null) etPrixUnitaireCommande.setText(String.valueOf(req.prixUnitaireEstime));
                 if (req.montantEstime != null) etMontantEstimeCommande.setText(String.valueOf(req.montantEstime));
                 if (req.montantAcompte != null) etAcompteCommande.setText(String.valueOf(req.montantAcompte));
