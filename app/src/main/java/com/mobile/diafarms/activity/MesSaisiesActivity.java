@@ -216,6 +216,8 @@ public class MesSaisiesActivity extends AppCompatActivity {
                 case ALIMENTATION_CONSOMMATION:
                     return R.drawable.ble;
                 case SOINS:
+                    return R.drawable.ic_trousse_secours;
+                case VACCINATION:
                     return R.drawable.injection;
                 case MORTALITE:
                     return android.R.drawable.ic_dialog_alert;

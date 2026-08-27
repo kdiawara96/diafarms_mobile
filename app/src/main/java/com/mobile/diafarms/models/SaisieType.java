@@ -13,6 +13,10 @@ public enum SaisieType {
     // "Entrée" d'aliment : achat/réception pour le projet (onglet Alimentation de la fiche projet côté web).
     ALIMENTATION_ACHAT("Achat d'aliment", Categorie.PRODUCTION),
     SOINS("Soins", Categorie.PRODUCTION),
+    // Distinct de SOINS (générique, type=Vaccin/Médicament/Autre, sans détail) — même
+    // entité que la section "Vaccinations" de la Fiche Projet côté web : nombre de
+    // doses + prix par dose, coût calculé automatiquement.
+    VACCINATION("Vaccination", Categorie.PRODUCTION),
     MORTALITE("Mortalité", Categorie.PRODUCTION),
     // Comptage pur des sujets retirés du cheptel vivant (comme Mortalité) — jamais de
     // prix ici, plafonné par l'effectif vivant du projet. Voir diafarms_back
@@ -38,7 +42,11 @@ public enum SaisieType {
     CLIENT_CREATE("Nouveau client", Categorie.FINANCE),
     // Toujours un client (obligatoire, contrairement à une vente) — voir
     // diafarms_back Commande.client et CommandeCreateRequest.
-    COMMANDE_CREATE("Nouvelle commande", Categorie.FINANCE);
+    COMMANDE_CREATE("Nouvelle commande", Categorie.FINANCE),
+    // Rôle Comptable uniquement : payer un salaire déjà défini (grille synchronisée
+    // via CachePrefetcher, voir SalaireSelectResponse) — pas de création/modification
+    // de la grille elle-même sur mobile, ça reste une action web (voir DefinirSalaireDialog).
+    SALAIRE_PAYER("Payer un salaire", Categorie.FINANCE);
 
     public enum Categorie { PRODUCTION, FINANCE }
 

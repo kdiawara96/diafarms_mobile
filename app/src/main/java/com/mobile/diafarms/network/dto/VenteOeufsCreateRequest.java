@@ -13,5 +13,7 @@ public class VenteOeufsCreateRequest {
     public String clientUniqueId; // optionnel — voir VenteOeufs.client
     public Integer quantiteOeufs;
     public Double prixUnitaire; // optionnel, informatif
-    public Double montant;
+    public Double montant; // montant théorique
+    public Double montantRapporte; // optionnel — ce qui revient RÉELLEMENT en caisse ; si différent du montant théorique, l'écart est suivi comme dette (client si renseigné, sinon vendeur)
+    public String typeOeuf; // "BON" (défaut) ou "CASSE" — voir TypeVenteOeufs côté backend
 }

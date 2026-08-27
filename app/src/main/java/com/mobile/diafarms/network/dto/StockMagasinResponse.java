@@ -6,7 +6,9 @@ package com.mobile.diafarms.network.dto;
 public class StockMagasinResponse {
     private int oeufsDisponible;
     private int reformeDisponible;
+    private int oeufsCassesDisponible;
 
     public int getOeufsDisponible() { return oeufsDisponible; }
     public int getReformeDisponible() { return reformeDisponible; }
+    public int getOeufsCassesDisponible() { return oeufsCassesDisponible; }
 }

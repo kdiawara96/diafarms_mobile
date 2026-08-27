@@ -15,7 +15,9 @@ import com.mobile.diafarms.network.dto.ConsommationAlimentCreateRequest;
 import com.mobile.diafarms.network.dto.CreatedEntityResponse;
 import com.mobile.diafarms.network.dto.MortaliteCreateRequest;
 import com.mobile.diafarms.network.dto.ReformeCreateRequest;
+import com.mobile.diafarms.network.dto.SalairePayerRequest;
 import com.mobile.diafarms.network.dto.SoinsCreateRequest;
+import com.mobile.diafarms.network.dto.VaccinCreateRequest;
 import com.mobile.diafarms.network.dto.TransactionCreateRequest;
 import com.mobile.diafarms.network.dto.VenteOeufsCreateRequest;
 import com.mobile.diafarms.network.dto.VenteReformeCreateRequest;
@@ -95,6 +97,9 @@ public class SyncManager {
             case SOINS:
                 api.createSoins(gson.fromJson(json, SoinsCreateRequest.class)).enqueue(callback);
                 break;
+            case VACCINATION:
+                api.createVaccination(saisie.getProjetUniqueId(), gson.fromJson(json, VaccinCreateRequest.class)).enqueue(callback);
+                break;
             case MORTALITE:
                 api.createMortalite(gson.fromJson(json, MortaliteCreateRequest.class)).enqueue(callback);
                 break;
@@ -126,6 +131,9 @@ public class SyncManager {
                 break;
             case COMMANDE_CREATE:
                 api.createCommande(gson.fromJson(json, CommandeCreateRequest.class)).enqueue(callback);
+                break;
+            case SALAIRE_PAYER:
+                api.payerSalaire(gson.fromJson(json, SalairePayerRequest.class)).enqueue(callback);
                 break;
         }
     }

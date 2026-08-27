@@ -48,10 +48,13 @@ import com.mobile.diafarms.network.dto.OccupationBatimentResponse;
 import com.mobile.diafarms.network.dto.ProjetDetailResponse;
 import com.mobile.diafarms.network.dto.ProjetSelectResponse;
 import com.mobile.diafarms.network.dto.ReformeCreateRequest;
+import com.mobile.diafarms.network.dto.SalairePayerRequest;
+import com.mobile.diafarms.network.dto.SalaireSelectResponse;
 import com.mobile.diafarms.network.dto.SoinsCreateRequest;
 import com.mobile.diafarms.network.dto.StockAlimentResponse;
 import com.mobile.diafarms.network.dto.StockMagasinResponse;
 import com.mobile.diafarms.network.dto.TransactionCreateRequest;
+import com.mobile.diafarms.network.dto.VaccinCreateRequest;
 import com.mobile.diafarms.network.dto.VenteOeufsCreateRequest;
 import com.mobile.diafarms.network.dto.VenteReformeCreateRequest;
 import com.mobile.diafarms.util.OccupationUtils;
@@ -88,8 +91,13 @@ public class SaisieFormActivity extends AppCompatActivity {
     // liste dynamiquement ici, contrairement au web où un seul formulaire couvre
     // les deux types.
     private static final String[] CATEGORIES_TRANSACTION_ENTREE = {"Vente", "Autre"};
-    private static final String[] CATEGORIES_TRANSACTION_SORTIE = {"Achat", "Salaire", "Santé / Vétérinaire", "Transport", "Électricité / Eau", "Entretien / Maintenance", "Autre"};
-    private static final String[] TYPES_SOIN = {"Vaccin", "Médicament", "Autre"};
+    // "Salaire" retiré : le paiement d'un salaire passe obligatoirement par "Payer un
+    // salaire" (SALAIRE_PAYER), qui vérifie la grille et empêche un double paiement du
+    // même mois — une "Sortie d'argent" catégorie "Salaire" contournerait ce contrôle.
+    private static final String[] CATEGORIES_TRANSACTION_SORTIE = {"Achat", "Santé / Vétérinaire", "Transport", "Électricité / Eau", "Entretien / Maintenance", "Autre"};
+    // "Vaccin" retiré : couvert par la saisie Vaccination dédiée (doses + prix par
+    // dose) — Soins ne garde que ce qui n'a pas sa propre fiche détaillée.
+    private static final String[] TYPES_SOIN = {"Médicament", "Autre"};
 
     private SaisieType type;
     private String projetUniqueId;
@@ -139,13 +147,19 @@ public class SaisieFormActivity extends AppCompatActivity {
     // Compté en deux temps comme sur le terrain (voir AlveoleUtils) : alvéoles pleines
     // + œufs qui ne remplissent pas un plateau entier, total = alvéoles×30 + œufs.
     // oeufsCasses reste toujours en œufs individuels.
-    private TextInputEditText etAlveolesCollectees, etOeufsCollectes, etOeufsCasses;
+    private TextInputEditText etAlveolesCollectees, etOeufsCollectes, etOeufsCasses, etOeufsNonUtilisables;
     private TextView tvResumeCollecte;
 
     // Soins
     private View groupSoins;
     private Spinner spinnerTypeSoin;
-    private TextInputEditText etProduit, etQuantiteSoin, etObservationsSoin;
+    private TextInputEditText etProduit, etQuantiteSoin, etCoutSoin, etObservationsSoin;
+
+    // Vaccination (distinct de Soins)
+    private View groupVaccination;
+    private TextInputEditText etNomVaccin, etQuantiteVaccin, etPrixUnitaireVaccin;
+    private CheckBox cbModeOral, cbModeInjection, cbModePulverisation, cbModeTopique;
+    private TextView tvCoutCalculeVaccin;
 
     // Mortalité
     private View groupMortalite;
@@ -160,7 +174,7 @@ public class SaisieFormActivity extends AppCompatActivity {
 
     // Alimentation - achat
     private View groupAlimentationAchat;
-    private TextInputEditText etNomAliment, etSac, etQuantiteKgAchat, etObservationsAchat;
+    private TextInputEditText etNomAliment, etSac, etQuantiteKgAchat, etCoutAchatAliment, etObservationsAchat;
 
     // Alimentation - consommation
     private View groupConsommation;
@@ -179,8 +193,23 @@ public class SaisieFormActivity extends AppCompatActivity {
     // toujours en œufs, quelle que soit l'unité choisie ici (voir onValider).
     private RadioGroup radioGroupUniteVenteOeufs;
     private TextInputLayout tilQuantiteOeufsVente, tilPrixUnitaireOeufs;
-    private TextInputEditText etQuantiteOeufsVente, etPrixUnitaireOeufs, etMontantVenteOeufs;
+    private TextInputEditText etQuantiteOeufsVente, etPrixUnitaireOeufs, etMontantVenteOeufs, etMontantRapporteVenteOeufs;
     private Integer stockOeufsDisponible;
+    // Bon (défaut) ou cassé — deux pools de stock magasin totalement séparés côté
+    // serveur (voir TypeStockMagasin.OEUFS_CASSES) : bascule quel disponible est
+    // vérifié/affiché, voir refreshStockOeufsAffiche().
+    private RadioGroup radioGroupTypeOeufVente;
+    private StockMagasinResponse dernierStockMagasinOeufs;
+    // Le montant rapporté suit le montant théorique par défaut (vente payée
+    // intégralement) tant que l'utilisateur ne l'a pas modifié lui-même — même
+    // principe que CreateVenteOeufsDialog côté web.
+    private boolean montantRapporteOeufsModifieManuel = false;
+    private boolean montantRapporteReformeModifieManuel = false;
+    // Distingue une saisie utilisateur d'un setText() programmatique sur le champ
+    // "montant rapporté" (voir recalculerMontantVenteOeufs/recalculerMontantVenteReforme) —
+    // sans ça, le TextWatcher marquerait le champ "modifié à la main" dès la première
+    // synchronisation automatique.
+    private boolean syncingMontantRapporte = false;
 
     // Vente réforme (VENTE) — vendue DEPUIS un magasin précis (obligatoire, voir
     // spinnerMagasinReforme), plafonnée par le total réformé transféré dans CE
@@ -190,8 +219,16 @@ public class SaisieFormActivity extends AppCompatActivity {
     private Spinner spinnerMagasinReforme;
     private Spinner spinnerClientVenteReforme;
     private TextView tvStockReformeInfo;
-    private TextInputEditText etNombreSujetsVente, etPrixUnitaireReforme, etMontantVenteReforme;
+    private TextInputEditText etNombreSujetsVente, etPrixUnitaireReforme, etMontantVenteReforme, etMontantRapporteVenteReforme;
     private Integer stockReformeDisponible;
+    // Par tête (défaut) ou au kilo — même principe que radioGroupTypeOeufVente, sauf
+    // que ça ne change pas quel stock est vérifié (toujours en sujets dans les deux
+    // cas), seulement le sens de etPrixUnitaireReforme et la présence du poids total —
+    // voir refreshTypeVenteReformeUi/recalculerMontantVenteReforme.
+    private RadioGroup radioGroupTypeVenteReforme;
+    private TextInputLayout tilPoidsTotalReforme, tilPrixUnitaireReforme;
+    private View spacerPoidsTotalReforme;
+    private TextInputEditText etPoidsTotalReforme;
 
     // Nouveau client (VENTE) — voir Client.java côté back, aucune notion de date ici.
     private View groupClient;
@@ -214,6 +251,18 @@ public class SaisieFormActivity extends AppCompatActivity {
     private TextInputEditText etQuantiteCommande, etPrixUnitaireCommande, etMontantEstimeCommande, etAcompteCommande;
     private TextInputEditText etDateLivraisonCommande;
     private final Calendar dateLivraisonCal = Calendar.getInstance();
+
+    // Payer un salaire (COMPTABLE) — grille déjà synchronisée côté serveur (voir
+    // loadSalaires/CachePrefetcher.CACHE_SALAIRES_SELECT), aucune gestion de la grille
+    // elle-même ici (ça reste une action web, voir SaisieType.SALAIRE_PAYER).
+    private View groupSalaire;
+    private Spinner spinnerEmployeSalaire, spinnerMoisSalaire, spinnerAnneeSalaire;
+    private TextView tvAucunSalaireEmploye, tvTauxInfoSalaire;
+    private TextInputLayout tilQuantiteSalaire;
+    private TextInputEditText etQuantiteSalaire, etMontantSalaire, etDescriptionSalaire;
+    private List<SalaireSelectResponse> salaires = new ArrayList<>();
+    private String pendingEmployeSalaireSelection;
+    private static final String[] MOIS_LABELS = {"Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"};
 
     // Transaction
     private View groupTransaction;
@@ -277,6 +326,9 @@ public class SaisieFormActivity extends AppCompatActivity {
         if (type == SaisieType.COLLECTE_OEUFS) {
             loadMagasinsStockage();
         }
+        if (type == SaisieType.SALAIRE_PAYER) {
+            loadSalaires();
+        }
 
         if (editingLocalId != null) {
             prefillFromExisting();
@@ -316,13 +368,32 @@ public class SaisieFormActivity extends AppCompatActivity {
         etAlveolesCollectees = findViewById(R.id.etAlveolesCollectees);
         etOeufsCollectes = findViewById(R.id.etOeufsCollectes);
         etOeufsCasses = findViewById(R.id.etOeufsCasses);
+        etOeufsNonUtilisables = findViewById(R.id.etOeufsNonUtilisables);
         tvResumeCollecte = findViewById(R.id.tvResumeCollecte);
 
         groupSoins = findViewById(R.id.groupSoins);
         spinnerTypeSoin = findViewById(R.id.spinnerTypeSoin);
         etProduit = findViewById(R.id.etProduit);
         etQuantiteSoin = findViewById(R.id.etQuantiteSoin);
+        etCoutSoin = findViewById(R.id.etCoutSoin);
         etObservationsSoin = findViewById(R.id.etObservationsSoin);
+
+        groupVaccination = findViewById(R.id.groupVaccination);
+        etNomVaccin = findViewById(R.id.etNomVaccin);
+        etQuantiteVaccin = findViewById(R.id.etQuantiteVaccin);
+        etPrixUnitaireVaccin = findViewById(R.id.etPrixUnitaireVaccin);
+        cbModeOral = findViewById(R.id.cbModeOral);
+        cbModeInjection = findViewById(R.id.cbModeInjection);
+        cbModePulverisation = findViewById(R.id.cbModePulverisation);
+        cbModeTopique = findViewById(R.id.cbModeTopique);
+        tvCoutCalculeVaccin = findViewById(R.id.tvCoutCalculeVaccin);
+        android.text.TextWatcher coutVaccinWatcher = new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) { updateCoutCalculeVaccin(); }
+            @Override public void afterTextChanged(Editable s) {}
+        };
+        etQuantiteVaccin.addTextChangedListener(coutVaccinWatcher);
+        etPrixUnitaireVaccin.addTextChangedListener(coutVaccinWatcher);
 
         groupMortalite = findViewById(R.id.groupMortalite);
         etNombreMorts = findViewById(R.id.etNombreMorts);
@@ -337,6 +408,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         etNomAliment = findViewById(R.id.etNomAliment);
         etSac = findViewById(R.id.etSac);
         etQuantiteKgAchat = findViewById(R.id.etQuantiteKgAchat);
+        etCoutAchatAliment = findViewById(R.id.etCoutAchatAliment);
         etObservationsAchat = findViewById(R.id.etObservationsAchat);
 
         groupConsommation = findViewById(R.id.groupConsommation);
@@ -356,18 +428,25 @@ public class SaisieFormActivity extends AppCompatActivity {
         });
         spinnerClientVenteOeufs = findViewById(R.id.spinnerClientVenteOeufs);
         tvStockOeufsInfo = findViewById(R.id.tvStockOeufsInfo);
+        radioGroupTypeOeufVente = findViewById(R.id.radioGroupTypeOeufVente);
+        radioGroupTypeOeufVente.setOnCheckedChangeListener((group, checkedId) -> refreshStockOeufsAffiche());
         radioGroupUniteVenteOeufs = findViewById(R.id.radioGroupUniteVenteOeufs);
         tilQuantiteOeufsVente = findViewById(R.id.tilQuantiteOeufsVente);
         tilPrixUnitaireOeufs = findViewById(R.id.tilPrixUnitaireOeufs);
         etQuantiteOeufsVente = findViewById(R.id.etQuantiteOeufsVente);
         etPrixUnitaireOeufs = findViewById(R.id.etPrixUnitaireOeufs);
         etMontantVenteOeufs = findViewById(R.id.etMontantVenteOeufs);
+        etMontantRapporteVenteOeufs = findViewById(R.id.etMontantRapporteVenteOeufs);
         radioGroupUniteVenteOeufs.setOnCheckedChangeListener((group, checkedId) -> {
             boolean enAlveoles = isVenteOeufsEnAlveoles();
             tilQuantiteOeufsVente.setHint(enAlveoles ? "Nombre d'alvéoles vendues" : "Nombre d'œufs vendus");
-            tilPrixUnitaireOeufs.setHint(enAlveoles ? "Prix par alvéole (FCFA, optionnel)" : "Prix unitaire (FCFA, optionnel)");
+            tilPrixUnitaireOeufs.setHint(enAlveoles ? "Prix par alvéole (FCFA)" : "Prix unitaire (FCFA)");
             recalculerMontantVenteOeufs();
         });
+        // Montant théorique jamais saisi à la main : toujours quantité × prix unitaire
+        // (voir recalculerMontantVenteOeufs) — un rabais se reflète dans le montant
+        // rapporté, pas ici (même principe que CreateVenteOeufsDialog côté web).
+        etMontantVenteOeufs.setEnabled(false);
         TextWatcher venteOeufsWatcher = new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) { recalculerMontantVenteOeufs(); }
@@ -375,6 +454,13 @@ public class SaisieFormActivity extends AppCompatActivity {
         };
         etQuantiteOeufsVente.addTextChangedListener(venteOeufsWatcher);
         etPrixUnitaireOeufs.addTextChangedListener(venteOeufsWatcher);
+        etMontantRapporteVenteOeufs.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                if (!syncingMontantRapporte) montantRapporteOeufsModifieManuel = true;
+            }
+            @Override public void afterTextChanged(Editable s) {}
+        });
 
         groupVenteReforme = findViewById(R.id.groupVenteReforme);
         spinnerMagasinReforme = findViewById(R.id.spinnerMagasinReforme);
@@ -390,8 +476,36 @@ public class SaisieFormActivity extends AppCompatActivity {
         spinnerClientVenteReforme = findViewById(R.id.spinnerClientVenteReforme);
         tvStockReformeInfo = findViewById(R.id.tvStockReformeInfo);
         etNombreSujetsVente = findViewById(R.id.etNombreSujetsVente);
+        radioGroupTypeVenteReforme = findViewById(R.id.radioGroupTypeVenteReforme);
+        tilPoidsTotalReforme = findViewById(R.id.tilPoidsTotalReforme);
+        spacerPoidsTotalReforme = findViewById(R.id.spacerPoidsTotalReforme);
+        etPoidsTotalReforme = findViewById(R.id.etPoidsTotalReforme);
+        tilPrixUnitaireReforme = findViewById(R.id.tilPrixUnitaireReforme);
         etPrixUnitaireReforme = findViewById(R.id.etPrixUnitaireReforme);
         etMontantVenteReforme = findViewById(R.id.etMontantVenteReforme);
+        etMontantRapporteVenteReforme = findViewById(R.id.etMontantRapporteVenteReforme);
+        // Même principe que Vente d'œufs juste au-dessus : montant théorique toujours
+        // calculé, jamais saisi à la main.
+        etMontantVenteReforme.setEnabled(false);
+        radioGroupTypeVenteReforme.setOnCheckedChangeListener((group, checkedId) -> {
+            refreshTypeVenteReformeUi();
+            recalculerMontantVenteReforme();
+        });
+        TextWatcher venteReformeWatcher = new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) { recalculerMontantVenteReforme(); }
+            @Override public void afterTextChanged(Editable s) {}
+        };
+        etNombreSujetsVente.addTextChangedListener(venteReformeWatcher);
+        etPoidsTotalReforme.addTextChangedListener(venteReformeWatcher);
+        etPrixUnitaireReforme.addTextChangedListener(venteReformeWatcher);
+        etMontantRapporteVenteReforme.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                if (!syncingMontantRapporte) montantRapporteReformeModifieManuel = true;
+            }
+            @Override public void afterTextChanged(Editable s) {}
+        });
 
         groupClient = findViewById(R.id.groupClient);
         etClientNom = findViewById(R.id.etClientNom);
@@ -443,6 +557,33 @@ public class SaisieFormActivity extends AppCompatActivity {
         etQuantiteCommande.addTextChangedListener(commandeWatcher);
         etPrixUnitaireCommande.addTextChangedListener(commandeWatcher);
 
+        groupSalaire = findViewById(R.id.groupSalaire);
+        spinnerEmployeSalaire = findViewById(R.id.spinnerEmployeSalaire);
+        tvAucunSalaireEmploye = findViewById(R.id.tvAucunSalaireEmploye);
+        spinnerMoisSalaire = findViewById(R.id.spinnerMoisSalaire);
+        spinnerAnneeSalaire = findViewById(R.id.spinnerAnneeSalaire);
+        tilQuantiteSalaire = findViewById(R.id.tilQuantiteSalaire);
+        etQuantiteSalaire = findViewById(R.id.etQuantiteSalaire);
+        tvTauxInfoSalaire = findViewById(R.id.tvTauxInfoSalaire);
+        etMontantSalaire = findViewById(R.id.etMontantSalaire);
+        etDescriptionSalaire = findViewById(R.id.etDescriptionSalaire);
+        setupSalaireSpinners();
+        spinnerEmployeSalaire.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                applySalaireEmployeSelectionne();
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) { }
+        });
+        TextWatcher quantiteSalaireWatcher = new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) { recalculerMontantSalaire(); }
+            @Override public void afterTextChanged(Editable s) {}
+        };
+        etQuantiteSalaire.addTextChangedListener(quantiteSalaireWatcher);
+
         groupTransaction = findViewById(R.id.groupTransaction);
         spinnerCategorie = findViewById(R.id.spinnerCategorie);
         etMontant = findViewById(R.id.etMontant);
@@ -484,25 +625,40 @@ public class SaisieFormActivity extends AppCompatActivity {
 
         groupCollecte.setVisibility(type == SaisieType.COLLECTE_OEUFS ? View.VISIBLE : View.GONE);
         groupSoins.setVisibility(type == SaisieType.SOINS ? View.VISIBLE : View.GONE);
+        groupVaccination.setVisibility(type == SaisieType.VACCINATION ? View.VISIBLE : View.GONE);
+        if (type == SaisieType.VACCINATION) updateCoutCalculeVaccin();
         groupMortalite.setVisibility(type == SaisieType.MORTALITE ? View.VISIBLE : View.GONE);
         groupReforme.setVisibility(type == SaisieType.REFORME ? View.VISIBLE : View.GONE);
         groupAlimentationAchat.setVisibility(type == SaisieType.ALIMENTATION_ACHAT ? View.VISIBLE : View.GONE);
         groupConsommation.setVisibility(type == SaisieType.ALIMENTATION_CONSOMMATION ? View.VISIBLE : View.GONE);
         groupVenteOeufs.setVisibility(type == SaisieType.VENTE_OEUFS ? View.VISIBLE : View.GONE);
         groupVenteReforme.setVisibility(type == SaisieType.VENTE_REFORME ? View.VISIBLE : View.GONE);
+        if (type == SaisieType.VENTE_REFORME) refreshTypeVenteReformeUi();
         groupClient.setVisibility(type == SaisieType.CLIENT_CREATE ? View.VISIBLE : View.GONE);
         groupCommande.setVisibility(type == SaisieType.COMMANDE_CREATE ? View.VISIBLE : View.GONE);
+        groupSalaire.setVisibility(type == SaisieType.SALAIRE_PAYER ? View.VISIBLE : View.GONE);
         groupTransaction.setVisibility(
                 (type == SaisieType.TRANSACTION_ENTREE || type == SaisieType.TRANSACTION_SORTIE || type == SaisieType.VENTE_FIENTES)
                         ? View.VISIBLE : View.GONE);
 
-        // Ni un client ni une commande n'ont de notion de bâtiment (poulailler) — voir
-        // Client.java/Commande.java côté back, tous deux farm-scopés. Un client
-        // (ClientCreate) n'a en plus aucune notion de date : le bloc Date/Heure est
-        // masqué en plus pour ce type (une commande garde etDate = dateCommande).
-        boolean isClientOuCommande = type == SaisieType.CLIENT_CREATE || type == SaisieType.COMMANDE_CREATE;
-        groupBatimentTop.setVisibility(isClientOuCommande ? View.GONE : View.VISIBLE);
-        groupDateHeureTop.setVisibility(type == SaisieType.CLIENT_CREATE ? View.GONE : View.VISIBLE);
+        // Aucun de ces types n'a de notion de bâtiment (poulailler) — client, commande et
+        // salaire sont farm-scopés (voir Client.java/Commande.java/Salaire.java côté
+        // back) ; les ventes puisent dans le stock d'un MAGASIN (toute la ferme), jamais
+        // d'un poulailler précis — un vendeur sur le terrain n'a pas à choisir un
+        // poulailler pour vendre des œufs déjà dans un magasin de vente (voir
+        // VenteOeufsCreateRequest/VenteReformeCreateRequest, aucun batimentUniqueId).
+        // Client et Salaire n'ont en plus aucune notion de date/heure : le bloc
+        // Date/Heure est masqué en plus pour ces deux types (une commande garde
+        // etDate = dateCommande, un paiement de salaire a sa propre Période dédiée).
+        boolean sansBatiment = type == SaisieType.CLIENT_CREATE || type == SaisieType.COMMANDE_CREATE || type == SaisieType.SALAIRE_PAYER
+                || type == SaisieType.VENTE_OEUFS || type == SaisieType.VENTE_REFORME || type == SaisieType.VENTE_FIENTES
+                || type == SaisieType.VACCINATION;
+        groupBatimentTop.setVisibility(sansBatiment ? View.GONE : View.VISIBLE);
+        // Vaccination n'a pas non plus de champ date/heure propre côté back (voir
+        // Vaccination.java — utilise juste sa date de création), comme Client/Salaire.
+        groupDateHeureTop.setVisibility(
+                (type == SaisieType.CLIENT_CREATE || type == SaisieType.SALAIRE_PAYER || type == SaisieType.VACCINATION)
+                        ? View.GONE : View.VISIBLE);
     }
 
     /**
@@ -596,6 +752,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         etAlveolesCollectees.addTextChangedListener(watcher);
         etOeufsCollectes.addTextChangedListener(watcher);
         etOeufsCasses.addTextChangedListener(watcher);
+        etOeufsNonUtilisables.addTextChangedListener(watcher);
     }
 
     private boolean isVenteOeufsEnAlveoles() {
@@ -605,12 +762,54 @@ public class SaisieFormActivity extends AppCompatActivity {
     /** Montant = quantité saisie × prix unitaire saisi, tous deux dans la MÊME unité
      * (œuf ou alvéole) : pas besoin de conversion pour ce calcul, contrairement à
      * req.quantiteOeufs/req.prixUnitaire dans onValider() qui doivent, eux, toujours
-     * être exprimés en œufs. Reste modifiable manuellement ensuite (ex: remise). */
+     * être exprimés en œufs. Champ non modifiable (voir bindViews) : toujours ce
+     * calcul, jamais une valeur libre. Tant que le montant rapporté n'a pas été
+     * modifié à la main, il suit ce montant théorique (vente payée intégralement
+     * par défaut). */
     private void recalculerMontantVenteOeufs() {
         int saisie = parseIntSafe(etQuantiteOeufsVente.getText());
         Double prix = parseDoubleOrNull(etPrixUnitaireOeufs.getText());
-        if (saisie > 0 && prix != null && prix > 0) {
-            etMontantVenteOeufs.setText(String.format(Locale.FRANCE, "%.0f", saisie * prix));
+        String montant = (saisie > 0 && prix != null && prix > 0) ? String.format(Locale.FRANCE, "%.0f", saisie * prix) : "";
+        etMontantVenteOeufs.setText(montant);
+        if (!montantRapporteOeufsModifieManuel) {
+            syncingMontantRapporte = true;
+            etMontantRapporteVenteOeufs.setText(montant);
+            syncingMontantRapporte = false;
+        }
+    }
+
+    private boolean isTypeVenteReformeKilo() {
+        return radioGroupTypeVenteReforme != null
+                && radioGroupTypeVenteReforme.getCheckedRadioButtonId() == R.id.radioTypeVenteReformeKilo;
+    }
+
+    /** Affiche/masque le champ poids et adapte le hint du prix selon le mode choisi —
+     * appelé au changement de radio ET quand le groupe Vente réforme redevient
+     * visible (voir showGroupFor). */
+    private void refreshTypeVenteReformeUi() {
+        boolean kilo = isTypeVenteReformeKilo();
+        int visibility = kilo ? View.VISIBLE : View.GONE;
+        tilPoidsTotalReforme.setVisibility(visibility);
+        spacerPoidsTotalReforme.setVisibility(visibility);
+        tilPrixUnitaireReforme.setHint(kilo ? "Prix au kilo (FCFA)" : "Prix unitaire (FCFA)");
+    }
+
+    /** Même principe que recalculerMontantVenteOeufs, pour Vente réforme. Par tête :
+     * sujets × prix. Au kilo : poids total × prix (etPrixUnitaireReforme réinterprété
+     * en prix/kg) — le nombre de sujets sert uniquement au plafond de stock, jamais à
+     * ce calcul dans ce mode. */
+    private void recalculerMontantVenteReforme() {
+        Double prix = parseDoubleOrNull(etPrixUnitaireReforme.getText());
+        Double poidsTotal = parseDoubleOrNull(etPoidsTotalReforme.getText());
+        double quantite = isTypeVenteReformeKilo()
+                ? (poidsTotal != null ? poidsTotal : 0.0)
+                : parseIntSafe(etNombreSujetsVente.getText());
+        String montant = (quantite > 0 && prix != null && prix > 0) ? String.format(Locale.FRANCE, "%.0f", quantite * prix) : "";
+        etMontantVenteReforme.setText(montant);
+        if (!montantRapporteReformeModifieManuel) {
+            syncingMontantRapporte = true;
+            etMontantRapporteVenteReforme.setText(montant);
+            syncingMontantRapporte = false;
         }
     }
 
@@ -661,9 +860,10 @@ public class SaisieFormActivity extends AppCompatActivity {
     private void calculerResumeCollecte() {
         int total = oeufsCollectesReel();
         int casses = parseIntSafe(etOeufsCasses.getText());
-        int vendables = Math.max(0, total - casses);
+        int nonUtilisables = parseIntSafe(etOeufsNonUtilisables.getText());
+        int bonEtat = Math.max(0, total - casses - nonUtilisables);
 
-        tvResumeCollecte.setText(String.format(Locale.FRANCE, "Soit %d œufs vendables (%d cassés)", vendables, casses));
+        tvResumeCollecte.setText(String.format(Locale.FRANCE, "Soit %d œufs en bon état (%d cassés, %d non utilisables)", bonEtat, casses, nonUtilisables));
         boolean tauxCasseEleve = total > 0 && casses > total * 0.05;
         tvResumeCollecte.setTextColor(getColor(tauxCasseEleve ? android.R.color.holo_red_dark : R.color.green_primary));
     }
@@ -990,6 +1190,138 @@ public class SaisieFormActivity extends AppCompatActivity {
         }
     }
 
+    // ===================== PAYER UN SALAIRE (COMPTABLE) =====================
+
+    /** Mois (1-12, libellés français) + années courante ±1 — même plage que le web
+     * (PayerSalaireDialog), largement suffisante pour rattraper un mois passé ou
+     * anticiper un paiement en avance sans champ libre source d'erreur de saisie. */
+    private void setupSalaireSpinners() {
+        ArrayAdapter<String> moisAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, MOIS_LABELS);
+        moisAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerMoisSalaire.setAdapter(moisAdapter);
+
+        int anneeCourante = Calendar.getInstance().get(Calendar.YEAR);
+        List<String> annees = new ArrayList<>();
+        for (int a = anneeCourante - 1; a <= anneeCourante + 1; a++) annees.add(String.valueOf(a));
+        ArrayAdapter<String> anneeAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, annees);
+        anneeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerAnneeSalaire.setAdapter(anneeAdapter);
+
+        spinnerMoisSalaire.setSelection(Calendar.getInstance().get(Calendar.MONTH));
+        spinnerAnneeSalaire.setSelection(1); // année courante, position 1 (courante-1, courante, courante+1)
+    }
+
+    /** "AAAA-MM" à partir des spinners mois/année — voir SalairePayerRequest.periode
+     * côté back, résolu dynamiquement au taux réellement en vigueur pour cette période
+     * (SalaireServiceImpl.resolveTauxPourPeriode), pas seulement le taux courant. */
+    private String getSelectedPeriodeSalaire() {
+        int mois = spinnerMoisSalaire.getSelectedItemPosition() + 1;
+        Object annee = spinnerAnneeSalaire.getSelectedItem();
+        if (annee == null) return null;
+        return String.format(Locale.FRANCE, "%s-%02d", annee, mois);
+    }
+
+    /** Grille salariale de la ferme (farm-scopée) — un Salaire par employé (mode +
+     * taux de base), utilisée pour peupler le sélecteur employé et pré-remplir le
+     * montant proposé. Même schéma cache → réseau que loadClients(). */
+    private void loadSalaires() {
+        String cacheKey = CachePrefetcher.CACHE_SALAIRES_SELECT;
+        String cachedJson = localDatabase.getCache(cacheKey);
+        if (cachedJson != null) {
+            Type listType = new TypeToken<List<SalaireSelectResponse>>() {}.getType();
+            List<SalaireSelectResponse> parsed = gson.fromJson(cachedJson, listType);
+            if (parsed != null) {
+                salaires = parsed;
+                populateSalaireSpinner();
+            }
+        }
+
+        ApiClient.dataApi(this).getSalairesSelect().enqueue(new Callback<ApiEnvelope<List<SalaireSelectResponse>>>() {
+            @Override
+            public void onResponse(Call<ApiEnvelope<List<SalaireSelectResponse>>> call, Response<ApiEnvelope<List<SalaireSelectResponse>>> response) {
+                List<SalaireSelectResponse> data = response.isSuccessful() && response.body() != null ? response.body().getData() : null;
+                if (data != null) {
+                    salaires = data;
+                    localDatabase.putCache(cacheKey, gson.toJson(data));
+                    populateSalaireSpinner();
+                }
+                // sinon : grille déjà affichée depuis le cache le cas échéant, rien à faire
+            }
+
+            @Override
+            public void onFailure(Call<ApiEnvelope<List<SalaireSelectResponse>>> call, Throwable t) {
+                // grille déjà affichée depuis le cache le cas échéant, rien à faire de plus
+            }
+        });
+    }
+
+    private void populateSalaireSpinner() {
+        List<String> labels = new ArrayList<>();
+        for (SalaireSelectResponse s : salaires) labels.add(s.getEmployeNom());
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, labels);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerEmployeSalaire.setAdapter(adapter);
+        tvAucunSalaireEmploye.setVisibility(salaires.isEmpty() ? View.VISIBLE : View.GONE);
+        spinnerEmployeSalaire.setEnabled(!salaires.isEmpty());
+        applyPendingEmployeSalaireSelection();
+        applySalaireEmployeSelectionne();
+    }
+
+    private SalaireSelectResponse getSelectedSalaireEmploye() {
+        int position = spinnerEmployeSalaire.getSelectedItemPosition();
+        if (position < 0 || position >= salaires.size()) return null;
+        return salaires.get(position);
+    }
+
+    /** JOURNALIER/HORAIRE : quantité obligatoire, montant = taux × quantité (recalculé
+     * à la saisie, voir recalculerMontantSalaire). MENSUEL : montant = taux, pas de
+     * quantité — mêmes règles que PayerSalaireDialog côté web. */
+    private void applySalaireEmployeSelectionne() {
+        SalaireSelectResponse s = getSelectedSalaireEmploye();
+        if (s == null) {
+            tilQuantiteSalaire.setVisibility(View.GONE);
+            tvTauxInfoSalaire.setText("");
+            return;
+        }
+        boolean mensuel = "MENSUEL".equals(s.getModePaiement());
+        tilQuantiteSalaire.setVisibility(mensuel ? View.GONE : View.VISIBLE);
+        tilQuantiteSalaire.setHint("HORAIRE".equals(s.getModePaiement()) ? "Heures travaillées" : "Jours travaillés");
+        Double taux = s.getTauxBase();
+        String suffixe = "HORAIRE".equals(s.getModePaiement()) ? "/ heure" : ("JOURNALIER".equals(s.getModePaiement()) ? "/ jour" : "/ mois");
+        tvTauxInfoSalaire.setText(taux != null ? String.format(Locale.FRANCE, "Taux (dernière sync) : %,.0f FCFA %s", taux, suffixe) : "");
+        etQuantiteSalaire.setText("");
+        if (mensuel && taux != null) {
+            etMontantSalaire.setText(String.format(Locale.FRANCE, "%.0f", taux));
+        } else {
+            etMontantSalaire.setText("");
+        }
+    }
+
+    private void recalculerMontantSalaire() {
+        SalaireSelectResponse s = getSelectedSalaireEmploye();
+        if (s == null || s.getTauxBase() == null || "MENSUEL".equals(s.getModePaiement())) return;
+        Double quantite = parseDoubleOrNull(etQuantiteSalaire.getText());
+        if (quantite == null || quantite <= 0) return;
+        etMontantSalaire.setText(String.format(Locale.FRANCE, "%.0f", s.getTauxBase() * quantite));
+    }
+
+    private void selectEmployeSalaireByUniqueId(String uniqueId) {
+        if (uniqueId == null) return;
+        pendingEmployeSalaireSelection = uniqueId;
+        applyPendingEmployeSalaireSelection();
+    }
+
+    private void applyPendingEmployeSalaireSelection() {
+        if (pendingEmployeSalaireSelection == null) return;
+        for (int i = 0; i < salaires.size(); i++) {
+            if (pendingEmployeSalaireSelection.equals(salaires.get(i).getEmployeUniqueId())) {
+                spinnerEmployeSalaire.setSelection(i);
+                applySalaireEmployeSelectionne();
+                return;
+            }
+        }
+    }
+
     /** Magasins de STOCKAGE de la ferme (Collecte œufs, obligatoire) — déjà filtrés
      * côté serveur au type STOCKAGE (voir DataApi.getMagasinsSelect). Pas d'option
      * "Aucun" : le magasin de stockage est obligatoire. Même schéma cache → réseau
@@ -1148,13 +1480,27 @@ public class SaisieFormActivity extends AppCompatActivity {
         });
     }
 
+    private boolean isVenteOeufsCasse() {
+        return radioGroupTypeOeufVente != null && radioGroupTypeOeufVente.getCheckedRadioButtonId() == R.id.radioTypeOeufCasse;
+    }
+
+    /** Rejoue l'affichage du stock (et stockOeufsDisponible, utilisé par onValider pour
+     * le garde-fou client) selon le type bon/cassé actuellement sélectionné — appelé à
+     * la fois quand un nouveau stock arrive du serveur ET quand l'utilisateur bascule
+     * le RadioGroup (le stock des deux types est déjà connu, pas besoin de re-fetch). */
+    private void refreshStockOeufsAffiche() {
+        displayStockMagasin(dernierStockMagasinOeufs, false);
+    }
+
     private void displayStockMagasin(StockMagasinResponse stock, boolean fromCache) {
         String suffix = fromCache ? " (dernière donnée connue, hors ligne)" : "";
         if (type == SaisieType.VENTE_OEUFS) {
-            stockOeufsDisponible = stock != null ? stock.getOeufsDisponible() : null;
+            dernierStockMagasinOeufs = stock;
+            boolean casse = isVenteOeufsCasse();
+            stockOeufsDisponible = stock != null ? (casse ? stock.getOeufsCassesDisponible() : stock.getOeufsDisponible()) : null;
             if (stockOeufsDisponible != null) {
-                tvStockOeufsInfo.setText(String.format(Locale.FRANCE, "Disponible dans ce magasin : %s%s",
-                        AlveoleUtils.formatOeufsAvecAlveoles(stockOeufsDisponible), suffix));
+                tvStockOeufsInfo.setText(String.format(Locale.FRANCE, "Disponible %sdans ce magasin : %s%s",
+                        casse ? "(cassés) " : "", AlveoleUtils.formatOeufsAvecAlveoles(stockOeufsDisponible), suffix));
             } else {
                 tvStockOeufsInfo.setText(fromCache ? "Stock non disponible (hors ligne)" : "Stock non disponible");
             }
@@ -1224,6 +1570,32 @@ public class SaisieFormActivity extends AppCompatActivity {
         }
     }
 
+    // Aperçu en direct, purement indicatif — le back recalcule quantite × prixUnitaire
+    // de son côté au moment de l'enregistrement (voir VaccinationImpl), même valeur.
+    private void updateCoutCalculeVaccin() {
+        if (tvCoutCalculeVaccin == null) return;
+        int quantite = parseIntSafe(etQuantiteVaccin.getText());
+        Double prixUnitaire = parseDoubleOrNull(etPrixUnitaireVaccin.getText());
+        double cout = quantite * (prixUnitaire != null ? prixUnitaire : 0.0);
+        tvCoutCalculeVaccin.setText(String.format(java.util.Locale.FRANCE, "Coût calculé : %.0f FCFA", cout));
+    }
+
+    private java.util.List<String> selectedModesAdministration() {
+        java.util.List<String> modes = new java.util.ArrayList<>();
+        if (cbModeOral.isChecked()) modes.add("Oral");
+        if (cbModeInjection.isChecked()) modes.add("Injection");
+        if (cbModePulverisation.isChecked()) modes.add("Pulvérisation");
+        if (cbModeTopique.isChecked()) modes.add("Topique");
+        return modes;
+    }
+
+    private void setModesAdministration(java.util.List<String> modes) {
+        cbModeOral.setChecked(modes != null && modes.contains("Oral"));
+        cbModeInjection.setChecked(modes != null && modes.contains("Injection"));
+        cbModePulverisation.setChecked(modes != null && modes.contains("Pulvérisation"));
+        cbModeTopique.setChecked(modes != null && modes.contains("Topique"));
+    }
+
     private String textOf(TextInputEditText edit) {
         return edit.getText() != null ? edit.getText().toString().trim() : "";
     }
@@ -1257,6 +1629,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 int oeufsSupp = parseIntSafe(etOeufsCollectes.getText());
                 int collectes = oeufsCollectesReel();
                 int casses = parseIntSafe(etOeufsCasses.getText());
+                int nonUtilisables = parseIntSafe(etOeufsNonUtilisables.getText());
                 if (collectes <= 0) {
                     toast("Veuillez saisir le nombre d'alvéoles et/ou d'œufs collectés");
                     return;
@@ -1269,10 +1642,11 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.heure = heure;
                 req.oeufsCollectes = collectes; // toujours en œufs, alvéoles + œufs supplémentaires additionnés
                 req.oeufsCasses = casses;
+                req.oeufsNonUtilisables = nonUtilisables;
                 requestObject = req;
                 summary = alveoles > 0
-                        ? String.format(Locale.FRANCE, "%d alvéole(s) + %d œufs — %d au total (%d cassés)", alveoles, oeufsSupp, collectes, casses)
-                        : String.format(Locale.FRANCE, "%d œufs collectés (%d cassés)", collectes, casses);
+                        ? String.format(Locale.FRANCE, "%d alvéole(s) + %d œufs — %d au total (%d cassés, %d non utilisables)", alveoles, oeufsSupp, collectes, casses, nonUtilisables)
+                        : String.format(Locale.FRANCE, "%d œufs collectés (%d cassés, %d non utilisables)", collectes, casses, nonUtilisables);
                 break;
             }
             case SOINS: {
@@ -1293,11 +1667,33 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.type = (String) spinnerTypeSoin.getSelectedItem();
                 req.produit = produit;
                 req.quantite = parseDoubleOrNull(etQuantiteSoin.getText());
-                // Coût volontairement absent de la saisie Production : le prix d'un soin
-                // se déclare comme une sortie d'argent (Finance), pas ici.
+                // Optionnel — si renseigné, génère automatiquement une sortie comptable
+                // liée au projet côté back (voir SoinsImpl.syncTransaction) : plus besoin
+                // de ressaisir ce coût séparément dans "Sortie d'argent".
+                req.coutTotal = parseDoubleOrNull(etCoutSoin.getText());
                 req.observations = nullIfBlank(textOf(etObservationsSoin));
                 requestObject = req;
                 summary = req.type + " — " + produit;
+                break;
+            }
+            case VACCINATION: {
+                String nomVaccin = textOf(etNomVaccin);
+                if (nomVaccin.isEmpty()) {
+                    toast("Veuillez préciser le nom du vaccin");
+                    return;
+                }
+                int quantite = parseIntSafe(etQuantiteVaccin.getText());
+                if (quantite <= 0) {
+                    toast("Veuillez saisir le nombre de doses");
+                    return;
+                }
+                VaccinCreateRequest req = new VaccinCreateRequest();
+                req.nomVaccin = nomVaccin;
+                req.quantite = quantite;
+                req.prixUnitaire = parseDoubleOrNull(etPrixUnitaireVaccin.getText());
+                req.modeAdministration = selectedModesAdministration();
+                requestObject = req;
+                summary = nomVaccin + " (" + quantite + " doses)";
                 break;
             }
             case MORTALITE: {
@@ -1357,8 +1753,10 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.nomAliment = nom;
                 req.sac = parseDoubleOrNull(etSac.getText());
                 req.quantiteKg = quantiteKg;
-                // Coût volontairement absent de la saisie Production : le prix d'un achat
-                // d'aliment se déclare comme une sortie d'argent (Finance), pas ici.
+                // Optionnel — si renseigné, génère automatiquement une sortie comptable
+                // liée au projet côté back (voir AlimentationImpl.syncTransaction) : plus
+                // besoin de ressaisir ce coût séparément dans "Sortie d'argent".
+                req.coutTotal = parseDoubleOrNull(etCoutAchatAliment.getText());
                 req.dateDistribution = date;
                 req.heure = heure;
                 req.observations = nullIfBlank(textOf(etObservationsAchat));
@@ -1394,18 +1792,28 @@ public class SaisieFormActivity extends AppCompatActivity {
                 int quantite = enAlveoles ? AlveoleUtils.alveolesToOeufs(saisie) : saisie;
                 Double prixSaisi = parseDoubleOrNull(etPrixUnitaireOeufs.getText());
                 Double montant = parseDoubleOrNull(etMontantVenteOeufs.getText());
+                Double montantRapporte = parseDoubleOrNull(etMontantRapporteVenteOeufs.getText());
                 if (quantite <= 0) {
                     toast(enAlveoles ? "Veuillez saisir le nombre d'alvéoles vendues" : "Veuillez saisir le nombre d'œufs vendus");
+                    return;
+                }
+                if (prixSaisi == null || prixSaisi <= 0) {
+                    toast(enAlveoles ? "Veuillez saisir le prix par alvéole" : "Veuillez saisir le prix unitaire");
                     return;
                 }
                 if (montant == null || montant <= 0) {
                     toast("Veuillez saisir le montant de la vente");
                     return;
                 }
+                if (montantRapporte == null || montantRapporte < 0) {
+                    toast("Veuillez indiquer le montant réellement rapporté (même égal au montant théorique)");
+                    return;
+                }
                 // Garde-fou client en plus de la validation serveur (voir loadStockForMagasin) :
                 // évite un aller-retour réseau pour découvrir le refus après coup.
+                boolean casse = isVenteOeufsCasse();
                 if (stockOeufsDisponible != null && quantite > stockOeufsDisponible) {
-                    toast("Quantité supérieure au stock disponible dans ce magasin (" + stockOeufsDisponible + " œuf(s))");
+                    toast("Quantité supérieure au stock " + (casse ? "cassé " : "") + "disponible dans ce magasin (" + stockOeufsDisponible + " œuf(s))");
                     return;
                 }
                 VenteOeufsCreateRequest req = new VenteOeufsCreateRequest();
@@ -1416,8 +1824,10 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.quantiteOeufs = quantite; // toujours en œufs, quelle que soit l'unité saisie
                 // prixUnitaire (VenteOeufs.prixUnitaire côté back) est "informatif, par
                 // œuf" — reconverti depuis le prix par alvéole si c'est l'unité choisie.
-                req.prixUnitaire = prixSaisi != null ? (enAlveoles ? prixSaisi / AlveoleUtils.OEUFS_PAR_ALVEOLE : prixSaisi) : null;
+                req.prixUnitaire = enAlveoles ? prixSaisi / AlveoleUtils.OEUFS_PAR_ALVEOLE : prixSaisi;
                 req.montant = montant;
+                req.montantRapporte = montantRapporte;
+                req.typeOeuf = casse ? "CASSE" : "BON";
                 requestObject = req;
                 summary = enAlveoles
                         ? String.format(Locale.FRANCE, "Vente de %d alvéole(s) — %d œufs (%,.0f FCFA)", saisie, quantite, montant)
@@ -1431,17 +1841,33 @@ public class SaisieFormActivity extends AppCompatActivity {
                     return;
                 }
                 int nombreSujets = parseIntSafe(etNombreSujetsVente.getText());
+                Double prixReforme = parseDoubleOrNull(etPrixUnitaireReforme.getText());
                 Double montant = parseDoubleOrNull(etMontantVenteReforme.getText());
+                Double montantRapporteReforme = parseDoubleOrNull(etMontantRapporteVenteReforme.getText());
                 if (nombreSujets <= 0) {
                     toast("Veuillez saisir le nombre de sujets vendus");
+                    return;
+                }
+                if (prixReforme == null || prixReforme <= 0) {
+                    toast("Veuillez saisir le prix unitaire");
                     return;
                 }
                 if (montant == null || montant <= 0) {
                     toast("Veuillez saisir le montant de la vente");
                     return;
                 }
+                if (montantRapporteReforme == null || montantRapporteReforme < 0) {
+                    toast("Veuillez indiquer le montant réellement rapporté (même égal au montant théorique)");
+                    return;
+                }
                 if (stockReformeDisponible != null && nombreSujets > stockReformeDisponible) {
                     toast("Quantité supérieure au stock disponible dans ce magasin (" + stockReformeDisponible + " sujet(s))");
+                    return;
+                }
+                boolean kiloReforme = isTypeVenteReformeKilo();
+                Double poidsTotalReforme = parseDoubleOrNull(etPoidsTotalReforme.getText());
+                if (kiloReforme && (poidsTotalReforme == null || poidsTotalReforme <= 0)) {
+                    toast("Veuillez saisir le poids total (kg) pour une vente au kilo");
                     return;
                 }
                 VenteReformeCreateRequest req = new VenteReformeCreateRequest();
@@ -1450,8 +1876,11 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.magasinUniqueId = magasinUniqueIdReforme;
                 req.clientUniqueId = getSelectedClientUniqueId(spinnerClientVenteReforme, true);
                 req.nombreSujets = nombreSujets;
-                req.prixUnitaire = parseDoubleOrNull(etPrixUnitaireReforme.getText());
+                req.prixUnitaire = prixReforme;
                 req.montant = montant;
+                req.montantRapporte = montantRapporteReforme;
+                req.typeVente = kiloReforme ? "KILO" : "TETE";
+                req.poidsTotalKg = kiloReforme ? poidsTotalReforme : null;
                 requestObject = req;
                 summary = String.format(Locale.FRANCE, "Vente réforme de %d sujet(s) (%,.0f FCFA)", nombreSujets, montant);
                 break;
@@ -1498,9 +1927,14 @@ public class SaisieFormActivity extends AppCompatActivity {
                     toast("Veuillez saisir le nom du client");
                     return;
                 }
+                String telephoneClient = textOf(etClientTelephone);
+                if (telephoneClient.isEmpty()) {
+                    toast("Veuillez saisir le numéro de téléphone du client");
+                    return;
+                }
                 ClientCreateRequest req = new ClientCreateRequest();
                 req.nom = nom;
-                req.telephone = nullIfBlank(textOf(etClientTelephone));
+                req.telephone = telephoneClient;
                 req.adresse = nullIfBlank(textOf(etClientAdresse));
                 req.email = nullIfBlank(textOf(etClientEmail));
                 requestObject = req;
@@ -1564,6 +1998,60 @@ public class SaisieFormActivity extends AppCompatActivity {
                         quantite, estReforme ? "sujet(s)" : "œuf(s)", clientNomCommande, montantEstime);
                 break;
             }
+            case SALAIRE_PAYER: {
+                if (salaires.isEmpty()) {
+                    toast("Aucune grille salariale synchronisée — définissez un salaire depuis le web, ou synchronisez");
+                    return;
+                }
+                SalaireSelectResponse employe = getSelectedSalaireEmploye();
+                if (employe == null) {
+                    toast("Veuillez sélectionner un employé");
+                    return;
+                }
+                String periode = getSelectedPeriodeSalaire();
+                // Bloque une tentative évidente de double paiement AVANT l'envoi — le
+                // serveur reste seul juge définitif (SalaireServiceImpl.payer rejette
+                // tout doublon quoi qu'il arrive), mais sur le terrain hors ligne, deux
+                // paiements pour le même employé/période peuvent être mis en file avant
+                // toute synchronisation, sans qu'aucun message d'erreur ne remonte avant
+                // des jours. Deux vérifications complémentaires :
+                // 1) le dernier paiement CONNU du serveur (best-effort, cache local) ;
+                // 2) les saisies PAS ENCORE synchronisées sur CE téléphone (couvre le cas
+                //    où le doublon vient d'être saisi hors ligne, avant toute synchro).
+                if (periode.equals(employe.getDernierPaiementPeriode())) {
+                    toast("Le salaire de " + periode + " a déjà été payé pour " + employe.getEmployeNom() + " (déjà synchronisé).");
+                    return;
+                }
+                for (SaisieLocale existante : localDatabase.getSaisiesByType(SaisieType.SALAIRE_PAYER)) {
+                    if (!existante.isEditable()) continue; // déjà synchronisée, sans rapport ici
+                    if (existante.getLocalId().equals(editingLocalId)) continue; // soi-même, en édition
+                    SalairePayerRequest autre = gson.fromJson(existante.getPayloadJson(), SalairePayerRequest.class);
+                    if (employe.getEmployeUniqueId().equals(autre.employeUniqueId) && periode.equals(autre.periode)) {
+                        toast("Le salaire de " + periode + " pour " + employe.getEmployeNom() + " est déjà en attente de synchronisation sur ce téléphone.");
+                        return;
+                    }
+                }
+                boolean mensuel = "MENSUEL".equals(employe.getModePaiement());
+                Double quantiteSalaire = mensuel ? null : parseDoubleOrNull(etQuantiteSalaire.getText());
+                if (!mensuel && (quantiteSalaire == null || quantiteSalaire <= 0)) {
+                    toast("HORAIRE".equals(employe.getModePaiement()) ? "Indiquez le nombre d'heures travaillées" : "Indiquez le nombre de jours travaillés");
+                    return;
+                }
+                Double montantSalaire = parseDoubleOrNull(etMontantSalaire.getText());
+                if (montantSalaire == null || montantSalaire <= 0) {
+                    toast("Montant invalide");
+                    return;
+                }
+                SalairePayerRequest req = new SalairePayerRequest();
+                req.employeUniqueId = employe.getEmployeUniqueId();
+                req.periode = periode;
+                req.quantite = quantiteSalaire;
+                req.montant = montantSalaire;
+                req.description = nullIfBlank(textOf(etDescriptionSalaire));
+                requestObject = req;
+                summary = String.format(Locale.FRANCE, "Salaire de %s — %s (%,.0f FCFA)", employe.getEmployeNom(), periode, montantSalaire);
+                break;
+            }
             default:
                 return;
         }
@@ -1602,6 +2090,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                     etOeufsCollectes.setText(String.valueOf(req.oeufsCollectes % AlveoleUtils.OEUFS_PAR_ALVEOLE));
                 }
                 if (req.oeufsCasses != null) etOeufsCasses.setText(String.valueOf(req.oeufsCasses));
+                if (req.oeufsNonUtilisables != null) etOeufsNonUtilisables.setText(String.valueOf(req.oeufsNonUtilisables));
                 selectBatimentByUniqueId(req.batimentUniqueId);
                 selectBatimentStockageByUniqueId(req.magasinStockageUniqueId);
                 break;
@@ -1611,9 +2100,19 @@ public class SaisieFormActivity extends AppCompatActivity {
                 setDateHeure(req.date, req.heure);
                 etProduit.setText(req.produit);
                 if (req.quantite != null) etQuantiteSoin.setText(String.valueOf(req.quantite));
+                if (req.coutTotal != null) etCoutSoin.setText(String.valueOf(req.coutTotal));
                 etObservationsSoin.setText(req.observations);
                 selectSpinnerValue(spinnerTypeSoin, TYPES_SOIN, req.type);
                 selectBatimentByUniqueId(req.batimentUniqueId);
+                break;
+            }
+            case VACCINATION: {
+                VaccinCreateRequest req = gson.fromJson(json, VaccinCreateRequest.class);
+                etNomVaccin.setText(req.nomVaccin);
+                if (req.quantite != null) etQuantiteVaccin.setText(String.valueOf(req.quantite));
+                if (req.prixUnitaire != null) etPrixUnitaireVaccin.setText(String.valueOf(req.prixUnitaire));
+                setModesAdministration(req.modeAdministration);
+                updateCoutCalculeVaccin();
                 break;
             }
             case MORTALITE: {
@@ -1638,6 +2137,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 etNomAliment.setText(req.nomAliment);
                 if (req.sac != null) etSac.setText(String.valueOf(req.sac));
                 if (req.quantiteKg != null) etQuantiteKgAchat.setText(String.valueOf(req.quantiteKg));
+                if (req.coutTotal != null) etCoutAchatAliment.setText(String.valueOf(req.coutTotal));
                 etObservationsAchat.setText(req.observations);
                 selectBatimentByUniqueId(req.batimentUniqueId);
                 break;
@@ -1655,6 +2155,8 @@ public class SaisieFormActivity extends AppCompatActivity {
                 if (req.quantiteOeufs != null) etQuantiteOeufsVente.setText(String.valueOf(req.quantiteOeufs));
                 if (req.prixUnitaire != null) etPrixUnitaireOeufs.setText(String.valueOf(req.prixUnitaire));
                 if (req.montant != null) etMontantVenteOeufs.setText(String.valueOf(req.montant));
+                if (req.montantRapporte != null) etMontantRapporteVenteOeufs.setText(String.valueOf(req.montantRapporte));
+                if ("CASSE".equals(req.typeOeuf)) radioGroupTypeOeufVente.check(R.id.radioTypeOeufCasse);
                 selectMagasinByUniqueId(req.magasinUniqueId);
                 selectClientByUniqueId(req.clientUniqueId);
                 break;
@@ -1665,6 +2167,10 @@ public class SaisieFormActivity extends AppCompatActivity {
                 if (req.nombreSujets != null) etNombreSujetsVente.setText(String.valueOf(req.nombreSujets));
                 if (req.prixUnitaire != null) etPrixUnitaireReforme.setText(String.valueOf(req.prixUnitaire));
                 if (req.montant != null) etMontantVenteReforme.setText(String.valueOf(req.montant));
+                if (req.montantRapporte != null) etMontantRapporteVenteReforme.setText(String.valueOf(req.montantRapporte));
+                if ("KILO".equals(req.typeVente)) radioGroupTypeVenteReforme.check(R.id.radioTypeVenteReformeKilo);
+                if (req.poidsTotalKg != null) etPoidsTotalReforme.setText(String.valueOf(req.poidsTotalKg));
+                refreshTypeVenteReformeUi();
                 selectMagasinByUniqueId(req.magasinUniqueId);
                 selectClientByUniqueId(req.clientUniqueId);
                 break;
@@ -1694,6 +2200,27 @@ public class SaisieFormActivity extends AppCompatActivity {
                 if (req.dateLivraisonPrevue != null) etDateLivraisonCommande.setText(req.dateLivraisonPrevue);
                 selectMagasinByUniqueId(req.magasinUniqueId);
                 selectClientByUniqueId(req.clientUniqueId);
+                break;
+            }
+            case SALAIRE_PAYER: {
+                SalairePayerRequest req = gson.fromJson(json, SalairePayerRequest.class);
+                selectEmployeSalaireByUniqueId(req.employeUniqueId);
+                if (req.periode != null && req.periode.length() == 7) {
+                    int annee = Integer.parseInt(req.periode.substring(0, 4));
+                    int mois = Integer.parseInt(req.periode.substring(5));
+                    spinnerMoisSalaire.setSelection(mois - 1);
+                    // Spinner peuplé avec [anneeCourante-1, anneeCourante, anneeCourante+1]
+                    // (voir setupSalaireSpinners) — position = écart par rapport à la
+                    // courante, décalé de 1 (position 1 = courante).
+                    int anneeCourante = Calendar.getInstance().get(Calendar.YEAR);
+                    int position = 1 + (annee - anneeCourante);
+                    if (position >= 0 && position < spinnerAnneeSalaire.getAdapter().getCount()) {
+                        spinnerAnneeSalaire.setSelection(position);
+                    }
+                }
+                if (req.quantite != null) etQuantiteSalaire.setText(String.valueOf(req.quantite));
+                if (req.montant != null) etMontantSalaire.setText(String.valueOf(req.montant));
+                etDescriptionSalaire.setText(req.description);
                 break;
             }
             case TRANSACTION_ENTREE:

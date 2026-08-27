@@ -17,12 +17,15 @@ import com.mobile.diafarms.network.dto.NotificationResponse;
 import com.mobile.diafarms.network.dto.ProjetDetailResponse;
 import com.mobile.diafarms.network.dto.ProjetSelectResponse;
 import com.mobile.diafarms.network.dto.ReformeCreateRequest;
+import com.mobile.diafarms.network.dto.SalairePayerRequest;
+import com.mobile.diafarms.network.dto.SalaireSelectResponse;
 import com.mobile.diafarms.network.dto.SoinsCreateRequest;
 import com.mobile.diafarms.network.dto.StockAlimentResponse;
 import com.mobile.diafarms.network.dto.StockMagasinResponse;
 import com.mobile.diafarms.network.dto.StockOeufsResponse;
 import com.mobile.diafarms.network.dto.StockReformeResponse;
 import com.mobile.diafarms.network.dto.TransactionCreateRequest;
+import com.mobile.diafarms.network.dto.VaccinCreateRequest;
 import com.mobile.diafarms.network.dto.VenteOeufsCreateRequest;
 import com.mobile.diafarms.network.dto.VenteReformeCreateRequest;
 
@@ -72,6 +75,11 @@ public interface DataApi {
     @GET("clients/select")
     Call<ApiEnvelope<List<ClientSelectResponse>>> getClientsSelect();
 
+    // Grille salariale de la ferme (rôle Comptable, "Payer un salaire") — voir
+    // SalaireSelectResponse.
+    @GET("salaires/select")
+    Call<ApiEnvelope<List<SalaireSelectResponse>>> getSalairesSelect();
+
     @GET("projets/findbyUniqueId/{uniqueId}")
     Call<ApiEnvelope<ProjetDetailResponse>> getProjetDetail(@Path("uniqueId") String uniqueId);
 
@@ -81,6 +89,17 @@ public interface DataApi {
     // ============== SOINS ==============
     @POST("soins/create")
     Call<ApiEnvelope<CreatedEntityResponse>> createSoins(@Body SoinsCreateRequest request);
+
+    // ============== VACCINATION (distinct de Soins — doses + prix, voir la section
+    // "Vaccinations" de la Fiche Projet côté web) ==============
+    @POST("vaccinations/create/{uniqueIdProjet}")
+    Call<ApiEnvelope<CreatedEntityResponse>> createVaccination(
+            @Path("uniqueIdProjet") String projetUniqueId, @Body VaccinCreateRequest request);
+
+    // ============== NOTIFICATIONS (alertes ferme entière — voir AlertCheckWorker,
+    // vérification périodique en arrière-plan pour les notifications locales) ==============
+    @GET("notifications/list")
+    Call<ApiEnvelope<List<NotificationResponse>>> getNotifications();
 
     // ============== MORTALITÉ ==============
     @POST("mortalites/create")
@@ -121,6 +140,11 @@ public interface DataApi {
     // ============== COMMANDE (VENTE : ce qu'un client demande avant la vente) ==============
     @POST("commandes/create")
     Call<ApiEnvelope<CreatedEntityResponse>> createCommande(@Body CommandeCreateRequest request);
+
+    // ============== SALAIRES (COMPTABLE : paiement uniquement, pas de gestion de la
+    // grille — voir SalaireServiceImpl.payer côté back, au plus un paiement par période) ==============
+    @POST("salaires/payer")
+    Call<ApiEnvelope<CreatedEntityResponse>> payerSalaire(@Body SalairePayerRequest request);
 
     // ============== ALIMENTATION — ACHAT (aliment entrant, par projet) ==============
     @POST("alimentations/create/{uniqueIdProjet}")

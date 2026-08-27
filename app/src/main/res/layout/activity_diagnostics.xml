@@ -83,7 +83,7 @@
                     android:inputType="textUri"
                     android:singleLine="true"
                     android:textSize="13sp"
-                    android:hint="http://10.126.242.60:9093/diafarms/api/v1/" />
+                    android:hint="http://192.168.1.26:9093/diafarms/api/v1/" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -328,7 +328,7 @@
             android:layout_marginHorizontal="16dp"
             android:layout_marginBottom="24dp"
             android:gravity="center"
-            android:text="Diafarms v1.0"
+            android:text="Cocorico v1.0"
             android:textColor="@android:color/darker_gray"
             android:textSize="12sp" />
 

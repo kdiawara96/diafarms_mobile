@@ -96,7 +96,7 @@ public class DiagnosticsActivity extends AppCompatActivity {
             Toast.makeText(this, "Journal vidé", Toast.LENGTH_SHORT).show();
         });
 
-        tvVersion.setText("Diafarms v" + BuildConfig.VERSION_NAME
+        tvVersion.setText("Cocorico v" + BuildConfig.VERSION_NAME
                 + " (build " + BuildConfig.VERSION_CODE + ") — "
                 + (BuildConfig.DEBUG ? "debug" : "release"));
 

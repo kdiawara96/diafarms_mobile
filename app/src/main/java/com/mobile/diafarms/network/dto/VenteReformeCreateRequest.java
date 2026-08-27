@@ -10,6 +10,9 @@ public class VenteReformeCreateRequest {
     public String magasinUniqueId;
     public String clientUniqueId; // optionnel — voir VenteReforme.client
     public Integer nombreSujets;
-    public Double prixUnitaire; // optionnel, informatif
-    public Double montant;
+    public Double prixUnitaire; // prix par tête (TETE) ou prix par kg (KILO)
+    public Double montant; // montant théorique
+    public Double montantRapporte; // optionnel — ce qui revient RÉELLEMENT en caisse ; si différent du montant théorique, l'écart est suivi comme dette (client si renseigné, sinon vendeur)
+    public String typeVente; // "TETE" (défaut) ou "KILO" — voir TypeVenteReforme côté back
+    public Double poidsTotalKg; // obligatoire si typeVente="KILO", null sinon
 }

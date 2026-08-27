@@ -14,6 +14,7 @@ import com.mobile.diafarms.network.dto.MagasinSelectResponse;
 import com.mobile.diafarms.network.dto.NotificationResponse;
 import com.mobile.diafarms.network.dto.ProjetDetailResponse;
 import com.mobile.diafarms.network.dto.ProjetSelectResponse;
+import com.mobile.diafarms.network.dto.SalaireSelectResponse;
 import com.mobile.diafarms.network.dto.StockAlimentResponse;
 import com.mobile.diafarms.network.dto.StockMagasinResponse;
 import com.mobile.diafarms.util.DebugLog;
@@ -58,6 +59,15 @@ public class CachePrefetcher {
     // voir ClientSelectResponse et SaisieFormActivity (sélecteur optionnel d'une vente,
     // obligatoire d'une commande).
     public static final String CACHE_CLIENTS_SELECT = "clients_select";
+    // Grille salariale de la ferme (COMPTABLE) : un Salaire par employé (mode + taux de
+    // base), utilisée pour pré-remplir "Payer un salaire" hors ligne — le serveur reste
+    // seul juge du taux réellement appliqué à la période payée à la synchronisation
+    // (voir SalaireServiceImpl.resolveTauxPourPeriode).
+    public static final String CACHE_SALAIRES_SELECT = "salaires_select";
+    // Accès mobile par rôle (Production/Comptable/Vente) — voir HomeActivity.
+    // loadFarmAppSettings/applyFarmAppSettings : appliqué cache d'abord pour que le
+    // menu ne reste jamais vide hors ligne, y compris au tout premier écran.
+    public static final String CACHE_FARM_SETTINGS = "farm_settings";
 
     private static final String TAG = "CachePrefetcher";
     private static final Gson gson = new Gson();
@@ -178,6 +188,23 @@ public class CachePrefetcher {
         });
     }
 
+    /** Précharge la grille salariale de la ferme (rôle Comptable, "Payer un salaire") —
+     * inoffensif pour un rôle sans accès Comptable, la liste sera juste inutilisée.
+     * Voir CACHE_SALAIRES_SELECT. */
+    private static void prefetchSalaires(Context appContext, LocalDatabase localDatabase) {
+        ApiClient.dataApi(appContext).getSalairesSelect().enqueue(new Callback<ApiEnvelope<List<SalaireSelectResponse>>>() {
+            @Override
+            public void onResponse(Call<ApiEnvelope<List<SalaireSelectResponse>>> call, Response<ApiEnvelope<List<SalaireSelectResponse>>> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
+                    localDatabase.putCache(CACHE_SALAIRES_SELECT, gson.toJson(response.body().getData()));
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiEnvelope<List<SalaireSelectResponse>>> call, Throwable t) { }
+        });
+    }
+
     /** Précharge le détail/alertes/stock de chaque projet d'une liste déjà récupérée
      * (évite de refaire l'appel /projets/select quand l'appelant l'a déjà en main). */
     public static void prefetchProjectsDetails(Context context, LocalDatabase localDatabase, List<ProjetSelectResponse> projets) {
@@ -189,6 +216,7 @@ public class CachePrefetcher {
         prefetchMagasinsStockage(appContext, localDatabase);
         prefetchBatiments(appContext, localDatabase);
         prefetchClients(appContext, localDatabase);
+        prefetchSalaires(appContext, localDatabase);
     }
 
     private static void prefetchOneProjet(Context appContext, LocalDatabase localDatabase, String projetUniqueId) {

@@ -202,14 +202,31 @@
 
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Œufs cassés">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etOeufsCasses"
-                        android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:inputType="number" />
-                </com.google.android.material.textfield.TextInputLayout>
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                        android:layout_marginEnd="8dp"
+                        android:hint="Œufs cassés">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etOeufsCasses"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:inputType="number" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                        android:layout_marginStart="8dp"
+                        android:hint="Œufs non utilisables">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etOeufsNonUtilisables"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:inputType="number" />
+                    </com.google.android.material.textfield.TextInputLayout>
+                </LinearLayout>
 
                 <TextView
                     android:id="@+id/tvResumeCollecte"
@@ -263,12 +280,94 @@
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Coût total (FCFA, optionnel)">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etCoutSoin"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="numberDecimal" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:hint="Observations (optionnel)">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etObservationsSoin"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
                         android:inputType="textMultiLine" android:minLines="2" />
                 </com.google.android.material.textfield.TextInputLayout>
+            </LinearLayout>
+
+            <!-- ===================== VACCINATION (distinct de Soins — doses + prix,
+                 pas de bâtiment/date propres, voir Vaccination.java côté back) ===================== -->
+            <LinearLayout
+                android:id="@+id/groupVaccination"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Nom du vaccin">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etNomVaccin"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="text" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Quantité (doses)">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etQuantiteVaccin"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="number" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Prix unitaire (FCFA / dose)">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etPrixUnitaireVaccin"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="numberDecimal" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <TextView
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="Mode d'administration (optionnel)" android:textColor="@android:color/black" android:textSize="14sp"
+                    android:layout_marginBottom="6dp" />
+                <LinearLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <CheckBox android:id="@+id/cbModeOral" android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1" android:text="Oral" android:textSize="12sp" />
+                    <CheckBox android:id="@+id/cbModeInjection" android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1" android:text="Injection" android:textSize="12sp" />
+                </LinearLayout>
+                <LinearLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <CheckBox android:id="@+id/cbModePulverisation" android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1" android:text="Pulvérisation" android:textSize="12sp" />
+                    <CheckBox android:id="@+id/cbModeTopique" android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1" android:text="Topique" android:textSize="12sp" />
+                </LinearLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="8dp" />
+
+                <TextView
+                    android:id="@+id/tvCoutCalculeVaccin"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:textSize="13sp" android:textStyle="bold" />
             </LinearLayout>
 
             <!-- ===================== MORTALITÉ ===================== -->
@@ -381,6 +480,17 @@
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Coût total (FCFA, optionnel)">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etCoutAchatAliment"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="numberDecimal" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:hint="Observations (optionnel)">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etObservationsAchat"
@@ -450,6 +560,25 @@
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 
                 <TextView
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="Qualité" android:textColor="@android:color/black" android:textSize="14sp"
+                    android:layout_marginBottom="4dp" />
+                <RadioGroup
+                    android:id="@+id/radioGroupTypeOeufVente"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="12dp">
+                    <RadioButton
+                        android:id="@+id/radioTypeOeufBon"
+                        android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                        android:text="🥚 Œufs bons" android:checked="true" />
+                    <RadioButton
+                        android:id="@+id/radioTypeOeufCasse"
+                        android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                        android:text="💥 Œufs cassés" />
+                </RadioGroup>
+
+                <TextView
                     android:id="@+id/tvStockOeufsInfo"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -492,7 +621,7 @@
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/tilPrixUnitaireOeufs"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Prix unitaire (FCFA, optionnel)">
+                    android:hint="Prix unitaire (FCFA)">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etPrixUnitaireOeufs"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -501,11 +630,31 @@
 
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 
+                <!-- Toujours quantité × prix unitaire, jamais modifiable directement (voir
+                     recalculerMontantVenteOeufs) — un rabais se reflète dans le montant
+                     rapporté ci-dessous, pas ici. -->
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Montant total de la vente (FCFA)">
+                    android:hint="Montant théorique (FCFA)">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etMontantVenteOeufs"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="numberDecimal"
+                        android:focusable="false" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <!-- Ce qui revient RÉELLEMENT en caisse aujourd'hui — si différent du
+                     montant théorique, l'écart est suivi comme dette (client sélectionné
+                     ci-dessus si renseigné, sinon vendeur), voir SoldeClient/SoldeVendeur
+                     côté back. Pré-rempli = montant théorique (vente payée intégralement),
+                     à corriger explicitement si ce n'est pas le cas. -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Montant rapporté (FCFA)">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etMontantRapporteVenteOeufs"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
                         android:inputType="numberDecimal" />
                 </com.google.android.material.textfield.TextInputLayout>
@@ -550,6 +699,25 @@
                     android:textColor="@android:color/darker_gray"
                     tools:text="Disponible dans ce magasin : 40 sujet(s)" />
 
+                <TextView
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="Tarification" android:textColor="@android:color/black" android:textSize="14sp"
+                    android:layout_marginBottom="4dp" />
+                <RadioGroup
+                    android:id="@+id/radioGroupTypeVenteReforme"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="12dp">
+                    <RadioButton
+                        android:id="@+id/radioTypeVenteReformeTete"
+                        android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                        android:text="Par tête" android:checked="true" />
+                    <RadioButton
+                        android:id="@+id/radioTypeVenteReformeKilo"
+                        android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                        android:text="⚖️ Au kilo" />
+                </RadioGroup>
+
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:hint="Nombre de sujets vendus">
@@ -561,9 +729,27 @@
 
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 
+                <!-- Visible uniquement en mode "Au kilo" — voir refreshTypeVenteReformeUi. -->
                 <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilPoidsTotalReforme"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Prix unitaire (FCFA, optionnel)">
+                    android:hint="Poids total (kg)"
+                    android:visibility="gone">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etPoidsTotalReforme"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="numberDecimal" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View android:id="@+id/spacerPoidsTotalReforme" android:layout_width="match_parent" android:layout_height="12dp"
+                    android:visibility="gone" />
+
+                <!-- Hint changé dynamiquement ("Prix unitaire" / "Prix au kilo") — voir
+                     refreshTypeVenteReformeUi. -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilPrixUnitaireReforme"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Prix unitaire (FCFA)">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etPrixUnitaireReforme"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -572,11 +758,28 @@
 
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 
+                <!-- Toujours sujets × prix unitaire, jamais modifiable directement — même
+                     principe que Vente d'œufs (voir groupVenteOeufs). -->
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Montant total de la vente (FCFA)">
+                    android:hint="Montant théorique (FCFA)">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etMontantVenteReforme"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="numberDecimal"
+                        android:focusable="false" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <!-- Ce qui revient RÉELLEMENT en caisse aujourd'hui — même principe que
+                     Vente d'œufs (voir groupVenteOeufs). Pré-rempli = montant théorique,
+                     à corriger explicitement si ce n'est pas le cas. -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Montant rapporté (FCFA)">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etMontantRapporteVenteReforme"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
                         android:inputType="numberDecimal" />
                 </com.google.android.material.textfield.TextInputLayout>
@@ -603,7 +806,7 @@
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Téléphone (optionnel)">
+                    android:hint="Téléphone *">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etClientTelephone"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -789,6 +992,103 @@
                         android:clickable="true"
                         android:cursorVisible="false" />
                 </com.google.android.material.textfield.TextInputLayout>
+            </LinearLayout>
+
+            <!-- ===================== PAYER UN SALAIRE (COMPTABLE : grille synchronisée,
+                 voir SaisieFormActivity.loadSalaires) ===================== -->
+            <LinearLayout
+                android:id="@+id/groupSalaire"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="Employé *" android:textColor="@android:color/black" android:textSize="14sp"
+                    android:layout_marginBottom="4dp" />
+                <Spinner
+                    android:id="@+id/spinnerEmployeSalaire"
+                    android:layout_width="match_parent" android:layout_height="48dp"
+                    android:background="@drawable/bg_input_border" />
+
+                <TextView
+                    android:id="@+id/tvAucunSalaireEmploye"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Aucune grille salariale synchronisée — définissez un salaire depuis le web, ou synchronisez."
+                    android:textSize="12sp"
+                    android:textColor="@color/red_error"
+                    android:visibility="gone" />
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <TextView
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="Période *" android:textColor="@android:color/black" android:textSize="14sp"
+                    android:layout_marginBottom="4dp" />
+                <LinearLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <Spinner
+                        android:id="@+id/spinnerMoisSalaire"
+                        android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1"
+                        android:background="@drawable/bg_input_border" />
+                    <View android:layout_width="8dp" android:layout_height="1dp" />
+                    <Spinner
+                        android:id="@+id/spinnerAnneeSalaire"
+                        android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1"
+                        android:background="@drawable/bg_input_border" />
+                </LinearLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilQuantiteSalaire"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Jours/heures travaillés"
+                    android:visibility="gone">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etQuantiteSalaire"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="numberDecimal" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <TextView
+                    android:id="@+id/tvTauxInfoSalaire"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:textSize="12sp"
+                    android:textColor="@android:color/darker_gray" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Montant (FCFA)">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etMontantSalaire"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="numberDecimal" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Description (optionnel)">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etDescriptionSalaire"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="text" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="8dp" />
+
+                <TextView
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="Le taux affiché vient de la dernière synchronisation — le serveur applique le taux réellement en vigueur pour cette période au moment de l'envoi."
+                    android:textSize="12sp"
+                    android:textColor="@android:color/darker_gray" />
             </LinearLayout>
 
             <!-- ===================== TRANSACTION (finance) ===================== -->

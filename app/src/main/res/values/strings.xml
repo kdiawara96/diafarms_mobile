@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Diafarms</string>
+    <string name="app_name">Cocorico</string>
 
     <!-- Login classique -->
     <string name="login_missing_fields">Veuillez renseigner votre identifiant et votre mot de passe</string>

@@ -71,8 +71,13 @@
                     android:orientation="horizontal"
                     android:layout_marginTop="4dp">
 
+                    <!-- Un seul badge compact plutôt qu'un par rôle (voir HomeActivity.setupHeader) :
+                         avec 3 rôles ou plus (Production + Comptable + Vente...), les badges
+                         individuels dépassaient la largeur dispo entre l'avatar et les boutons de
+                         droite. Le texte est composé en code ("PRODUCTION · VENTE" si ≤ 2 rôles,
+                         "PRODUCTION +2" au-delà) et ellipsé en dernier recours. -->
                     <TextView
-                        android:id="@+id/badgeProduction"
+                        android:id="@+id/badgeRoles"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="PRODUCTION"
@@ -81,35 +86,9 @@
                         android:background="@drawable/badge_white"
                         android:paddingHorizontal="8dp"
                         android:paddingVertical="2dp"
-                        android:textStyle="bold"/>
-
-                    <TextView
-                        android:id="@+id/badgeFinance"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="COMPTABLE"
-                        android:textSize="10sp"
-                        android:textColor="#1E40AF"
-                        android:background="@drawable/badge_blue"
-                        android:paddingHorizontal="8dp"
-                        android:paddingVertical="2dp"
-                        android:layout_marginStart="6dp"
                         android:textStyle="bold"
-                        android:visibility="gone"/>
-
-                    <TextView
-                        android:id="@+id/badgeVente"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="VENTE"
-                        android:textSize="10sp"
-                        android:textColor="#92400E"
-                        android:background="@drawable/badge_white"
-                        android:paddingHorizontal="8dp"
-                        android:paddingVertical="2dp"
-                        android:layout_marginStart="6dp"
-                        android:textStyle="bold"
-                        android:visibility="gone"/>
+                        android:maxLines="1"
+                        android:ellipsize="end"/>
                 </LinearLayout>
             </LinearLayout>
 
@@ -562,7 +541,7 @@
                         <ImageView
                             android:layout_width="32dp"
                             android:layout_height="32dp"
-                            android:src="@drawable/injection"/>
+                            android:src="@drawable/ic_trousse_secours"/>
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -578,6 +557,50 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Vaccins, médicaments"
+                            android:textColor="#6B7280"
+                            android:textSize="11sp"
+                            android:gravity="center"/>
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/btnVaccination"
+                    android:layout_width="0dp"
+                    android:layout_height="120dp"
+                    android:layout_columnWeight="1"
+                    android:layout_margin="6dp"
+                    app:cardCornerRadius="16dp"
+                    app:cardBackgroundColor="#F9FAFB"
+                    app:cardElevation="1dp"
+                    android:foreground="?attr/selectableItemBackground"
+                    android:clickable="true">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="8dp">
+
+                        <ImageView
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
+                            android:src="@drawable/injection"/>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:text="Vaccination"
+                            android:textColor="#1F2937"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:gravity="center"/>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Doses, prix par dose"
                             android:textColor="#6B7280"
                             android:textSize="11sp"
                             android:gravity="center"/>
@@ -675,9 +698,11 @@
 
             </GridLayout>
 
-            <!-- Section Finance (CONDITIONNELLE) -->
+            <!-- Section Comptable (CONDITIONNELLE, indépendante de Vente ci-dessous —
+                 rôles distincts, chacun avec son propre titre et sa propre visibilité,
+                 voir HomeActivity.setupVisibilityByRole/applyFarmAppSettings). -->
             <TextView
-                android:id="@+id/tvSectionFinance"
+                android:id="@+id/tvSectionComptable"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Saisie comptable"
@@ -689,7 +714,7 @@
                 android:visibility="gone"/>
 
             <GridLayout
-                android:id="@+id/gridFinance"
+                android:id="@+id/gridComptable"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:columnCount="2"
@@ -778,6 +803,76 @@
                             android:textSize="12sp"/>
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
+
+                <!-- Payer un salaire (COMPTABLE) : paiement uniquement, la grille salariale
+                     (ajouter un salarié, fixer son taux) reste une action web — voir
+                     HomeActivity.applyFarmAppSettings, SaisieType.SALAIRE_PAYER. -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/btnPayerSalaire"
+                    android:layout_width="0dp"
+                    android:layout_height="120dp"
+                    android:layout_columnWeight="1"
+                    android:layout_margin="6dp"
+                    app:cardCornerRadius="16dp"
+                    app:cardBackgroundColor="#F9FAFB"
+                    app:cardElevation="1dp"
+                    android:foreground="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:visibility="gone">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="8dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="💰"
+                            android:textSize="28sp"/>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:text="Payer un salaire"
+                            android:textColor="#1F2937"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:gravity="center"/>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Grille déjà définie"
+                            android:textColor="#6B7280"
+                            android:textSize="11sp"
+                            android:gravity="center"/>
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+            </GridLayout>
+
+            <!-- Section Vente (CONDITIONNELLE, indépendante de Comptable ci-dessus). -->
+            <TextView
+                android:id="@+id/tvSectionVente"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Saisie vente"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="#1F2937"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="12dp"
+                android:visibility="gone"/>
+
+            <GridLayout
+                android:id="@+id/gridVente"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:columnCount="2"
+                android:visibility="gone">
 
                 <!-- Vente œufs/réforme : plafonnées par le stock de TOUTE LA FERME, pas
                      du projet sélectionné — toujours visibles (voir updateSaisieButtonsVisibility). -->

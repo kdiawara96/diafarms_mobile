@@ -9,4 +9,5 @@ public class CollecteOeufsCreateRequest {
     public String heure;     // "HH:mm", optionnel
     public Integer oeufsCollectes;
     public Integer oeufsCasses;
+    public Integer oeufsNonUtilisables;
 }

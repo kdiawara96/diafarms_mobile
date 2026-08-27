@@ -31,4 +31,8 @@
     <!-- Spécifique œufs/alimentation -->
     <color name="egg_yellow">#FFC107</color>
     <color name="feed_brown">#8D6E63</color>
+
+    <!-- Écran d'accueil (LauncherScreen) — fond crème chaleureux, voir maquette de référence -->
+    <color name="launcher_cream">#FBF2E1</color>
+    <color name="launcher_orange">#E8912B</color>
 </resources>

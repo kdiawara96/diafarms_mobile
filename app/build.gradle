@@ -62,4 +62,9 @@ dependencies {
 
     // Stockage chiffré du token de session (EncryptedSharedPreferences)
     implementation libs.security.crypto
+
+    // Vérification périodique des alertes en arrière-plan (notifications locales,
+    // voir AlertCheckWorker) — pas de vrai push (pas de Firebase), juste un contrôle
+    // toutes les 15-30 min tant que le téléphone a du réseau.
+    implementation libs.work.runtime
 }

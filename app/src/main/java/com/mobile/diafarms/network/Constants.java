@@ -7,7 +7,7 @@ package com.mobile.diafarms.network;
  */
 public class Constants {
 
-    public static final String BASE_URL = "http://10.126.242.60:9093/diafarms/api/v1/";
+    public static final String BASE_URL = "http://192.168.1.26:9093/diafarms/api/v1/";
 
     // Doit rester identique à AES_SECRET_KEY dans diafarms_back/.env : c'est la même
     // clé qui sert à chiffrer le QR côté serveur (QRCodeController/AESService) et à le

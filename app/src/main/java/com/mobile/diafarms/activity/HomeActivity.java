@@ -85,9 +85,7 @@ public class HomeActivity extends AppCompatActivity {
 
     // Vues Header
     private TextView tvAgentName;
-    private TextView badgeProduction;
-    private TextView badgeFinance;
-    private TextView badgeVente;
+    private TextView badgeRoles;
     private View indicatorSync;
 
     // Vues Projet
@@ -112,12 +110,18 @@ public class HomeActivity extends AppCompatActivity {
     private CardView btnCollecteOeufs;
     private CardView btnAlimentation;
     private CardView btnSoins;
+    private CardView btnVaccination;
     private CardView btnMortalite;
     private CardView btnReforme;
 
-    // Vues Finance
-    private TextView tvSectionFinance;
-    private GridLayout gridFinance;
+    // Vues Comptable et Vente — deux rôles distincts, deux sections indépendantes
+    // (voir setupVisibilityByRole/loadFarmAppSettings) : avant, un seul titre "Saisie
+    // comptable" mélangeait les cartes des deux rôles, source de confusion pour un
+    // compte qui n'a que l'un des deux (ou les deux à la fois).
+    private TextView tvSectionComptable;
+    private GridLayout gridComptable;
+    private TextView tvSectionVente;
+    private GridLayout gridVente;
     private CardView btnEntreeArgent;
     private CardView btnSortieArgent;
     private CardView btnVenteOeufs;
@@ -125,6 +129,7 @@ public class HomeActivity extends AppCompatActivity {
     private CardView btnVenteFientes;
     private CardView btnNouveauClient;
     private CardView btnNouvelleCommande;
+    private CardView btnPayerSalaire;
     private CardView cardStatsFinance;
     private TextView tvMesEntrees;
     private TextView tvMesSorties;
@@ -169,13 +174,22 @@ public class HomeActivity extends AppCompatActivity {
         loadProjets();
         loadLastEntry();
         updateFinanceStats();
+
+        // Vérification périodique des alertes en arrière-plan (notifications locales,
+        // voir AlertCheckWorker) — pas de vrai push, un contrôle toutes les 15-30 min.
+        // KEEP : sans effet si déjà enregistré, pas de doublon à chaque ouverture.
+        com.mobile.diafarms.data.AlertCheckWorker.enregistrer(this);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU
+                && androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS)
+                    != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            androidx.core.app.ActivityCompat.requestPermissions(this,
+                    new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 42);
+        }
     }
 
     private void bindViews() {
         tvAgentName = findViewById(R.id.tvAgentName);
-        badgeProduction = findViewById(R.id.badgeProduction);
-        badgeFinance = findViewById(R.id.badgeFinance);
-        badgeVente = findViewById(R.id.badgeVente);
+        badgeRoles = findViewById(R.id.badgeRoles);
         indicatorSync = findViewById(R.id.indicatorSync);
         // Le clic est posé sur l'ImageButton interne, pas sur le FrameLayout englobant :
         // un ImageButton est cliquable par défaut et absorbe le tap avant qu'il
@@ -210,11 +224,14 @@ public class HomeActivity extends AppCompatActivity {
         btnCollecteOeufs = findViewById(R.id.btnCollecteOeufs);
         btnAlimentation = findViewById(R.id.btnAlimentation);
         btnSoins = findViewById(R.id.btnSoins);
+        btnVaccination = findViewById(R.id.btnVaccination);
         btnMortalite = findViewById(R.id.btnMortalite);
         btnReforme = findViewById(R.id.btnReforme);
 
-        tvSectionFinance = findViewById(R.id.tvSectionFinance);
-        gridFinance = findViewById(R.id.gridFinance);
+        tvSectionComptable = findViewById(R.id.tvSectionComptable);
+        gridComptable = findViewById(R.id.gridComptable);
+        tvSectionVente = findViewById(R.id.tvSectionVente);
+        gridVente = findViewById(R.id.gridVente);
         btnEntreeArgent = findViewById(R.id.btnEntreeArgent);
         btnSortieArgent = findViewById(R.id.btnSortieArgent);
         btnVenteOeufs = findViewById(R.id.btnVenteOeufs);
@@ -222,6 +239,7 @@ public class HomeActivity extends AppCompatActivity {
         btnVenteFientes = findViewById(R.id.btnVenteFientes);
         btnNouveauClient = findViewById(R.id.btnNouveauClient);
         btnNouvelleCommande = findViewById(R.id.btnNouvelleCommande);
+        btnPayerSalaire = findViewById(R.id.btnPayerSalaire);
         cardStatsFinance = findViewById(R.id.cardStatsFinance);
         tvMesEntrees = findViewById(R.id.tvMesEntrees);
         tvMesSorties = findViewById(R.id.tvMesSorties);
@@ -232,11 +250,28 @@ public class HomeActivity extends AppCompatActivity {
         btnSyncNow = findViewById(R.id.btnSyncNow);
     }
 
+    /** Un seul badge compact, jamais 3 en ligne : au-delà de 2 rôles cumulés, la liste
+     * complète tenait mal dans l'espace dispo entre l'avatar et les boutons de droite
+     * (voir activity_home.xml, llRoles). "PRODUCTION · VENTE" jusqu'à 2 rôles,
+     * "PRODUCTION +2" au-delà — le détail complet reste consultable via showProfileDialog
+     * (tap sur l'avatar/le nom). */
     private void setupHeader() {
         tvAgentName.setText(currentUser.getNom());
-        badgeProduction.setVisibility(currentUser.isProduction() ? View.VISIBLE : View.GONE);
-        badgeFinance.setVisibility(currentUser.isComptable() ? View.VISIBLE : View.GONE);
-        badgeVente.setVisibility(currentUser.isVente() ? View.VISIBLE : View.GONE);
+
+        List<String> actifs = new ArrayList<>();
+        if (currentUser.isProduction()) actifs.add("PRODUCTION");
+        if (currentUser.isComptable()) actifs.add("COMPTABLE");
+        if (currentUser.isVente()) actifs.add("VENTE");
+        if (currentUser.isAdmin()) actifs.add("ADMIN");
+
+        if (actifs.isEmpty()) {
+            badgeRoles.setVisibility(View.GONE);
+        } else {
+            badgeRoles.setVisibility(View.VISIBLE);
+            badgeRoles.setText(actifs.size() <= 2
+                    ? String.join(" · ", actifs)
+                    : actifs.get(0) + " +" + (actifs.size() - 1));
+        }
     }
 
     /** Infos de l'agent connecté + déconnexion classique (verrouillage, pas de
@@ -286,61 +321,102 @@ public class HomeActivity extends AppCompatActivity {
         boolean isVente = currentUser.isVente();
         boolean isFinance = isComptable || isVente; // section "Finance" = l'un ou l'autre
 
-        tvSectionProduction.setVisibility(isProduction ? View.VISIBLE : View.GONE);
-        gridProduction.setVisibility(isProduction ? View.VISIBLE : View.GONE);
+        // Fermé par défaut (fail-closed) tant que la réponse de /farm-settings n'est pas
+        // arrivée — voir loadFarmAppSettings ci-dessous. Avant, ce bloc restait VISIBLE
+        // pour quiconque avait le rôle PRODUCTION, sans jamais consulter
+        // productionMobileEnabled : un compte multi-rôles (ex: PRODUCTION + COMPTABLE)
+        // pouvait se connecter grâce à un autre rôle actif et voyait quand même les
+        // cartes Production même si l'admin ne les avait pas activées pour ce rôle-là.
+        tvSectionProduction.setVisibility(View.GONE);
+        gridProduction.setVisibility(View.GONE);
 
-        tvSectionFinance.setVisibility(isFinance ? View.VISIBLE : View.GONE);
-        gridFinance.setVisibility(isFinance ? View.VISIBLE : View.GONE);
+        // Comptable et Vente sont deux rôles distincts, chacun avec son propre titre et
+        // sa propre grille — un compte qui n'a que l'un des deux ne doit voir ni le
+        // titre ni les cartes de l'autre (un compte qui cumule les deux voit les deux
+        // sections l'une sous l'autre, jamais mélangées dans la même grille).
+        tvSectionComptable.setVisibility(isComptable ? View.VISIBLE : View.GONE);
+        gridComptable.setVisibility(isComptable ? View.VISIBLE : View.GONE);
+        tvSectionVente.setVisibility(isVente ? View.VISIBLE : View.GONE);
+        gridVente.setVisibility(isVente ? View.VISIBLE : View.GONE);
         // Entrées/sorties du jour — concept propre au COMPTABLE, pas au VENTE (voir
         // updateFinanceStats).
         cardStatsFinance.setVisibility(isComptable ? View.VISIBLE : View.GONE);
 
         // Fermé par défaut (fail-closed, cohérent avec AppAccessRules côté back) tant
         // que la réponse de /farm-settings n'est pas arrivée — voir loadFarmAppSettings,
-        // appelé juste après. Un COMPTABLE ne voit JAMAIS les boutons vente (et
-        // inversement) quel que soit le réglage admin : le rôle lui-même détermine le
-        // jeu de boutons concerné, le toggle ne fait qu'activer/désactiver ce jeu en bloc.
-        if (isFinance) {
+        // appelé juste après. Chaque rôle a son propre jeu de boutons, gardé
+        // indépendamment de l'autre : un COMPTABLE ne voit jamais les boutons vente (et
+        // inversement) quel que soit le réglage admin.
+        if (isComptable) {
+            btnEntreeArgent.setVisibility(View.GONE);
+            btnSortieArgent.setVisibility(View.GONE);
+            btnPayerSalaire.setVisibility(View.GONE);
+        }
+        if (isVente) {
             btnVenteOeufs.setVisibility(View.GONE);
             btnVenteReforme.setVisibility(View.GONE);
             btnVenteFientes.setVisibility(View.GONE);
             btnNouveauClient.setVisibility(View.GONE);
             btnNouvelleCommande.setVisibility(View.GONE);
-            btnEntreeArgent.setVisibility(View.GONE);
-            btnSortieArgent.setVisibility(View.GONE);
+        }
+        if (isProduction || isFinance) {
             loadFarmAppSettings();
         }
     }
 
-    /** Le COMPTABLE a un jeu d'actions fixe (entrée/sortie) et le VENTE un autre (vente
-     * œufs/réforme/fientes) — chacun activé/désactivé en bloc par l'admin (voir
-     * Paramètres côté web, AppAccessRules côté back), plus de granularité par action
-     * comme l'ancien FINANCIER. Si la requête échoue (hors ligne...), les boutons
-     * restent masqués (fail-closed) plutôt que de tout montrer par défaut. */
+    /** PRODUCTION, COMPTABLE et VENTE ont chacun un jeu d'actions mobile fixe,
+     * activé/désactivé en bloc par l'admin (voir Paramètres côté web, AppAccessRules
+     * côté back) — indépendamment du fait que le compte ait pu se connecter grâce à un
+     * AUTRE rôle actif (voir AppAccessRules.canAccessMobile : un cumul de rôles donne
+     * accès à l'app, pas automatiquement à CHAQUE section). Cache local d'abord (voir
+     * CachePrefetcher.CACHE_FARM_SETTINGS) : l'app doit rester intégralement utilisable
+     * hors ligne, y compris le tout premier écran de menu — masquer indéfiniment tant
+     * que le réseau ne répond pas (comme avant ce correctif) cassait le mode hors ligne
+     * pour TOUT le monde, pas seulement pour les rôles gérés ici. Le réseau, s'il
+     * répond, rafraîchit l'affichage et le cache ; à défaut, le dernier réglage connu
+     * reste appliqué plutôt que de tout masquer par défaut. */
     private void loadFarmAppSettings() {
+        String cached = localDatabase.getCache(CachePrefetcher.CACHE_FARM_SETTINGS);
+        if (cached != null) {
+            applyFarmAppSettings(gson.fromJson(cached, FarmAppSettingsResponse.class));
+        }
+
         ApiClient.dataApi(this).getFarmAppSettings().enqueue(new Callback<ApiEnvelope<FarmAppSettingsResponse>>() {
             @Override
             public void onResponse(Call<ApiEnvelope<FarmAppSettingsResponse>> call, Response<ApiEnvelope<FarmAppSettingsResponse>> response) {
                 if (!response.isSuccessful() || response.body() == null || response.body().getData() == null) return;
                 FarmAppSettingsResponse s = response.body().getData();
-                if (currentUser.isComptable()) {
-                    btnEntreeArgent.setVisibility(s.isComptableMobileEnabled() ? View.VISIBLE : View.GONE);
-                    btnSortieArgent.setVisibility(s.isComptableMobileEnabled() ? View.VISIBLE : View.GONE);
-                }
-                if (currentUser.isVente()) {
-                    btnVenteOeufs.setVisibility(s.isVenteMobileEnabled() ? View.VISIBLE : View.GONE);
-                    btnVenteReforme.setVisibility(s.isVenteMobileEnabled() ? View.VISIBLE : View.GONE);
-                    btnVenteFientes.setVisibility(s.isVenteMobileEnabled() ? View.VISIBLE : View.GONE);
-                    btnNouveauClient.setVisibility(s.isVenteMobileEnabled() ? View.VISIBLE : View.GONE);
-                    btnNouvelleCommande.setVisibility(s.isVenteMobileEnabled() ? View.VISIBLE : View.GONE);
-                }
+                localDatabase.putCache(CachePrefetcher.CACHE_FARM_SETTINGS, gson.toJson(s));
+                applyFarmAppSettings(s);
             }
 
             @Override
             public void onFailure(Call<ApiEnvelope<FarmAppSettingsResponse>> call, Throwable t) {
-                Log.e(TAG, "Impossible de charger les accès Finance (boutons restent masqués)", t);
+                Log.e(TAG, "Impossible de charger les accès Finance (dernier réglage connu déjà appliqué depuis le cache le cas échéant)", t);
             }
         });
+    }
+
+    private void applyFarmAppSettings(FarmAppSettingsResponse s) {
+        if (currentUser.isProduction()) {
+            tvSectionProduction.setVisibility(s.isProductionMobileEnabled() ? View.VISIBLE : View.GONE);
+            gridProduction.setVisibility(s.isProductionMobileEnabled() ? View.VISIBLE : View.GONE);
+        }
+        if (currentUser.isComptable()) {
+            btnEntreeArgent.setVisibility(s.isComptableMobileEnabled() ? View.VISIBLE : View.GONE);
+            btnSortieArgent.setVisibility(s.isComptableMobileEnabled() ? View.VISIBLE : View.GONE);
+            // Le Comptable ne peut que PAYER un salaire déjà défini sur mobile — gérer
+            // la grille (ajouter un salarié, fixer son taux) reste une action web (voir
+            // SaisieType.SALAIRE_PAYER, DefinirSalaireDialog côté web).
+            btnPayerSalaire.setVisibility(s.isComptableMobileEnabled() ? View.VISIBLE : View.GONE);
+        }
+        if (currentUser.isVente()) {
+            btnVenteOeufs.setVisibility(s.isVenteMobileEnabled() ? View.VISIBLE : View.GONE);
+            btnVenteReforme.setVisibility(s.isVenteMobileEnabled() ? View.VISIBLE : View.GONE);
+            btnVenteFientes.setVisibility(s.isVenteMobileEnabled() ? View.VISIBLE : View.GONE);
+            btnNouveauClient.setVisibility(s.isVenteMobileEnabled() ? View.VISIBLE : View.GONE);
+            btnNouvelleCommande.setVisibility(s.isVenteMobileEnabled() ? View.VISIBLE : View.GONE);
+        }
     }
 
     /** Charge les projets réels de la ferme (GET /projets/select) pour peupler le sélecteur. */
@@ -530,13 +606,15 @@ public class HomeActivity extends AppCompatActivity {
      * fin prévue, bâtiments occupés) vient de /projets/findbyUniqueId/{uniqueId}.
      * Réseau d'abord, repli sur le cache local hors ligne (voir loadProjets). */
     /** Un projet REFORME (chair) ne produit pas d'œufs : la carte "Collecte d'œufs"
-     * ne doit pas être proposée pour lui, contrairement à PONTE et MIXTE.
-     * Symétriquement, un projet PONTE pur n'a pas de sujets à réformer : "Réforme"
-     * ne lui est proposée que s'il est REFORME ou MIXTE. Ces deux cartes sont
-     * Production, rattachées au projet sélectionné. "Vente d'œufs"/"Vente réforme"
-     * (Finance) restent en revanche TOUJOURS visibles : elles puisent dans un stock
-     * à l'échelle de la ferme entière, indépendant du projet actuellement
-     * sélectionné dans le spinner. Rappelée à chaque changement de projet.
+     * ne doit pas être proposée pour lui, contrairement à PONTE et MIXTE. "Réforme",
+     * en revanche, reste proposée pour TOUS les types de projet, PONTE compris — une
+     * pondeuse est elle aussi réformée en fin de cycle de ponte, ce n'est pas réservé
+     * aux projets chair/mixte (correction du 2026-08-16 : l'ancienne logique masquait
+     * à tort "Réforme" pour un projet PONTE pur). Ces cartes sont Production,
+     * rattachées au projet sélectionné. "Vente d'œufs"/"Vente réforme" (Finance)
+     * restent TOUJOURS visibles indépendamment du projet sélectionné ici : elles
+     * puisent dans un stock à l'échelle de la ferme entière. Rappelée à chaque
+     * changement de projet.
      *
      * GridLayout ne referme PAS automatiquement l'espace d'une carte passée en GONE
      * (limitation connue : le placement automatique réserve quand même sa cellule) —
@@ -544,35 +622,35 @@ public class HomeActivity extends AppCompatActivity {
      * projets chair. On retire/reconstruit la grille à la place, en ne (ré)ajoutant
      * que les cartes réellement visibles, pour qu'elles se resserrent naturellement.
      *
-     * PONTE seule ou REFORME seule : 4 cartes au total, déjà pair — appariées 2 à 2
-     * sans traitement particulier. MIXTE : les 5 cartes (Collecte, Alimentation,
-     * Soins, Mortalité, Réforme) sont impaires, donc Collecte est isolée seule en
-     * pleine largeur en haut (carte "vedette", saisie la plus fréquente) et les 4
-     * restantes sont appariées 2 à 2 — Réforme se retrouve ainsi à côté de
-     * Mortalité au lieu de traîner seule, pleine largeur, tout en bas. */
+     * PONTE/MIXTE : 6 cartes (Collecte, Alimentation, Soins, Vaccination, Mortalité,
+     * Réforme) — pair depuis l'ajout de Vaccination, toutes appariées 2 à 2, plus
+     * besoin d'isoler Collecte en pleine largeur comme avant (l'ancien compte de 5
+     * était impair).
+     * REFORME seul : Collecte masquée, 5 cartes (Alimentation, Soins, Vaccination,
+     * Mortalité, Réforme) — impair, la dernière (Réforme) reste seule sur sa ligne,
+     * sans conséquence visuelle grave (cas plus rare, projets chair uniquement). */
     private void updateSaisieButtonsVisibility() {
         boolean masquerCollecteOeufs = currentProjet != null && currentProjet.isReformeSeule();
-        boolean masquerReforme = currentProjet != null && currentProjet.isPonteSeule();
-        boolean mixte = !masquerCollecteOeufs && !masquerReforme;
 
         gridProduction.removeAllViews();
 
-        if (mixte) {
-            addProductionCard(btnCollecteOeufs, true);
+        if (masquerCollecteOeufs) {
             addProductionCard(btnAlimentation, false);
             addProductionCard(btnSoins, false);
+            addProductionCard(btnVaccination, false);
             addProductionCard(btnMortalite, false);
             addProductionCard(btnReforme, false);
         } else {
-            if (!masquerCollecteOeufs) addProductionCard(btnCollecteOeufs, false);
+            addProductionCard(btnCollecteOeufs, false);
             addProductionCard(btnAlimentation, false);
             addProductionCard(btnSoins, false);
+            addProductionCard(btnVaccination, false);
             addProductionCard(btnMortalite, false);
-            if (!masquerReforme) addProductionCard(btnReforme, false);
+            addProductionCard(btnReforme, false);
         }
 
         btnCollecteOeufs.setVisibility(masquerCollecteOeufs ? View.GONE : View.VISIBLE);
-        btnReforme.setVisibility(masquerReforme ? View.GONE : View.VISIBLE);
+        btnReforme.setVisibility(View.VISIBLE);
     }
 
     private void addProductionCard(CardView card, boolean pleineLargeur) {
@@ -671,6 +749,7 @@ public class HomeActivity extends AppCompatActivity {
         btnCollecteOeufs.setOnClickListener(v -> openSaisie(SaisieType.COLLECTE_OEUFS));
         btnAlimentation.setOnClickListener(v -> showChoixAlimentation());
         btnSoins.setOnClickListener(v -> openSaisie(SaisieType.SOINS));
+        btnVaccination.setOnClickListener(v -> openSaisie(SaisieType.VACCINATION));
         btnMortalite.setOnClickListener(v -> openSaisie(SaisieType.MORTALITE));
         btnReforme.setOnClickListener(v -> openSaisie(SaisieType.REFORME));
 
@@ -682,6 +761,7 @@ public class HomeActivity extends AppCompatActivity {
         btnVenteFientes.setOnClickListener(v -> openSaisie(SaisieType.VENTE_FIENTES));
         btnNouveauClient.setOnClickListener(v -> openSaisie(SaisieType.CLIENT_CREATE));
         btnNouvelleCommande.setOnClickListener(v -> openSaisie(SaisieType.COMMANDE_CREATE));
+        btnPayerSalaire.setOnClickListener(v -> openSaisie(SaisieType.SALAIRE_PAYER));
 
         // Sync — écouteur sur l'ImageButton interne, même raison que btnDiagnostics ci-dessus.
         findViewById(R.id.imgBtnSync).setOnClickListener(v -> forceSync());
@@ -699,7 +779,7 @@ public class HomeActivity extends AppCompatActivity {
         // Commande.java côté back : farm-scopés, pas projet-scopés).
         boolean needsProjet = type != SaisieType.TRANSACTION_ENTREE && type != SaisieType.TRANSACTION_SORTIE
                 && type != SaisieType.VENTE_OEUFS && type != SaisieType.VENTE_REFORME && type != SaisieType.VENTE_FIENTES
-                && type != SaisieType.CLIENT_CREATE && type != SaisieType.COMMANDE_CREATE;
+                && type != SaisieType.CLIENT_CREATE && type != SaisieType.COMMANDE_CREATE && type != SaisieType.SALAIRE_PAYER;
         if (needsProjet && currentProjet == null) {
             Toast.makeText(this, "Veuillez sélectionner un projet", Toast.LENGTH_SHORT).show();
             return;
@@ -888,6 +968,14 @@ public class HomeActivity extends AppCompatActivity {
      * existe toujours dans la liste actualisée — sinon retombe sur le premier projet. */
     private void refreshProjetsEtCache(Runnable onDone) {
         String currentProjetId = currentProjet != null ? currentProjet.getUniqueId() : null;
+
+        // "Synchroniser" doit rafraîchir TOUTES les métadonnées locales, pas seulement
+        // les projets — y compris les accès mobile (Production/Comptable/Vente), sinon
+        // un changement de réglage admin ne remontait sur le terrain qu'au prochain
+        // login. Voir loadFarmAppSettings (cache-first, met aussi à jour le cache local).
+        if (currentUser.isProduction() || currentUser.isComptable() || currentUser.isVente()) {
+            loadFarmAppSettings();
+        }
 
         ApiClient.dataApi(this).getProjetsSelect().enqueue(new Callback<ApiEnvelope<List<ProjetSelectResponse>>>() {
             @Override
