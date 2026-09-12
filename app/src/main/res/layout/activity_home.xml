@@ -5,14 +5,14 @@
     android:layout_width="match_parent"
     android:id="@+id/main_home_act"
     android:layout_height="match_parent"
-    android:background="#F9FAFB">
+    android:background="@color/gray_bg">
 
     <!-- AppBar avec Header et Projet -->
     <com.google.android.material.appbar.AppBarLayout
         android:id="@+id/appBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#10B981"
+        android:background="@color/green_bright"
         android:elevation="4dp">
 
         <!-- Header Agent -->
@@ -60,7 +60,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Agent"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/white"
                     android:textSize="18sp"
                     android:textStyle="bold"/>
 
@@ -82,7 +82,7 @@
                         android:layout_height="wrap_content"
                         android:text="PRODUCTION"
                         android:textSize="10sp"
-                        android:textColor="#059669"
+                        android:textColor="@color/green_bright_dark"
                         android:background="@drawable/badge_white"
                         android:paddingHorizontal="8dp"
                         android:paddingVertical="2dp"
@@ -105,9 +105,9 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:contentDescription="Diagnostics"
-                    android:src="@android:drawable/ic_menu_manage"
+                    android:src="@drawable/ic_diagnostics"
                     android:background="?attr/selectableItemBackgroundBorderless"
-                    app:tint="#FFFFFF" />
+                    app:tint="@color/white" />
             </FrameLayout>
 
             <FrameLayout
@@ -122,10 +122,10 @@
                     android:id="@+id/imgBtnSync"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:contentDescription="TODO"
-                    android:src="@android:drawable/ic_popup_sync"
+                    android:contentDescription="Synchroniser"
+                    android:src="@drawable/ic_sync"
                     android:background="?attr/selectableItemBackgroundBorderless"
-                    />
+                    app:tint="@color/white" />
 
                 <View
                     android:id="@+id/indicatorSync"
@@ -144,7 +144,7 @@
             android:layout_marginHorizontal="16dp"
             android:layout_marginBottom="16dp"
             app:cardCornerRadius="12dp"
-            app:cardBackgroundColor="#FFFFFF">
+            app:cardBackgroundColor="@color/white">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -157,7 +157,7 @@
                     android:layout_height="wrap_content"
                     android:text="Projet actif"
                     android:textSize="11sp"
-                    android:textColor="#6B7280"
+                    android:textColor="@color/gray_text_soft"
                     android:textAllCaps="true"/>
 
                 <Spinner
@@ -191,21 +191,21 @@
                             android:text="0"
                             android:textSize="24sp"
                             android:textStyle="bold"
-                            android:textColor="#10B981"/>
+                            android:textColor="@color/green_bright"/>
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Poules"
                             android:textSize="11sp"
-                            android:textColor="#6B7280"/>
+                            android:textColor="@color/gray_text_soft"/>
                     </LinearLayout>
 
                     <View
                         android:id="@+id/divider1"
                         android:layout_width="1dp"
                         android:layout_height="40dp"
-                        android:background="#E5E7EB"
+                        android:background="@color/gray_divider"
                         app:layout_constraintStart_toEndOf="@id/llStatPoules"
                         app:layout_constraintEnd_toStartOf="@id/llStatPonte"
                         app:layout_constraintTop_toTopOf="parent"/>
@@ -228,21 +228,21 @@
                             android:text="0%"
                             android:textSize="24sp"
                             android:textStyle="bold"
-                            android:textColor="#F59E0B"/>
+                            android:textColor="@color/orange_bright"/>
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Taux ponte"
                             android:textSize="11sp"
-                            android:textColor="#6B7280"/>
+                            android:textColor="@color/gray_text_soft"/>
                     </LinearLayout>
 
                     <View
                         android:id="@+id/divider2"
                         android:layout_width="1dp"
                         android:layout_height="40dp"
-                        android:background="#E5E7EB"
+                        android:background="@color/gray_divider"
                         app:layout_constraintStart_toEndOf="@id/llStatPonte"
                         app:layout_constraintEnd_toStartOf="@id/llStatJours"
                         app:layout_constraintTop_toTopOf="parent"/>
@@ -265,14 +265,14 @@
                             android:text="0j"
                             android:textSize="24sp"
                             android:textStyle="bold"
-                            android:textColor="#3B82F6"/>
+                            android:textColor="@color/blue_bright"/>
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Fin prévue"
                             android:textSize="11sp"
-                            android:textColor="#6B7280"/>
+                            android:textColor="@color/gray_text_soft"/>
                     </LinearLayout>
                 </androidx.constraintlayout.widget.ConstraintLayout>
 
@@ -281,9 +281,9 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
-                    android:text="Poulaillers : —"
+                    android:text="Poulaillers : aucun poulailler assigné"
                     android:textSize="11sp"
-                    android:textColor="#6B7280"/>
+                    android:textColor="@color/gray_text_soft"/>
             </LinearLayout>
         </androidx.cardview.widget.CardView>
     </com.google.android.material.appbar.AppBarLayout>
@@ -309,10 +309,10 @@
                 android:clickable="true"
                 android:foreground="?attr/selectableItemBackground"
                 android:visibility="gone"
-                app:cardCornerRadius="10dp"
-                app:cardBackgroundColor="#FEF2F2"
+                app:cardCornerRadius="12dp"
+                app:cardBackgroundColor="@color/red_soft_bg"
                 app:strokeWidth="1dp"
-                app:strokeColor="#FECACA">
+                app:strokeColor="@color/red_soft_border">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -324,8 +324,8 @@
                     <ImageView
                         android:layout_width="28dp"
                         android:layout_height="28dp"
-                        android:src="@android:drawable/ic_dialog_alert"
-                        app:tint="#DC2626"/>
+                        android:src="@drawable/ic_warning_triangle"
+                        app:tint="@color/red_error"/>
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -340,7 +340,7 @@
                             android:layout_height="wrap_content"
                             android:text="Alertes"
                             android:textSize="12sp"
-                            android:textColor="#B91C1C"
+                            android:textColor="@color/red_text_dark"
                             android:textStyle="bold"/>
 
                         <TextView
@@ -349,7 +349,7 @@
                             android:layout_height="wrap_content"
                             android:text=""
                             android:textSize="14sp"
-                            android:textColor="#374151"
+                            android:textColor="@color/gray_text_medium"
                             android:maxLines="2"
                             android:ellipsize="end"/>
                     </LinearLayout>
@@ -364,10 +364,10 @@
                 android:layout_marginBottom="20dp"
                 android:clickable="true"
                 android:foreground="?attr/selectableItemBackground"
-                app:cardCornerRadius="10dp"
-                app:cardBackgroundColor="#ECFDF5"
+                app:cardCornerRadius="12dp"
+                app:cardBackgroundColor="@color/green_soft_bg"
                 app:strokeWidth="1dp"
-                app:strokeColor="#A7F3D0">
+                app:strokeColor="@color/green_soft_border">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -379,8 +379,8 @@
                     <ImageView
                         android:layout_width="28dp"
                         android:layout_height="28dp"
-                        android:src="@android:drawable/ic_input_add"
-                        android:tint="#10B981"/>
+                        android:src="@drawable/ic_add_circle"
+                        app:tint="@color/green_bright"/>
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -395,7 +395,7 @@
                             android:layout_height="wrap_content"
                             android:text="Dernière saisie"
                             android:textSize="12sp"
-                            android:textColor="#059669"
+                            android:textColor="@color/green_bright_dark"
                             android:textStyle="bold"/>
 
                         <TextView
@@ -404,17 +404,17 @@
                             android:layout_height="wrap_content"
                             android:text="Aucune saisie"
                             android:textSize="14sp"
-                            android:textColor="#374151"/>
+                            android:textColor="@color/gray_text_medium"/>
                     </LinearLayout>
 
                     <TextView
                         android:id="@+id/tvLastEntryTime"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="--"
+                        android:text=""
                         android:textSize="12sp"
-                        android:textColor="#059669"
-                        android:background="#D1FAE5"
+                        android:textColor="@color/green_bright_dark"
+                        android:background="@color/green_soft_bg"
                         android:paddingHorizontal="10dp"
                         android:paddingVertical="4dp"/>
                 </LinearLayout>
@@ -428,7 +428,7 @@
                 android:text="Saisie production"
                 android:textSize="14sp"
                 android:textStyle="bold"
-                android:textColor="#1F2937"
+                android:textColor="@color/gray_text_dark"
                 android:layout_marginBottom="12dp"/>
 
             <GridLayout
@@ -444,7 +444,7 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="#10B981"
+                    app:cardBackgroundColor="@color/green_bright"
                     app:cardElevation="4dp"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
@@ -465,7 +465,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="12dp"
                             android:text="Collecte œufs"
-                            android:textColor="#FFFFFF"
+                            android:textColor="@color/white"
                             android:textSize="16sp"
                             android:textStyle="bold"/>
 
@@ -473,7 +473,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Matin et soir"
-                            android:textColor="#B3FFFFFF"
+                            android:textColor="@color/white_translucent_70"
                             android:textSize="12sp"/>
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
@@ -485,7 +485,7 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="#F59E0B"
+                    app:cardBackgroundColor="@color/orange_bright"
                     app:cardElevation="4dp"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
@@ -506,7 +506,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="12dp"
                             android:text="Alimentation"
-                            android:textColor="#FFFFFF"
+                            android:textColor="@color/white"
                             android:textSize="16sp"
                             android:textStyle="bold"/>
 
@@ -514,7 +514,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Achat ou consommation"
-                            android:textColor="#B3FFFFFF"
+                            android:textColor="@color/white_translucent_70"
                             android:textSize="12sp"/>
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
@@ -526,7 +526,7 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="#F9FAFB"
+                    app:cardBackgroundColor="@color/gray_bg"
                     app:cardElevation="1dp"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
@@ -548,7 +548,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="10dp"
                             android:text="Soins"
-                            android:textColor="#1F2937"
+                            android:textColor="@color/gray_text_dark"
                             android:textSize="14sp"
                             android:textStyle="bold"
                             android:gravity="center"/>
@@ -557,7 +557,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Vaccins, médicaments"
-                            android:textColor="#6B7280"
+                            android:textColor="@color/gray_text_soft"
                             android:textSize="11sp"
                             android:gravity="center"/>
                     </LinearLayout>
@@ -570,7 +570,7 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="#F9FAFB"
+                    app:cardBackgroundColor="@color/gray_bg"
                     app:cardElevation="1dp"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
@@ -592,7 +592,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="10dp"
                             android:text="Vaccination"
-                            android:textColor="#1F2937"
+                            android:textColor="@color/gray_text_dark"
                             android:textSize="14sp"
                             android:textStyle="bold"
                             android:gravity="center"/>
@@ -601,7 +601,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Doses, prix par dose"
-                            android:textColor="#6B7280"
+                            android:textColor="@color/gray_text_soft"
                             android:textSize="11sp"
                             android:gravity="center"/>
                     </LinearLayout>
@@ -614,7 +614,7 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="#F9FAFB"
+                    app:cardBackgroundColor="@color/gray_bg"
                     app:cardElevation="1dp"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
@@ -629,15 +629,15 @@
                         <ImageView
                             android:layout_width="32dp"
                             android:layout_height="32dp"
-                            android:src="@android:drawable/ic_dialog_alert"
-                            android:tint="#EF4444"/>
+                            android:src="@drawable/ic_warning_triangle"
+                            app:tint="@color/red_error"/>
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="10dp"
                             android:text="Mortalité"
-                            android:textColor="#1F2937"
+                            android:textColor="@color/gray_text_dark"
                             android:textSize="14sp"
                             android:textStyle="bold"
                             android:gravity="center"/>
@@ -646,7 +646,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Décès à signaler"
-                            android:textColor="#6B7280"
+                            android:textColor="@color/gray_text_soft"
                             android:textSize="11sp"
                             android:gravity="center"/>
                     </LinearLayout>
@@ -659,7 +659,7 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="#F9FAFB"
+                    app:cardBackgroundColor="@color/gray_bg"
                     app:cardElevation="1dp"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
@@ -681,7 +681,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="10dp"
                             android:text="Réforme"
-                            android:textColor="#1F2937"
+                            android:textColor="@color/gray_text_dark"
                             android:textSize="14sp"
                             android:textStyle="bold"
                             android:gravity="center"/>
@@ -690,7 +690,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Sujets retirés du cheptel"
-                            android:textColor="#6B7280"
+                            android:textColor="@color/gray_text_soft"
                             android:textSize="11sp"
                             android:gravity="center"/>
                     </LinearLayout>
@@ -708,7 +708,7 @@
                 android:text="Saisie comptable"
                 android:textSize="14sp"
                 android:textStyle="bold"
-                android:textColor="#1F2937"
+                android:textColor="@color/gray_text_dark"
                 android:layout_marginTop="24dp"
                 android:layout_marginBottom="12dp"
                 android:visibility="gone"/>
@@ -727,7 +727,7 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="#10B981"
+                    app:cardBackgroundColor="@color/green_bright"
                     app:cardElevation="4dp"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
@@ -741,15 +741,15 @@
                         <ImageView
                             android:layout_width="48dp"
                             android:layout_height="48dp"
-                            android:src="@android:drawable/arrow_down_float"
-                            android:tint="#FFFFFF"/>
+                            android:src="@drawable/ic_arrow_downward"
+                            app:tint="@color/white"/>
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="12dp"
                             android:text="Entrée d'argent"
-                            android:textColor="#FFFFFF"
+                            android:textColor="@color/white"
                             android:textSize="16sp"
                             android:textStyle="bold"/>
 
@@ -757,7 +757,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Vente, remboursement..."
-                            android:textColor="#B3FFFFFF"
+                            android:textColor="@color/white_translucent_70"
                             android:textSize="12sp"/>
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
@@ -769,7 +769,7 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="#DC2626"
+                    app:cardBackgroundColor="@color/red_bright"
                     app:cardElevation="4dp"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
@@ -783,15 +783,15 @@
                         <ImageView
                             android:layout_width="48dp"
                             android:layout_height="48dp"
-                            android:src="@android:drawable/arrow_up_float"
-                            android:tint="#FFFFFF"/>
+                            android:src="@drawable/ic_arrow_upward"
+                            app:tint="@color/white"/>
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="12dp"
                             android:text="Sortie d'argent"
-                            android:textColor="#FFFFFF"
+                            android:textColor="@color/white"
                             android:textSize="16sp"
                             android:textStyle="bold"/>
 
@@ -799,7 +799,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Achat, dépense..."
-                            android:textColor="#B3FFFFFF"
+                            android:textColor="@color/white_translucent_70"
                             android:textSize="12sp"/>
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
@@ -814,7 +814,7 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="#F9FAFB"
+                    app:cardBackgroundColor="@color/gray_bg"
                     app:cardElevation="1dp"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true"
@@ -838,7 +838,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="10dp"
                             android:text="Payer un salaire"
-                            android:textColor="#1F2937"
+                            android:textColor="@color/gray_text_dark"
                             android:textSize="14sp"
                             android:textStyle="bold"
                             android:gravity="center"/>
@@ -847,7 +847,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Grille déjà définie"
-                            android:textColor="#6B7280"
+                            android:textColor="@color/gray_text_soft"
                             android:textSize="11sp"
                             android:gravity="center"/>
                     </LinearLayout>
@@ -862,7 +862,7 @@
                 android:text="Saisie vente"
                 android:textSize="14sp"
                 android:textStyle="bold"
-                android:textColor="#1F2937"
+                android:textColor="@color/gray_text_dark"
                 android:layout_marginTop="24dp"
                 android:layout_marginBottom="12dp"
                 android:visibility="gone"/>
@@ -883,7 +883,7 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="#F9FAFB"
+                    app:cardBackgroundColor="@color/gray_bg"
                     app:cardElevation="1dp"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
@@ -905,7 +905,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="10dp"
                             android:text="Vente d'œufs"
-                            android:textColor="#1F2937"
+                            android:textColor="@color/gray_text_dark"
                             android:textSize="14sp"
                             android:textStyle="bold"
                             android:gravity="center"/>
@@ -914,7 +914,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Plafonnée par le stock (ferme)"
-                            android:textColor="#6B7280"
+                            android:textColor="@color/gray_text_soft"
                             android:textSize="11sp"
                             android:gravity="center"/>
                     </LinearLayout>
@@ -927,7 +927,7 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="#F9FAFB"
+                    app:cardBackgroundColor="@color/gray_bg"
                     app:cardElevation="1dp"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
@@ -949,7 +949,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="10dp"
                             android:text="Vente réforme"
-                            android:textColor="#1F2937"
+                            android:textColor="@color/gray_text_dark"
                             android:textSize="14sp"
                             android:textStyle="bold"
                             android:gravity="center"/>
@@ -958,7 +958,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Plafonnée par le stock (ferme)"
-                            android:textColor="#6B7280"
+                            android:textColor="@color/gray_text_soft"
                             android:textSize="11sp"
                             android:gravity="center"/>
                     </LinearLayout>
@@ -974,7 +974,7 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="#F9FAFB"
+                    app:cardBackgroundColor="@color/gray_bg"
                     app:cardElevation="1dp"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
@@ -997,7 +997,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="10dp"
                             android:text="Vente de fientes"
-                            android:textColor="#1F2937"
+                            android:textColor="@color/gray_text_dark"
                             android:textSize="14sp"
                             android:textStyle="bold"
                             android:gravity="center"/>
@@ -1006,7 +1006,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Transaction manuelle"
-                            android:textColor="#6B7280"
+                            android:textColor="@color/gray_text_soft"
                             android:textSize="11sp"
                             android:gravity="center"/>
                     </LinearLayout>
@@ -1022,7 +1022,7 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="#F9FAFB"
+                    app:cardBackgroundColor="@color/gray_bg"
                     app:cardElevation="1dp"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
@@ -1045,7 +1045,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="10dp"
                             android:text="Nouveau client"
-                            android:textColor="#1F2937"
+                            android:textColor="@color/gray_text_dark"
                             android:textSize="14sp"
                             android:textStyle="bold"
                             android:gravity="center"/>
@@ -1054,7 +1054,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Disponible après synchro"
-                            android:textColor="#6B7280"
+                            android:textColor="@color/gray_text_soft"
                             android:textSize="11sp"
                             android:gravity="center"/>
                     </LinearLayout>
@@ -1069,7 +1069,7 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="#F9FAFB"
+                    app:cardBackgroundColor="@color/gray_bg"
                     app:cardElevation="1dp"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
@@ -1092,7 +1092,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="10dp"
                             android:text="Nouvelle commande"
-                            android:textColor="#1F2937"
+                            android:textColor="@color/gray_text_dark"
                             android:textSize="14sp"
                             android:textStyle="bold"
                             android:gravity="center"/>
@@ -1101,7 +1101,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Client obligatoire"
-                            android:textColor="#6B7280"
+                            android:textColor="@color/gray_text_soft"
                             android:textSize="11sp"
                             android:gravity="center"/>
                     </LinearLayout>
@@ -1116,7 +1116,7 @@
                 android:layout_marginTop="16dp"
                 android:layout_marginHorizontal="6dp"
                 app:cardCornerRadius="12dp"
-                app:cardBackgroundColor="#FFFFFF"
+                app:cardBackgroundColor="@color/white"
                 app:cardElevation="2dp"
                 android:visibility="gone">
 
@@ -1137,7 +1137,7 @@
                             android:layout_height="wrap_content"
                             android:text="Mes entrées aujourd'hui"
                             android:textSize="11sp"
-                            android:textColor="#6B7280"/>
+                            android:textColor="@color/gray_text_soft"/>
 
                         <TextView
                             android:id="@+id/tvMesEntrees"
@@ -1146,13 +1146,13 @@
                             android:text="0 FCFA"
                             android:textSize="18sp"
                             android:textStyle="bold"
-                            android:textColor="#059669"/>
+                            android:textColor="@color/green_bright_dark"/>
                     </LinearLayout>
 
                     <View
                         android:layout_width="1dp"
                         android:layout_height="40dp"
-                        android:background="#E5E7EB"/>
+                        android:background="@color/gray_divider"/>
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -1166,7 +1166,7 @@
                             android:layout_height="wrap_content"
                             android:text="Mes sorties aujourd'hui"
                             android:textSize="11sp"
-                            android:textColor="#6B7280"/>
+                            android:textColor="@color/gray_text_soft"/>
 
                         <TextView
                             android:id="@+id/tvMesSorties"
@@ -1175,7 +1175,7 @@
                             android:text="0 FCFA"
                             android:textSize="18sp"
                             android:textStyle="bold"
-                            android:textColor="#EF4444"/>
+                            android:textColor="@color/red_bright"/>
                     </LinearLayout>
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
@@ -1197,7 +1197,7 @@
         android:layout_marginEnd="16dp"
         android:layout_marginBottom="12dp"
         app:cardElevation="2dp"
-        app:cardBackgroundColor="#FFFFFF">
+        app:cardBackgroundColor="@color/white">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -1228,7 +1228,7 @@
                     android:layout_marginStart="8dp"
                     android:text="En ligne • Sync auto"
                     android:textSize="12sp"
-                    android:textColor="#6B7280"/>
+                    android:textColor="@color/gray_text_soft"/>
             </LinearLayout>
 
             <TextView
@@ -1237,8 +1237,8 @@
                 android:layout_height="wrap_content"
                 android:text="0 saisie"
                 android:textSize="12sp"
-                android:textColor="#F59E0B"
-                android:background="#FFFBEB"
+                android:textColor="@color/orange_bright"
+                android:background="@color/orange_soft_bg"
                 android:paddingHorizontal="10dp"
                 android:paddingVertical="4dp"
                 android:clickable="true"

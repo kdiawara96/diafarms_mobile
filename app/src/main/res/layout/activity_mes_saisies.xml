@@ -70,11 +70,11 @@
                 android:layout_height="16dp"
                 android:layout_gravity="end|center_vertical"
                 android:layout_marginEnd="14dp"
-                android:src="@android:drawable/arrow_down_float"
+                android:src="@drawable/ic_expand_more"
                 android:clickable="false"
                 android:focusable="false"
                 android:importantForAccessibility="no"
-                app:tint="#6B7280" />
+                app:tint="@color/gray_dark" />
         </FrameLayout>
 
     </LinearLayout>

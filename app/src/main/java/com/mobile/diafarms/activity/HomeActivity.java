@@ -513,10 +513,10 @@ public class HomeActivity extends AppCompatActivity {
     }
 
     private void clearProjetDisplay() {
-        tvPoulesCount.setText("—");
-        tvTauxPonte.setText("—");
-        tvJoursRestants.setText("—");
-        tvBatimentsOccupes.setText("Poulaillers : —");
+        tvPoulesCount.setText("");
+        tvTauxPonte.setText("");
+        tvJoursRestants.setText("");
+        tvBatimentsOccupes.setText("Poulaillers : aucun poulailler assigné");
         alertesList = new ArrayList<>();
         cardAlertes.setVisibility(View.GONE);
     }
@@ -703,9 +703,9 @@ public class HomeActivity extends AppCompatActivity {
     }
 
     private void renderProjetDetail(ProjetDetailResponse detail) {
-        tvPoulesCount.setText(detail.getNbSujets() != null ? String.valueOf(detail.getNbSujets()) : "—");
+        tvPoulesCount.setText(detail.getNbSujets() != null ? String.valueOf(detail.getNbSujets()) : "");
         tvTauxPonte.setText(detail.getTauxPonte() != null
-                ? String.format(Locale.FRANCE, "%.0f%%", detail.getTauxPonte()) : "—");
+                ? String.format(Locale.FRANCE, "%.0f%%", detail.getTauxPonte()) : "");
         tvJoursRestants.setText(joursRestants(detail.getFinPrevue()));
 
         List<OccupationBatimentResponse> occupations = detail.getOccupationBatiment();
@@ -724,11 +724,11 @@ public class HomeActivity extends AppCompatActivity {
     private String joursRestants(String finPrevueIso) {
         // SimpleDateFormat/Calendar plutôt que java.time : minSdk 24 sans core library
         // desugaring, java.time planterait (NoClassDefFoundError) sous Android 7/7.1.
-        if (finPrevueIso == null || finPrevueIso.isEmpty()) return "—";
+        if (finPrevueIso == null || finPrevueIso.isEmpty()) return "";
         try {
             SimpleDateFormat isoFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.FRANCE);
             java.util.Date finPrevue = isoFormat.parse(finPrevueIso);
-            if (finPrevue == null) return "—";
+            if (finPrevue == null) return "";
 
             java.util.Calendar today = java.util.Calendar.getInstance();
             today.set(java.util.Calendar.HOUR_OF_DAY, 0);
@@ -740,7 +740,7 @@ public class HomeActivity extends AppCompatActivity {
             long jours = diffMs / (24L * 60 * 60 * 1000);
             return jours >= 0 ? jours + "j" : "Terminé";
         } catch (Exception e) {
-            return "—";
+            return "";
         }
     }
 
@@ -877,7 +877,7 @@ public class HomeActivity extends AppCompatActivity {
         if (all.isEmpty()) {
             tvLastEntryTitle.setText("Dernière saisie");
             tvLastEntryDetail.setText("Aucune saisie pour l'instant");
-            tvLastEntryTime.setText("--");
+            tvLastEntryTime.setText("");
             return;
         }
 

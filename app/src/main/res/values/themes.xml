@@ -7,10 +7,11 @@
         <item name="colorPrimary">@color/primary</item>
         <item name="colorPrimaryVariant">@color/light_primary</item>
         <item name="colorOnPrimary">@color/white</item>
-        <!-- Secondary brand color. -->
-        <item name="colorSecondary">@color/teal_200</item>
-        <item name="colorSecondaryVariant">@color/teal_700</item>
-        <item name="colorOnSecondary">@color/black</item>
+        <!-- Secondary brand color — vert vif de l'accueil, plus cohérent que le
+             teal du template par défaut jamais retouché depuis la création du projet. -->
+        <item name="colorSecondary">@color/green_bright</item>
+        <item name="colorSecondaryVariant">@color/green_bright_dark</item>
+        <item name="colorOnSecondary">@color/white</item>
 
         <!-- FORCER LE FOND BLANC -->
         <item name="android:windowBackground">@color/white</item>

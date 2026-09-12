@@ -211,7 +211,7 @@ public class DiagnosticsActivity extends AppCompatActivity {
 
         confirmAvecMotDePasse("Vider le cache ?", message, "Vider le cache", () -> {
             localDatabase.clearCacheOnly();
-            Toast.makeText(this, "Cache vidé — les données seront rechargées au prochain accès réseau", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Cache vidé, les données seront rechargées au prochain accès réseau", Toast.LENGTH_LONG).show();
         });
     }
 
