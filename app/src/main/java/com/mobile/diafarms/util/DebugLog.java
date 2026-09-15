@@ -14,12 +14,15 @@ import java.util.Locale;
  * Journal de diagnostic écrit sur le stockage externe propre à l'app (pas besoin de
  * permission particulière, récupérable via `adb pull` sans root) — Logcat s'est révélé
  * filtré pour les apps tierces sur ce build "User" (retail), donc inutilisable pour
- * déboguer à distance. Fichier : Android/data/com.mobile.diafarms/files/diafarms_debug.log
+ * déboguer à distance. Fichier : Android/data/com.mobile.diafarms/files/diafarms_debug.txt
  */
 public class DebugLog {
 
-    private static final String FILE_NAME = "diafarms_debug.log";
-    private static final String ERROR_FILE_NAME = "diafarms_errors.log";
+    // .txt (pas .log) : un testeur sur le terrain doit pouvoir ouvrir le fichier
+    // directement depuis son téléphone (gestionnaire de fichiers, appli Notes...),
+    // ce qu'aucune appli n'associe par défaut à l'extension .log.
+    private static final String FILE_NAME = "diafarms_debug.txt";
+    private static final String ERROR_FILE_NAME = "diafarms_errors.txt";
     private static final int MAX_ERROR_BODY_CHARS = 2000;
     private static final String SEPARATOR = "-------------------------------------------------------------";
     private static final SimpleDateFormat TIMESTAMP = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.FRANCE);
