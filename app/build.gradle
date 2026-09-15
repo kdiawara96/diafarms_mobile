@@ -2,6 +2,12 @@ plugins {
     alias(libs.plugins.android.application)
 }
 
+def localProps = new Properties()
+def localPropsFile = rootProject.file('local.properties')
+if (localPropsFile.exists()) {
+    localProps.load(new FileInputStream(localPropsFile))
+}
+
 android {
     namespace 'com.mobile.diafarms'
     compileSdk {
@@ -18,10 +24,26 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        release {
+            // Identifiants lus depuis local.properties (jamais commité, voir
+            // .gitignore) — le fichier .jks lui-même est dans keystore/, aussi
+            // gitignoré. Sans ces deux fichiers présents localement, assembleRelease
+            // échoue proprement plutôt que de produire un APK non signé.
+            if (localProps.getProperty('RELEASE_STORE_FILE')) {
+                storeFile rootProject.file(localProps.getProperty('RELEASE_STORE_FILE'))
+                storePassword localProps.getProperty('RELEASE_STORE_PASSWORD')
+                keyAlias localProps.getProperty('RELEASE_KEY_ALIAS')
+                keyPassword localProps.getProperty('RELEASE_KEY_PASSWORD')
+            }
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
         }
     }
     compileOptions {

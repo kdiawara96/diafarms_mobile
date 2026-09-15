@@ -44,7 +44,7 @@
         </LinearLayout>
 
         <!-- Serveur -->
-        <androidx.cardview.widget.CardView
+        <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_margin="16dp"
@@ -116,10 +116,10 @@
                     android:textSize="13sp"
                     android:visibility="gone" />
             </LinearLayout>
-        </androidx.cardview.widget.CardView>
+        </com.google.android.material.card.MaterialCardView>
 
         <!-- Base de données locale -->
-        <androidx.cardview.widget.CardView
+        <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginHorizontal="16dp"
@@ -160,10 +160,10 @@
                     app:strokeColor="@color/orange_warning"
                     android:textColor="@color/orange_warning" />
             </LinearLayout>
-        </androidx.cardview.widget.CardView>
+        </com.google.android.material.card.MaterialCardView>
 
         <!-- Journal d'erreurs -->
-        <androidx.cardview.widget.CardView
+        <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginHorizontal="16dp"
@@ -234,7 +234,7 @@
                         android:text="Vider" />
                 </LinearLayout>
             </LinearLayout>
-        </androidx.cardview.widget.CardView>
+        </com.google.android.material.card.MaterialCardView>
 
         <!-- Zone dangereuse : suppression complète du compte de cet appareil -->
         <com.google.android.material.card.MaterialCardView
@@ -245,7 +245,7 @@
             app:cardCornerRadius="12dp"
             app:cardElevation="2dp"
             app:cardBackgroundColor="@android:color/white"
-            app:strokeColor="#DC2626"
+            app:strokeColor="@color/red_bright"
             app:strokeWidth="1dp">
 
             <LinearLayout
@@ -258,7 +258,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Zone dangereuse"
-                    android:textColor="#DC2626"
+                    android:textColor="@color/red_bright"
                     android:textSize="16sp"
                     android:textStyle="bold" />
 
@@ -285,7 +285,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
                     android:text="Supprimer ce compte de l'appareil"
-                    app:backgroundTint="#DC2626" />
+                    app:backgroundTint="@color/red_bright" />
 
                 <View
                     android:layout_width="match_parent"
@@ -316,7 +316,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
                     android:text="Vider les données locales"
-                    app:backgroundTint="#DC2626" />
+                    app:backgroundTint="@color/red_bright" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 

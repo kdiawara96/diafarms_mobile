@@ -129,12 +129,20 @@ public class AlertCheckWorker extends Worker {
         String titre = "CRITIQUE".equals(n.getLevel()) ? "⚠️ Alerte Cocorico" : "Cocorico";
         String texte = n.getProjetCode() != null ? n.getProjetCode() + " — " + n.getMessage() : n.getMessage();
 
+        boolean critique = "CRITIQUE".equals(n.getLevel());
         return new NotificationCompat.Builder(context, CHANNEL_ID)
-                .setSmallIcon(R.mipmap.ic_launcher)
+                // Icône dédiée (silhouette blanche) : un mipmap en couleurs (avant)
+                // est rendu par Android comme un bloc blanc plein dans la barre de
+                // statut, illisible — voir ic_notification_small.
+                .setSmallIcon(R.drawable.ic_notification_small)
+                .setLargeIcon(android.graphics.BitmapFactory.decodeResource(context.getResources(), R.drawable.logo_cocorico))
+                .setColor(androidx.core.content.ContextCompat.getColor(context,
+                        critique ? R.color.red_bright : R.color.green_bright))
+                .setColorized(false)
                 .setContentTitle(titre)
                 .setContentText(texte)
                 .setStyle(new NotificationCompat.BigTextStyle().bigText(texte))
-                .setPriority("CRITIQUE".equals(n.getLevel()) ? NotificationCompat.PRIORITY_HIGH : NotificationCompat.PRIORITY_DEFAULT)
+                .setPriority(critique ? NotificationCompat.PRIORITY_HIGH : NotificationCompat.PRIORITY_DEFAULT)
                 .setAutoCancel(true)
                 .setContentIntent(pendingIntent);
     }

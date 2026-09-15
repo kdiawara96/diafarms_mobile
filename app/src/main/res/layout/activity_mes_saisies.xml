@@ -48,34 +48,25 @@
 
         <View android:layout_width="match_parent" android:layout_height="12dp" />
 
-        <!-- Le Spinner natif dessine sa propre flèche dans son background par
-             défaut, mais bg_input_border (custom, pour matcher le style de l'app)
-             la remplace entièrement — sans repère visuel, "Toutes les saisies"
-             ressemblait à un simple libellé plutôt qu'à un menu déroulant tapable.
-             On superpose donc un chevron non cliquable (les touches traversent
-             jusqu'au Spinner en dessous). -->
-        <FrameLayout
+        <!-- Menu déroulant M3 : la boîte arrondie et la flèche sont fournies
+             nativement par le style, plus besoin du chevron superposé à la main
+             qu'exigeait le Spinner classique (voir historique). -->
+        <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
-            android:layout_height="48dp">
+            android:layout_height="wrap_content"
+            android:hint="Filtrer par type"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+            app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
+            app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
 
-            <Spinner
+            <AutoCompleteTextView
                 android:id="@+id/spinnerFiltreType"
                 android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:paddingEnd="32dp"
-                android:background="@drawable/bg_input_border" />
+                android:layout_height="wrap_content"
+                android:inputType="none"
+                android:editable="false" />
 
-            <ImageView
-                android:layout_width="16dp"
-                android:layout_height="16dp"
-                android:layout_gravity="end|center_vertical"
-                android:layout_marginEnd="14dp"
-                android:src="@drawable/ic_expand_more"
-                android:clickable="false"
-                android:focusable="false"
-                android:importantForAccessibility="no"
-                app:tint="@color/gray_dark" />
-        </FrameLayout>
+        </com.google.android.material.textfield.TextInputLayout>
 
     </LinearLayout>
 

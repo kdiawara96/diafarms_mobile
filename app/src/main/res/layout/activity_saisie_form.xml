@@ -53,19 +53,22 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
 
-                <TextView
+                <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Poulailler (optionnel)"
-                    android:textColor="@android:color/black"
-                    android:textSize="14sp"
-                    android:layout_marginBottom="4dp" />
+                    android:hint="Poulailler (optionnel)"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
 
-                <Spinner
-                    android:id="@+id/spinnerBatiment"
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:background="@drawable/bg_input_border" />
+                    <AutoCompleteTextView
+                        android:id="@+id/spinnerBatiment"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none"
+                        android:editable="false" />
+
+                </com.google.android.material.textfield.TextInputLayout>
 
                 <View android:layout_width="match_parent" android:layout_height="16dp" />
             </LinearLayout>
@@ -150,14 +153,22 @@
                 android:orientation="vertical"
                 android:visibility="gone">
 
-                <TextView
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:text="Magasin de stockage *" android:textColor="@android:color/black" android:textSize="14sp"
-                    android:layout_marginBottom="4dp" />
-                <Spinner
-                    android:id="@+id/spinnerBatimentStockage"
-                    android:layout_width="match_parent" android:layout_height="48dp"
-                    android:background="@drawable/bg_input_border" />
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Magasin de stockage *"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
+
+                    <AutoCompleteTextView
+                        android:id="@+id/spinnerBatimentStockage"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none"
+                        android:editable="false" />
+
+                </com.google.android.material.textfield.TextInputLayout>
 
                 <TextView
                     android:id="@+id/tvStockBatimentStockage"
@@ -245,14 +256,22 @@
                 android:orientation="vertical"
                 android:visibility="gone">
 
-                <TextView
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:text="Type de soin" android:textColor="@android:color/black" android:textSize="14sp"
-                    android:layout_marginBottom="4dp" />
-                <Spinner
-                    android:id="@+id/spinnerTypeSoin"
-                    android:layout_width="match_parent" android:layout_height="48dp"
-                    android:background="@drawable/bg_input_border" />
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Type de soin"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
+
+                    <AutoCompleteTextView
+                        android:id="@+id/spinnerTypeSoin"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none"
+                        android:editable="false" />
+
+                </com.google.android.material.textfield.TextInputLayout>
 
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 
@@ -534,28 +553,44 @@
                 android:orientation="vertical"
                 android:visibility="gone">
 
-                <TextView
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:text="Magasin de vente" android:textColor="@android:color/black" android:textSize="14sp"
-                    android:layout_marginBottom="4dp" />
-                <Spinner
-                    android:id="@+id/spinnerMagasinOeufs"
-                    android:layout_width="match_parent" android:layout_height="48dp"
-                    android:background="@drawable/bg_input_border" />
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Magasin de vente"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
+
+                    <AutoCompleteTextView
+                        android:id="@+id/spinnerMagasinOeufs"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none"
+                        android:editable="false" />
+
+                </com.google.android.material.textfield.TextInputLayout>
 
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 
                 <!-- Optionnel — seuls les clients déjà synchronisés apparaissent (voir
                      SaisieFormActivity.loadClients) : "Vente directe" reste le choix par
                      défaut, comme côté web. -->
-                <TextView
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:text="Client (optionnel)" android:textColor="@android:color/black" android:textSize="14sp"
-                    android:layout_marginBottom="4dp" />
-                <Spinner
-                    android:id="@+id/spinnerClientVenteOeufs"
-                    android:layout_width="match_parent" android:layout_height="48dp"
-                    android:background="@drawable/bg_input_border" />
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Client (optionnel)"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
+
+                    <AutoCompleteTextView
+                        android:id="@+id/spinnerClientVenteOeufs"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none"
+                        android:editable="false" />
+
+                </com.google.android.material.textfield.TextInputLayout>
 
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 
@@ -668,25 +703,41 @@
                 android:orientation="vertical"
                 android:visibility="gone">
 
-                <TextView
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:text="Magasin de vente" android:textColor="@android:color/black" android:textSize="14sp"
-                    android:layout_marginBottom="4dp" />
-                <Spinner
-                    android:id="@+id/spinnerMagasinReforme"
-                    android:layout_width="match_parent" android:layout_height="48dp"
-                    android:background="@drawable/bg_input_border" />
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Magasin de vente"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
+
+                    <AutoCompleteTextView
+                        android:id="@+id/spinnerMagasinReforme"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none"
+                        android:editable="false" />
+
+                </com.google.android.material.textfield.TextInputLayout>
 
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 
-                <TextView
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:text="Client (optionnel)" android:textColor="@android:color/black" android:textSize="14sp"
-                    android:layout_marginBottom="4dp" />
-                <Spinner
-                    android:id="@+id/spinnerClientVenteReforme"
-                    android:layout_width="match_parent" android:layout_height="48dp"
-                    android:background="@drawable/bg_input_border" />
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Client (optionnel)"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
+
+                    <AutoCompleteTextView
+                        android:id="@+id/spinnerClientVenteReforme"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none"
+                        android:editable="false" />
+
+                </com.google.android.material.textfield.TextInputLayout>
 
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 
@@ -853,14 +904,22 @@
                 android:orientation="vertical"
                 android:visibility="gone">
 
-                <TextView
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:text="Client *" android:textColor="@android:color/black" android:textSize="14sp"
-                    android:layout_marginBottom="4dp" />
-                <Spinner
-                    android:id="@+id/spinnerClientCommande"
-                    android:layout_width="match_parent" android:layout_height="48dp"
-                    android:background="@drawable/bg_input_border" />
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Client *"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
+
+                    <AutoCompleteTextView
+                        android:id="@+id/spinnerClientCommande"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none"
+                        android:editable="false" />
+
+                </com.google.android.material.textfield.TextInputLayout>
 
                 <TextView
                     android:id="@+id/tvAucunClientCommande"
@@ -874,14 +933,22 @@
 
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 
-                <TextView
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:text="Magasin de vente" android:textColor="@android:color/black" android:textSize="14sp"
-                    android:layout_marginBottom="4dp" />
-                <Spinner
-                    android:id="@+id/spinnerMagasinCommande"
-                    android:layout_width="match_parent" android:layout_height="48dp"
-                    android:background="@drawable/bg_input_border" />
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Magasin de vente"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
+
+                    <AutoCompleteTextView
+                        android:id="@+id/spinnerMagasinCommande"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none"
+                        android:editable="false" />
+
+                </com.google.android.material.textfield.TextInputLayout>
 
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 
@@ -1003,14 +1070,22 @@
                 android:orientation="vertical"
                 android:visibility="gone">
 
-                <TextView
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:text="Employé *" android:textColor="@android:color/black" android:textSize="14sp"
-                    android:layout_marginBottom="4dp" />
-                <Spinner
-                    android:id="@+id/spinnerEmployeSalaire"
-                    android:layout_width="match_parent" android:layout_height="48dp"
-                    android:background="@drawable/bg_input_border" />
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Employé *"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
+
+                    <AutoCompleteTextView
+                        android:id="@+id/spinnerEmployeSalaire"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none"
+                        android:editable="false" />
+
+                </com.google.android.material.textfield.TextInputLayout>
 
                 <TextView
                     android:id="@+id/tvAucunSalaireEmploye"
@@ -1031,15 +1106,41 @@
                 <LinearLayout
                     android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:orientation="horizontal">
-                    <Spinner
-                        android:id="@+id/spinnerMoisSalaire"
-                        android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1"
-                        android:background="@drawable/bg_input_border" />
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:hint="Mois"
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                        app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
+                        app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
+
+                        <AutoCompleteTextView
+                            android:id="@+id/spinnerMoisSalaire"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="none"
+                            android:editable="false" />
+
+                    </com.google.android.material.textfield.TextInputLayout>
                     <View android:layout_width="8dp" android:layout_height="1dp" />
-                    <Spinner
-                        android:id="@+id/spinnerAnneeSalaire"
-                        android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1"
-                        android:background="@drawable/bg_input_border" />
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:hint="Année"
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                        app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
+                        app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
+
+                        <AutoCompleteTextView
+                            android:id="@+id/spinnerAnneeSalaire"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="none"
+                            android:editable="false" />
+
+                    </com.google.android.material.textfield.TextInputLayout>
                 </LinearLayout>
 
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
@@ -1099,14 +1200,22 @@
                 android:orientation="vertical"
                 android:visibility="gone">
 
-                <TextView
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:text="Catégorie" android:textColor="@android:color/black" android:textSize="14sp"
-                    android:layout_marginBottom="4dp" />
-                <Spinner
-                    android:id="@+id/spinnerCategorie"
-                    android:layout_width="match_parent" android:layout_height="48dp"
-                    android:background="@drawable/bg_input_border" />
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Catégorie"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
+
+                    <AutoCompleteTextView
+                        android:id="@+id/spinnerCategorie"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none"
+                        android:editable="false" />
+
+                </com.google.android.material.textfield.TextInputLayout>
 
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 

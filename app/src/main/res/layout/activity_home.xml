@@ -8,11 +8,19 @@
     android:background="@color/gray_bg">
 
     <!-- AppBar avec Header et Projet -->
+    <!-- android:theme désactive la superposition M3 "elevation overlay" pour cette
+         vue précise, quel que soit le mode sombre/clair du système — sans ça, sur
+         certains appareils, AppBarLayout ignore le fond vert explicite et applique sa
+         propre teinte de "surface" M3 par défaut (violet pâle du thème de base),
+         constaté en direct sur un appareil alors qu'un autre affichait le vert normal. -->
     <com.google.android.material.appbar.AppBarLayout
         android:id="@+id/appBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@color/green_bright"
+        app:backgroundTint="@color/green_bright"
+        app:liftOnScroll="false"
+        android:theme="@style/ThemeOverlay.Diafarms.NoElevationOverlay"
         android:elevation="4dp">
 
         <!-- Header Agent -->
@@ -152,19 +160,23 @@
                 android:orientation="vertical"
                 android:padding="12dp">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Projet actif"
-                    android:textSize="11sp"
-                    android:textColor="@color/gray_text_soft"
-                    android:textAllCaps="true"/>
-
-                <Spinner
-                    android:id="@+id/spinnerProjets"
+                <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:layout_marginTop="4dp"/>
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:hint="Projet actif"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
+
+                    <AutoCompleteTextView
+                        android:id="@+id/spinnerProjets"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none"
+                        android:editable="false"/>
+
+                </com.google.android.material.textfield.TextInputLayout>
 
                 <androidx.constraintlayout.widget.ConstraintLayout
                     android:id="@+id/clProjetResume"
@@ -1245,14 +1257,14 @@
                 android:foreground="?attr/selectableItemBackground"
                 android:visibility="gone"/>
 
-            <Button
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnSyncNow"
                 android:layout_width="wrap_content"
                 android:layout_height="40dp"
                 android:layout_marginStart="12dp"
                 android:text="Sync"
                 android:textSize="12sp"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
+                style="@style/Widget.Material3.Button.TextButton"
                 android:visibility="gone"/>
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>

@@ -21,7 +21,20 @@
         <!-- Status bar color. -->
         <!-- S <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>-->
        <!-- Customize your theme here. -->
+
+        <!-- Tentative de système de formes M3 global (shapeAppearanceCornerSmall/
+             Medium/Large) retirée : coïncidait avec un entête délavé sur un appareil,
+             mais le vrai coupable identifié ensuite est ThemeOverlay.Diafarms.
+             NoElevationOverlay (voir activity_home.xml) — gardé simple ici. -->
     </style>
 
+    <!-- Désactive la superposition M3 "elevation overlay" (teinte de surface selon
+         l'élévation) pour une vue précise. Sans ça, sur certains appareils (constaté
+         en direct : dépend du mode sombre/clair du système, indépendamment du thème
+         "Light" forcé de l'appli), AppBarLayout ignore son android:background et
+         affiche la couleur de surface M3 par défaut (violet pâle du thème de base). -->
+    <style name="ThemeOverlay.Diafarms.NoElevationOverlay" parent="">
+        <item name="elevationOverlayEnabled">false</item>
+    </style>
 
 </resources>

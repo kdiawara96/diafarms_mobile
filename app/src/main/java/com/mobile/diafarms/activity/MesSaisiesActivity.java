@@ -1,6 +1,5 @@
 package com.mobile.diafarms.activity;
 
-import android.app.AlertDialog;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -12,7 +11,7 @@ import android.widget.BaseAdapter;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.ListView;
-import android.widget.Spinner;
+import android.widget.AutoCompleteTextView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -24,6 +23,7 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.mobile.diafarms.R;
 import com.mobile.diafarms.data.LocalDatabase;
 import com.mobile.diafarms.models.SaisieLocale;
@@ -43,7 +43,7 @@ import java.util.Locale;
 public class MesSaisiesActivity extends AppCompatActivity {
 
     private LocalDatabase localDatabase;
-    private Spinner spinnerFiltreType;
+    private AutoCompleteTextView spinnerFiltreType;
     private ListView listSaisies;
     private TextView tvEmpty;
     private SaisieAdapter adapter;
@@ -92,19 +92,13 @@ public class MesSaisiesActivity extends AppCompatActivity {
         for (SaisieType t : SaisieType.values()) {
             labels.add(t.getLabel());
         }
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, labels);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, labels);
         spinnerFiltreType.setAdapter(adapter);
+        spinnerFiltreType.setText(labels.get(0), false);
 
-        spinnerFiltreType.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
-                filtreActuel = position == 0 ? null : SaisieType.values()[position - 1];
-                refreshList();
-            }
-
-            @Override
-            public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+        spinnerFiltreType.setOnItemClickListener((parent, view, position, id) -> {
+            filtreActuel = position == 0 ? null : SaisieType.values()[position - 1];
+            refreshList();
         });
     }
 
@@ -128,7 +122,7 @@ public class MesSaisiesActivity extends AppCompatActivity {
     }
 
     private void confirmDelete(SaisieLocale saisie) {
-        new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("Supprimer cette saisie")
                 .setMessage("Cette saisie locale sera définitivement supprimée. Continuer ?")
                 .setPositiveButton("Supprimer", (dialog, which) -> {

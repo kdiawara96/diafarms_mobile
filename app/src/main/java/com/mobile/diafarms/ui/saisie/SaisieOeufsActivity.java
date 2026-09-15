@@ -7,7 +7,7 @@ import android.text.TextWatcher;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.Spinner;
+import android.widget.AutoCompleteTextView;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.activity.EdgeToEdge;
@@ -27,7 +27,7 @@ import java.util.UUID;
 public class SaisieOeufsActivity extends AppCompatActivity {
 
     private TextView tvProjetTitre, tvDate, tvResume;
-    private Spinner spinnerBatiment;
+    private AutoCompleteTextView spinnerBatiment;
     private EditText etQuantite, etOeufsCasses;
     private Button btnValider;
     private TextView btnBack, btnHistorique;
@@ -80,9 +80,9 @@ public class SaisieOeufsActivity extends AppCompatActivity {
 
         String[] batiments = {"Bâtiment A", "Bâtiment B", "Bâtiment C", "Poulailler principal"};
         ArrayAdapter<String> adapterBat = new ArrayAdapter<>(this,
-                android.R.layout.simple_spinner_item, batiments);
-        adapterBat.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                android.R.layout.simple_dropdown_item_1line, batiments);
         spinnerBatiment.setAdapter(adapterBat);
+        spinnerBatiment.setText(batiments[0], false);
     }
 
     private void setupListeners() {
@@ -148,7 +148,7 @@ public class SaisieOeufsActivity extends AppCompatActivity {
         collecte.setProjetId(projetId);
         collecte.setDate(dateFormat.format(new Date()));
         collecte.setQuantite(quantite);
-        collecte.setBatiment(spinnerBatiment.getSelectedItem().toString());
+        collecte.setBatiment(spinnerBatiment.getText().toString());
         collecte.setOeufsCasses(casses);
         collecte.setSaisiPar(userId);
         collecte.setSyncStatus("local");

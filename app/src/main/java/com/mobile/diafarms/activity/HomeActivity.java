@@ -7,18 +7,19 @@ import android.net.Network;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
-import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.GridLayout;
-import android.widget.Spinner;
+import android.widget.AutoCompleteTextView;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -89,7 +90,7 @@ public class HomeActivity extends AppCompatActivity {
     private View indicatorSync;
 
     // Vues Projet
-    private Spinner spinnerProjets;
+    private AutoCompleteTextView spinnerProjets;
     private TextView tvPoulesCount;
     private TextView tvTauxPonte;
     private TextView tvJoursRestants;
@@ -143,6 +144,15 @@ public class HomeActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // Edge-to-edge explicite : sans ça, l'inset listener ci-dessous ne reçoit
+        // jamais de valeur non nulle sur la plupart des appareils (Android < 15 ne
+        // force pas l'edge-to-edge tout seul), et l'entête verte s'arrête juste sous
+        // la barre de statut au lieu de remonter jusqu'en haut derrière l'heure/la
+        // batterie — d'où le vide blanc constaté au-dessus de l'entête.
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        getWindow().setStatusBarColor(android.graphics.Color.TRANSPARENT);
+        new WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView())
+                .setAppearanceLightStatusBars(false); // icônes heure/batterie en blanc, lisibles sur le vert
         setContentView(R.layout.activity_home);
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.appBar), (v, insets) -> {
@@ -294,7 +304,7 @@ public class HomeActivity extends AppCompatActivity {
             roles.append("Administration");
         }
 
-        android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this)
+        androidx.appcompat.app.AlertDialog dialog = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle(currentUser.getNom())
                 .setMessage(roles.length() > 0 ? roles.toString() : "Aucun rôle")
                 .setPositiveButton("Déconnecter", (d, which) -> logout())
@@ -304,7 +314,7 @@ public class HomeActivity extends AppCompatActivity {
         // Bouton par défaut du thème (vert primaire) pour les deux actions — "Déconnecter"
         // se confondait visuellement avec "Fermer" alors que c'est la seule des deux qui
         // change réellement l'état de la session.
-        dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setTextColor(getColor(R.color.red_error));
+        dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setTextColor(getColor(R.color.red_error));
     }
 
     private void logout() {
@@ -485,22 +495,18 @@ public class HomeActivity extends AppCompatActivity {
         }
 
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this,
-                android.R.layout.simple_spinner_item, projetLabels);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                android.R.layout.simple_dropdown_item_1line, projetLabels);
         spinnerProjets.setAdapter(adapter);
+        // Contrairement à Spinner, AutoCompleteTextView n'affiche rien tout seul après
+        // setAdapter() : il faut fixer le texte affiché explicitement.
+        spinnerProjets.setText(projetLabels.get(0), false);
 
-        spinnerProjets.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                if (position < projetsList.size()) {
-                    currentProjet = projetsList.get(position);
-                    sessionManager.setCurrentProjetId(currentProjet.getUniqueId());
-                    updateProjetDisplay();
-                }
+        spinnerProjets.setOnItemClickListener((parent, view, position, id) -> {
+            if (position < projetsList.size()) {
+                currentProjet = projetsList.get(position);
+                sessionManager.setCurrentProjetId(currentProjet.getUniqueId());
+                updateProjetDisplay();
             }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {}
         });
 
         if (!projetsList.isEmpty()) {
@@ -580,7 +586,7 @@ public class HomeActivity extends AppCompatActivity {
             String niveau = "CRITIQUE".equalsIgnoreCase(n.getLevel()) ? "🔴" : "🟠";
             sb.append(niveau).append(" ").append(n.getMessage()).append("\n\n");
         }
-        new android.app.AlertDialog.Builder(this)
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle("Alertes du projet")
                 .setMessage(sb.toString().trim())
                 .setPositiveButton("Marquer tout comme lu", (dialog, which) -> markAllAlertesRead())
@@ -797,7 +803,7 @@ public class HomeActivity extends AppCompatActivity {
     /** La carte "Alimentation" couvre les deux flux (achat = entrant, consommation =
      * sortant) : on demande lequel plutôt que d'avoir une carte séparée sur l'accueil. */
     private void showChoixAlimentation() {
-        new android.app.AlertDialog.Builder(this)
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle("Alimentation")
                 .setItems(new CharSequence[]{"Achat (entrant)", "Consommation (sortant)"}, (dialog, which) -> {
                     openSaisie(which == 0 ? SaisieType.ALIMENTATION_ACHAT : SaisieType.ALIMENTATION_CONSOMMATION);
@@ -1001,7 +1007,13 @@ public class HomeActivity extends AppCompatActivity {
         if (previousProjetId == null) return;
         for (int i = 0; i < projetsList.size(); i++) {
             if (previousProjetId.equals(projetsList.get(i).getUniqueId())) {
-                spinnerProjets.setSelection(i);
+                // setText(..., false) ne déclenche jamais setOnItemClickListener (à la
+                // différence de Spinner.setSelection()) : on reproduit donc ici à la main
+                // ce que le listener aurait fait.
+                currentProjet = projetsList.get(i);
+                spinnerProjets.setText(currentProjet.getLabel(), false);
+                sessionManager.setCurrentProjetId(currentProjet.getUniqueId());
+                updateProjetDisplay();
                 break;
             }
         }

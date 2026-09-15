@@ -144,12 +144,22 @@
                     android:letterSpacing="0.1"
                     android:layout_marginBottom="12dp" />
 
-                <Spinner
-                    android:id="@+id/spinnerBatiment"
+                <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:background="#F5F5F5"
-                    android:padding="12dp" />
+                    android:layout_height="wrap_content"
+                    android:hint="Bâtiment"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
+
+                    <AutoCompleteTextView
+                        android:id="@+id/spinnerBatiment"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none"
+                        android:editable="false" />
+
+                </com.google.android.material.textfield.TextInputLayout>
 
             </LinearLayout>
 

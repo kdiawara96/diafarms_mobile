@@ -20,7 +20,8 @@
         <!-- Status bar color. -->
         <!-- S <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>-->
         <!-- Customize your theme here. -->
-    </style>
 
+        <!-- Système de formes M3 global retiré : voir values/themes.xml. -->
+    </style>
 
 </resources>
