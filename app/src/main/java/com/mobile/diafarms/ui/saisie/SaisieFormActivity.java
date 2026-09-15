@@ -1,18 +1,15 @@
 package com.mobile.diafarms.ui.saisie;
 
-import android.app.DatePickerDialog;
-import android.app.TimePickerDialog;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.View;
-import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
+import android.widget.AutoCompleteTextView;
 import android.widget.CheckBox;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.RadioGroup;
-import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -135,14 +132,21 @@ public class SaisieFormActivity extends AppCompatActivity {
 
     // Vues communes
     private TextView tvTitreForm, tvProjetForm, tvStockInfo;
+    // Dernière valeur de stock connue (synchronisée ou en cache hors ligne) pour le
+    // projet actif — sert à bloquer une saisie de consommation intenable AVANT de la
+    // créer/mettre en file d'attente, plutôt que de laisser l'utilisateur remplir tout
+    // le formulaire pour découvrir le rejet seulement à l'envoi (voir onValider, cas
+    // ALIMENTATION_CONSOMMATION). null tant qu'aucune valeur n'est connue (jamais
+    // bloquant dans ce cas : pas de fausse alerte faute de donnée).
+    private Double stockAlimentRestantConnu;
     private View groupBatimentTop, groupDateHeureTop;
-    private Spinner spinnerBatiment;
+    private AutoCompleteTextView spinnerBatiment;
     private TextInputEditText etDate, etHeure;
     private MaterialButton btnValiderForm;
 
     // Collecte
     private View groupCollecte;
-    private Spinner spinnerBatimentStockage;
+    private AutoCompleteTextView spinnerBatimentStockage;
     private TextView tvStockBatimentStockage;
     // Compté en deux temps comme sur le terrain (voir AlveoleUtils) : alvéoles pleines
     // + œufs qui ne remplissent pas un plateau entier, total = alvéoles×30 + œufs.
@@ -152,7 +156,7 @@ public class SaisieFormActivity extends AppCompatActivity {
 
     // Soins
     private View groupSoins;
-    private Spinner spinnerTypeSoin;
+    private AutoCompleteTextView spinnerTypeSoin;
     private TextInputEditText etProduit, etQuantiteSoin, etCoutSoin, etObservationsSoin;
 
     // Vaccination (distinct de Soins)
@@ -185,8 +189,8 @@ public class SaisieFormActivity extends AppCompatActivity {
     // séparé par magasin), calculé côté serveur (voir stockOeufsDisponible, jamais
     // recalculé sur l'appareil).
     private View groupVenteOeufs;
-    private Spinner spinnerMagasinOeufs;
-    private Spinner spinnerClientVenteOeufs;
+    private AutoCompleteTextView spinnerMagasinOeufs;
+    private AutoCompleteTextView spinnerClientVenteOeufs;
     private TextView tvStockOeufsInfo;
     // Unité de saisie de etQuantiteOeufsVente/etPrixUnitaireOeufs (voir AlveoleUtils) —
     // Œuf ou Alvéole (plateau de 30 œufs) ; req.quantiteOeufs envoyé au serveur reste
@@ -216,8 +220,8 @@ public class SaisieFormActivity extends AppCompatActivity {
     // MAGASIN moins déjà vendu (voir stockReformeDisponible) — distinct de l'effectif
     // vivant d'UN projet (effectifReformeDisponible, saisie Réforme Production).
     private View groupVenteReforme;
-    private Spinner spinnerMagasinReforme;
-    private Spinner spinnerClientVenteReforme;
+    private AutoCompleteTextView spinnerMagasinReforme;
+    private AutoCompleteTextView spinnerClientVenteReforme;
     private TextView tvStockReformeInfo;
     private TextInputEditText etNombreSujetsVente, etPrixUnitaireReforme, etMontantVenteReforme, etMontantRapporteVenteReforme;
     private Integer stockReformeDisponible;
@@ -238,9 +242,9 @@ public class SaisieFormActivity extends AppCompatActivity {
     // (spinnerClientCommande, pas d'option "aucun"), contrairement aux ventes. Voir
     // Commande.java côté back.
     private View groupCommande;
-    private Spinner spinnerClientCommande;
+    private AutoCompleteTextView spinnerClientCommande;
     private TextView tvAucunClientCommande;
-    private Spinner spinnerMagasinCommande;
+    private AutoCompleteTextView spinnerMagasinCommande;
     private RadioGroup radioGroupTypeCommande;
     // Unité de saisie (Œuf/Alvéole), visible seulement pour le type Œufs — même
     // patron que radioGroupUniteVenteOeufs (groupVenteOeufs) : jamais l'alvéole
@@ -256,7 +260,7 @@ public class SaisieFormActivity extends AppCompatActivity {
     // loadSalaires/CachePrefetcher.CACHE_SALAIRES_SELECT), aucune gestion de la grille
     // elle-même ici (ça reste une action web, voir SaisieType.SALAIRE_PAYER).
     private View groupSalaire;
-    private Spinner spinnerEmployeSalaire, spinnerMoisSalaire, spinnerAnneeSalaire;
+    private AutoCompleteTextView spinnerEmployeSalaire, spinnerMoisSalaire, spinnerAnneeSalaire;
     private TextView tvAucunSalaireEmploye, tvTauxInfoSalaire;
     private TextInputLayout tilQuantiteSalaire;
     private TextInputEditText etQuantiteSalaire, etMontantSalaire, etDescriptionSalaire;
@@ -266,7 +270,7 @@ public class SaisieFormActivity extends AppCompatActivity {
 
     // Transaction
     private View groupTransaction;
-    private Spinner spinnerCategorie;
+    private AutoCompleteTextView spinnerCategorie;
     private TextInputEditText etMontant, etDescriptionTransaction;
     private CheckBox checkCommun;
     private View groupProjetsConcernes;
@@ -356,15 +360,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         groupCollecte = findViewById(R.id.groupCollecte);
         spinnerBatimentStockage = findViewById(R.id.spinnerBatimentStockage);
         tvStockBatimentStockage = findViewById(R.id.tvStockBatimentStockage);
-        spinnerBatimentStockage.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                loadStockBatimentStockageSelectionne();
-            }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) { }
-        });
+        spinnerBatimentStockage.setOnItemClickListener((parent, view, position, id) -> loadStockBatimentStockageSelectionne());
         etAlveolesCollectees = findViewById(R.id.etAlveolesCollectees);
         etOeufsCollectes = findViewById(R.id.etOeufsCollectes);
         etOeufsCasses = findViewById(R.id.etOeufsCasses);
@@ -417,15 +413,7 @@ public class SaisieFormActivity extends AppCompatActivity {
 
         groupVenteOeufs = findViewById(R.id.groupVenteOeufs);
         spinnerMagasinOeufs = findViewById(R.id.spinnerMagasinOeufs);
-        spinnerMagasinOeufs.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                loadStockPourMagasinSelectionne();
-            }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) { }
-        });
+        spinnerMagasinOeufs.setOnItemClickListener((parent, view, position, id) -> loadStockPourMagasinSelectionne());
         spinnerClientVenteOeufs = findViewById(R.id.spinnerClientVenteOeufs);
         tvStockOeufsInfo = findViewById(R.id.tvStockOeufsInfo);
         radioGroupTypeOeufVente = findViewById(R.id.radioGroupTypeOeufVente);
@@ -464,15 +452,7 @@ public class SaisieFormActivity extends AppCompatActivity {
 
         groupVenteReforme = findViewById(R.id.groupVenteReforme);
         spinnerMagasinReforme = findViewById(R.id.spinnerMagasinReforme);
-        spinnerMagasinReforme.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                loadStockPourMagasinSelectionne();
-            }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) { }
-        });
+        spinnerMagasinReforme.setOnItemClickListener((parent, view, position, id) -> loadStockPourMagasinSelectionne());
         spinnerClientVenteReforme = findViewById(R.id.spinnerClientVenteReforme);
         tvStockReformeInfo = findViewById(R.id.tvStockReformeInfo);
         etNombreSujetsVente = findViewById(R.id.etNombreSujetsVente);
@@ -539,16 +519,13 @@ public class SaisieFormActivity extends AppCompatActivity {
         etAcompteCommande = findViewById(R.id.etAcompteCommande);
         etDateLivraisonCommande = findViewById(R.id.etDateLivraisonCommande);
         etDateLivraisonCommande.setHint("Aucune");
-        etDateLivraisonCommande.setOnClickListener(v -> {
-            Calendar base = dateLivraisonCal;
-            DatePickerDialog dialog = new DatePickerDialog(this, (view, year, month, day) -> {
-                dateLivraisonCal.set(year, month, day);
-                etDateLivraisonCommande.setText(isoDate.format(dateLivraisonCal.getTime()));
-            }, base.get(Calendar.YEAR), base.get(Calendar.MONTH), base.get(Calendar.DAY_OF_MONTH));
-            // Pas de setMaxDate ici (contrairement à etDate) : une livraison prévue est
-            // par nature une date future, jamais bornée à aujourd'hui.
-            dialog.show();
-        });
+        etDateLivraisonCommande.setOnClickListener(v ->
+                // Pas de maxAujourdhui ici (contrairement à etDate) : une livraison
+                // prévue est par nature une date future, jamais bornée à aujourd'hui.
+                showMaterialDatePicker(dateLivraisonCal, false, chosen -> {
+                    dateLivraisonCal.setTimeInMillis(chosen.getTimeInMillis());
+                    etDateLivraisonCommande.setText(isoDate.format(dateLivraisonCal.getTime()));
+                }));
         TextWatcher commandeWatcher = new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) { recalculerMontantEstimeCommande(); }
@@ -568,15 +545,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         etMontantSalaire = findViewById(R.id.etMontantSalaire);
         etDescriptionSalaire = findViewById(R.id.etDescriptionSalaire);
         setupSalaireSpinners();
-        spinnerEmployeSalaire.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                applySalaireEmployeSelectionne();
-            }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) { }
-        });
+        spinnerEmployeSalaire.setOnItemClickListener((parent, view, position, id) -> applySalaireEmployeSelectionne());
         TextWatcher quantiteSalaireWatcher = new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) { recalculerMontantSalaire(); }
@@ -601,15 +570,16 @@ public class SaisieFormActivity extends AppCompatActivity {
         });
         btnToutSelectionner.setOnClickListener(v -> toggleToutSelectionner());
 
+        String[] categories = categoriesPourType();
         ArrayAdapter<String> categorieAdapter = new ArrayAdapter<>(this,
-                android.R.layout.simple_spinner_item, categoriesPourType());
-        categorieAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                android.R.layout.simple_dropdown_item_1line, categories);
         spinnerCategorie.setAdapter(categorieAdapter);
+        if (categories.length > 0) spinnerCategorie.setText(categories[0], false);
 
         ArrayAdapter<String> typeSoinAdapter = new ArrayAdapter<>(this,
-                android.R.layout.simple_spinner_item, TYPES_SOIN);
-        typeSoinAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                android.R.layout.simple_dropdown_item_1line, TYPES_SOIN);
         spinnerTypeSoin.setAdapter(typeSoinAdapter);
+        spinnerTypeSoin.setText(TYPES_SOIN[0], false);
     }
 
     private static final String[] CATEGORIE_VENTE_FIENTES = {"Vente fientes"};
@@ -721,26 +691,64 @@ public class SaisieFormActivity extends AppCompatActivity {
 
     private void setupDateHeurePickers() {
         etDate.setText(isoDate.format(dateCal.getTime()));
-        etDate.setOnClickListener(v -> {
-            DatePickerDialog dialog = new DatePickerDialog(this, (view, year, month, day) -> {
-                dateCal.set(year, month, day);
-                etDate.setText(isoDate.format(dateCal.getTime()));
-            }, dateCal.get(Calendar.YEAR), dateCal.get(Calendar.MONTH), dateCal.get(Calendar.DAY_OF_MONTH));
-            dialog.getDatePicker().setMaxDate(System.currentTimeMillis());
-            dialog.show();
-        });
+        etDate.setOnClickListener(v -> showMaterialDatePicker(dateCal, true, chosen -> {
+            dateCal.setTimeInMillis(chosen.getTimeInMillis());
+            etDate.setText(isoDate.format(dateCal.getTime()));
+        }));
 
         etHeure.setHint("--:--");
         etHeure.setOnClickListener(v -> {
             Calendar base = heureCal != null ? heureCal : Calendar.getInstance();
-            TimePickerDialog dialog = new TimePickerDialog(this, (view, hour, minute) -> {
+            showMaterialTimePicker(base.get(Calendar.HOUR_OF_DAY), base.get(Calendar.MINUTE), (hour, minute) -> {
                 heureCal = Calendar.getInstance();
                 heureCal.set(Calendar.HOUR_OF_DAY, hour);
                 heureCal.set(Calendar.MINUTE, minute);
                 etHeure.setText(isoTime.format(heureCal.getTime()));
-            }, base.get(Calendar.HOUR_OF_DAY), base.get(Calendar.MINUTE), true);
-            dialog.show();
+            });
         });
+    }
+
+    /**
+     * Sélecteur de date M3 (calendrier en bas de l'écran) à la place du
+     * DatePickerDialog système, qui détonnait visuellement avec le reste de l'appli.
+     * MaterialDatePicker travaille en UTC (epoch millis) en interne — on convertit
+     * explicitement vers/depuis UTC pour la présélection et le résultat, sinon le jour
+     * affiché peut se décaler de ±1 selon le fuseau horaire de l'appareil (piège
+     * classique de cette API si on lui passe directement un Calendar en fuseau local).
+     */
+    private void showMaterialDatePicker(Calendar initial, boolean maxAujourdhui, java.util.function.Consumer<Calendar> onDateChoisie) {
+        Calendar utc = Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"));
+        utc.clear();
+        utc.set(initial.get(Calendar.YEAR), initial.get(Calendar.MONTH), initial.get(Calendar.DAY_OF_MONTH));
+
+        com.google.android.material.datepicker.MaterialDatePicker.Builder<Long> builder =
+                com.google.android.material.datepicker.MaterialDatePicker.Builder.datePicker()
+                        .setSelection(utc.getTimeInMillis());
+        if (maxAujourdhui) {
+            builder.setCalendarConstraints(new com.google.android.material.datepicker.CalendarConstraints.Builder()
+                    .setValidator(com.google.android.material.datepicker.DateValidatorPointBackward.now())
+                    .build());
+        }
+        com.google.android.material.datepicker.MaterialDatePicker<Long> picker = builder.build();
+        picker.addOnPositiveButtonClickListener(selectionUtcMillis -> {
+            Calendar resultUtc = Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"));
+            resultUtc.setTimeInMillis(selectionUtcMillis);
+            Calendar resultLocal = (Calendar) initial.clone();
+            resultLocal.set(resultUtc.get(Calendar.YEAR), resultUtc.get(Calendar.MONTH), resultUtc.get(Calendar.DAY_OF_MONTH));
+            onDateChoisie.accept(resultLocal);
+        });
+        picker.show(getSupportFragmentManager(), "date_picker");
+    }
+
+    /** Sélecteur d'heure M3 (cadran), à la place du TimePickerDialog système. */
+    private void showMaterialTimePicker(int heureInitiale, int minuteInitiale, java.util.function.BiConsumer<Integer, Integer> onHeureChoisie) {
+        com.google.android.material.timepicker.MaterialTimePicker picker = new com.google.android.material.timepicker.MaterialTimePicker.Builder()
+                .setTimeFormat(com.google.android.material.timepicker.TimeFormat.CLOCK_24H)
+                .setHour(heureInitiale)
+                .setMinute(minuteInitiale)
+                .build();
+        picker.addOnPositiveButtonClickListener(v -> onHeureChoisie.accept(picker.getHour(), picker.getMinute()));
+        picker.show(getSupportFragmentManager(), "time_picker");
     }
 
     private void setupResumeCollecteAuto() {
@@ -928,9 +936,9 @@ public class SaisieFormActivity extends AppCompatActivity {
         for (OccupationBatimentResponse b : batiments) {
             labels.add(b.getNomBatiment());
         }
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, labels);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, labels);
         spinnerBatiment.setAdapter(adapter);
+        spinnerBatiment.setText(labels.get(0), false);
         // La liste des bâtiments vient de (ré)arriver (réseau ou cache) : si une
         // sélection avait été demandée avant que loadBatiments() ait fini de charger
         // (voir applyPendingBatimentSelection), on la réapplique maintenant.
@@ -938,9 +946,11 @@ public class SaisieFormActivity extends AppCompatActivity {
     }
 
     private String getSelectedBatimentUniqueId() {
-        int position = spinnerBatiment.getSelectedItemPosition();
-        if (position <= 0 || position - 1 >= batiments.size()) return null;
-        return batiments.get(position - 1).getBatimentUniqueId();
+        String selected = spinnerBatiment.getText().toString();
+        for (OccupationBatimentResponse b : batiments) {
+            if (b.getNomBatiment().equals(selected)) return b.getBatimentUniqueId();
+        }
+        return null;
     }
 
     /**
@@ -962,7 +972,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         if (pendingBatimentSelection == null) return;
         for (int i = 0; i < batiments.size(); i++) {
             if (pendingBatimentSelection.equals(batiments.get(i).getBatimentUniqueId())) {
-                spinnerBatiment.setSelection(i + 1);
+                spinnerBatiment.setText(batiments.get(i).getNomBatiment(), false);
                 return;
             }
         }
@@ -1010,8 +1020,10 @@ public class SaisieFormActivity extends AppCompatActivity {
         if (stock != null && stock.getStockRestant() != null) {
             String suffix = fromCache ? " (dernière donnée connue, hors ligne)" : "";
             tvStockInfo.setText(String.format(Locale.FRANCE, "Stock restant estimé : %.1f kg%s", stock.getStockRestant(), suffix));
+            stockAlimentRestantConnu = stock.getStockRestant();
         } else {
             tvStockInfo.setText(fromCache ? "Stock non disponible (hors ligne)" : "Stock non disponible");
+            stockAlimentRestantConnu = null;
         }
     }
 
@@ -1057,18 +1069,24 @@ public class SaisieFormActivity extends AppCompatActivity {
         for (MagasinSelectResponse m : magasins) {
             labels.add(m.getNom());
         }
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, labels);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, labels);
         spinnerMagasinOeufs.setAdapter(adapter);
         spinnerMagasinReforme.setAdapter(adapter);
         spinnerMagasinCommande.setAdapter(adapter);
+        if (!labels.isEmpty()) {
+            spinnerMagasinOeufs.setText(labels.get(0), false);
+            spinnerMagasinReforme.setText(labels.get(0), false);
+            spinnerMagasinCommande.setText(labels.get(0), false);
+        }
         applyPendingMagasinSelection();
     }
 
-    private String getSelectedMagasinUniqueId(Spinner spinner) {
-        int position = spinner.getSelectedItemPosition();
-        if (position < 0 || position >= magasins.size()) return null;
-        return magasins.get(position).getUniqueId();
+    private String getSelectedMagasinUniqueId(AutoCompleteTextView spinner) {
+        String selected = spinner.getText().toString();
+        for (MagasinSelectResponse m : magasins) {
+            if (m.getNom().equals(selected)) return m.getUniqueId();
+        }
+        return null;
     }
 
     /** Même raisonnement que selectBatimentByUniqueId/applyPendingBatimentSelection —
@@ -1084,12 +1102,14 @@ public class SaisieFormActivity extends AppCompatActivity {
         if (pendingMagasinSelection == null) return;
         for (int i = 0; i < magasins.size(); i++) {
             if (pendingMagasinSelection.equals(magasins.get(i).getUniqueId())) {
-                spinnerMagasinOeufs.setSelection(i);
-                spinnerMagasinReforme.setSelection(i);
-                spinnerMagasinCommande.setSelection(i);
-                // Appelé explicitement (pas seulement via OnItemSelectedListener) car
-                // Spinner.setSelection() ne déclenche pas le listener quand la position
-                // ne change pas (ex. le magasin voulu est déjà en position 0 par défaut).
+                String label = magasins.get(i).getNom();
+                spinnerMagasinOeufs.setText(label, false);
+                spinnerMagasinReforme.setText(label, false);
+                spinnerMagasinCommande.setText(label, false);
+                // Appelé explicitement (pas seulement via OnItemClickListener) car
+                // AutoCompleteTextView.setText(..., false) ne déclenche jamais le
+                // listener (à la différence de Spinner.setSelection() qui le fait sauf
+                // quand la position ne change pas).
                 loadStockPourMagasinSelectionne();
                 return;
             }
@@ -1142,19 +1162,20 @@ public class SaisieFormActivity extends AppCompatActivity {
         List<String> labelsVente = new ArrayList<>();
         labelsVente.add(LABEL_VENTE_DIRECTE);
         for (ClientSelectResponse c : clients) labelsVente.add(c.getNom());
-        ArrayAdapter<String> adapterVente = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, labelsVente);
-        adapterVente.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ArrayAdapter<String> adapterVente = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, labelsVente);
         spinnerClientVenteOeufs.setAdapter(adapterVente);
         spinnerClientVenteReforme.setAdapter(adapterVente);
+        spinnerClientVenteOeufs.setText(labelsVente.get(0), false);
+        spinnerClientVenteReforme.setText(labelsVente.get(0), false);
 
         // Commande : client obligatoire, pas d'option "aucun" — si la liste est vide,
         // le message tvAucunClientCommande prend le relais (voir onValider pour le
         // blocage explicite).
         List<String> labelsCommande = new ArrayList<>();
         for (ClientSelectResponse c : clients) labelsCommande.add(c.getNom());
-        ArrayAdapter<String> adapterCommande = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, labelsCommande);
-        adapterCommande.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ArrayAdapter<String> adapterCommande = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, labelsCommande);
         spinnerClientCommande.setAdapter(adapterCommande);
+        if (!labelsCommande.isEmpty()) spinnerClientCommande.setText(labelsCommande.get(0), false);
         tvAucunClientCommande.setVisibility(clients.isEmpty() ? View.VISIBLE : View.GONE);
         spinnerClientCommande.setEnabled(!clients.isEmpty());
 
@@ -1164,11 +1185,13 @@ public class SaisieFormActivity extends AppCompatActivity {
     /** Position dans "clients" (pas dans le spinner : les sélecteurs Vente ont un
      * décalage de 1 à cause de "Vente directe" en position 0). null = aucun client
      * sélectionné (vente directe, ou rien sélectionné côté Commande). */
-    private String getSelectedClientUniqueId(Spinner spinner, boolean hasVenteDirecteOption) {
-        int position = spinner.getSelectedItemPosition();
-        int index = hasVenteDirecteOption ? position - 1 : position;
-        if (index < 0 || index >= clients.size()) return null;
-        return clients.get(index).getUniqueId();
+    private String getSelectedClientUniqueId(AutoCompleteTextView spinner, boolean hasVenteDirecteOption) {
+        String selected = spinner.getText().toString();
+        if (hasVenteDirecteOption && LABEL_VENTE_DIRECTE.equals(selected)) return null;
+        for (ClientSelectResponse c : clients) {
+            if (c.getNom().equals(selected)) return c.getUniqueId();
+        }
+        return null;
     }
 
     /** Même raisonnement que selectMagasinByUniqueId/applyPendingMagasinSelection. */
@@ -1182,9 +1205,10 @@ public class SaisieFormActivity extends AppCompatActivity {
         if (pendingClientSelection == null) return;
         for (int i = 0; i < clients.size(); i++) {
             if (pendingClientSelection.equals(clients.get(i).getUniqueId())) {
-                spinnerClientVenteOeufs.setSelection(i + 1);
-                spinnerClientVenteReforme.setSelection(i + 1);
-                spinnerClientCommande.setSelection(i);
+                String nom = clients.get(i).getNom();
+                spinnerClientVenteOeufs.setText(nom, false);
+                spinnerClientVenteReforme.setText(nom, false);
+                spinnerClientCommande.setText(nom, false);
                 return;
             }
         }
@@ -1196,28 +1220,28 @@ public class SaisieFormActivity extends AppCompatActivity {
      * (PayerSalaireDialog), largement suffisante pour rattraper un mois passé ou
      * anticiper un paiement en avance sans champ libre source d'erreur de saisie. */
     private void setupSalaireSpinners() {
-        ArrayAdapter<String> moisAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, MOIS_LABELS);
-        moisAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ArrayAdapter<String> moisAdapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, MOIS_LABELS);
         spinnerMoisSalaire.setAdapter(moisAdapter);
 
         int anneeCourante = Calendar.getInstance().get(Calendar.YEAR);
         List<String> annees = new ArrayList<>();
         for (int a = anneeCourante - 1; a <= anneeCourante + 1; a++) annees.add(String.valueOf(a));
-        ArrayAdapter<String> anneeAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, annees);
-        anneeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ArrayAdapter<String> anneeAdapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, annees);
         spinnerAnneeSalaire.setAdapter(anneeAdapter);
 
-        spinnerMoisSalaire.setSelection(Calendar.getInstance().get(Calendar.MONTH));
-        spinnerAnneeSalaire.setSelection(1); // année courante, position 1 (courante-1, courante, courante+1)
+        spinnerMoisSalaire.setText(MOIS_LABELS[Calendar.getInstance().get(Calendar.MONTH)], false);
+        spinnerAnneeSalaire.setText(annees.get(1), false); // année courante, position 1 (courante-1, courante, courante+1)
     }
 
     /** "AAAA-MM" à partir des spinners mois/année — voir SalairePayerRequest.periode
      * côté back, résolu dynamiquement au taux réellement en vigueur pour cette période
      * (SalaireServiceImpl.resolveTauxPourPeriode), pas seulement le taux courant. */
     private String getSelectedPeriodeSalaire() {
-        int mois = spinnerMoisSalaire.getSelectedItemPosition() + 1;
-        Object annee = spinnerAnneeSalaire.getSelectedItem();
-        if (annee == null) return null;
+        String moisText = spinnerMoisSalaire.getText().toString();
+        int mois = java.util.Arrays.asList(MOIS_LABELS).indexOf(moisText) + 1;
+        if (mois <= 0) return null;
+        String annee = spinnerAnneeSalaire.getText().toString();
+        if (annee.isEmpty()) return null;
         return String.format(Locale.FRANCE, "%s-%02d", annee, mois);
     }
 
@@ -1258,9 +1282,9 @@ public class SaisieFormActivity extends AppCompatActivity {
     private void populateSalaireSpinner() {
         List<String> labels = new ArrayList<>();
         for (SalaireSelectResponse s : salaires) labels.add(s.getEmployeNom());
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, labels);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, labels);
         spinnerEmployeSalaire.setAdapter(adapter);
+        if (!labels.isEmpty()) spinnerEmployeSalaire.setText(labels.get(0), false);
         tvAucunSalaireEmploye.setVisibility(salaires.isEmpty() ? View.VISIBLE : View.GONE);
         spinnerEmployeSalaire.setEnabled(!salaires.isEmpty());
         applyPendingEmployeSalaireSelection();
@@ -1268,9 +1292,11 @@ public class SaisieFormActivity extends AppCompatActivity {
     }
 
     private SalaireSelectResponse getSelectedSalaireEmploye() {
-        int position = spinnerEmployeSalaire.getSelectedItemPosition();
-        if (position < 0 || position >= salaires.size()) return null;
-        return salaires.get(position);
+        String selected = spinnerEmployeSalaire.getText().toString();
+        for (SalaireSelectResponse s : salaires) {
+            if (s.getEmployeNom().equals(selected)) return s;
+        }
+        return null;
     }
 
     /** JOURNALIER/HORAIRE : quantité obligatoire, montant = taux × quantité (recalculé
@@ -1315,7 +1341,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         if (pendingEmployeSalaireSelection == null) return;
         for (int i = 0; i < salaires.size(); i++) {
             if (pendingEmployeSalaireSelection.equals(salaires.get(i).getEmployeUniqueId())) {
-                spinnerEmployeSalaire.setSelection(i);
+                spinnerEmployeSalaire.setText(salaires.get(i).getEmployeNom(), false);
                 applySalaireEmployeSelectionne();
                 return;
             }
@@ -1362,16 +1388,18 @@ public class SaisieFormActivity extends AppCompatActivity {
         for (MagasinSelectResponse b : batimentsStockage) {
             labels.add(b.getNom());
         }
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, labels);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, labels);
         spinnerBatimentStockage.setAdapter(adapter);
+        if (!labels.isEmpty()) spinnerBatimentStockage.setText(labels.get(0), false);
         applyPendingBatimentStockageSelection();
     }
 
     private String getSelectedBatimentStockageUniqueId() {
-        int position = spinnerBatimentStockage.getSelectedItemPosition();
-        if (position < 0 || position >= batimentsStockage.size()) return null;
-        return batimentsStockage.get(position).getUniqueId();
+        String selected = spinnerBatimentStockage.getText().toString();
+        for (MagasinSelectResponse b : batimentsStockage) {
+            if (b.getNom().equals(selected)) return b.getUniqueId();
+        }
+        return null;
     }
 
     /** Même raisonnement que selectBatimentByUniqueId/applyPendingBatimentSelection —
@@ -1387,10 +1415,11 @@ public class SaisieFormActivity extends AppCompatActivity {
         if (pendingBatimentStockageSelection == null) return;
         for (int i = 0; i < batimentsStockage.size(); i++) {
             if (pendingBatimentStockageSelection.equals(batimentsStockage.get(i).getUniqueId())) {
-                spinnerBatimentStockage.setSelection(i);
-                // Appelé explicitement (pas seulement via OnItemSelectedListener) car
-                // Spinner.setSelection() ne déclenche pas le listener quand la position
-                // ne change pas (ex. le bâtiment voulu est déjà en position 0 par défaut).
+                spinnerBatimentStockage.setText(batimentsStockage.get(i).getNom(), false);
+                // Appelé explicitement (pas seulement via OnItemClickListener) car
+                // AutoCompleteTextView.setText(..., false) ne déclenche jamais le
+                // listener (à la différence de Spinner.setSelection() qui le fait sauf
+                // quand la position ne change pas).
                 loadStockBatimentStockageSelectionne();
                 return;
             }
@@ -1446,7 +1475,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         // pas d'affichage dédié dans groupCommande (juste informatif sur une vente) —
         // rien à faire ici pour ce type.
         if (type != SaisieType.VENTE_OEUFS && type != SaisieType.VENTE_REFORME) return;
-        Spinner spinner = (type == SaisieType.VENTE_OEUFS) ? spinnerMagasinOeufs : spinnerMagasinReforme;
+        AutoCompleteTextView spinner = (type == SaisieType.VENTE_OEUFS) ? spinnerMagasinOeufs : spinnerMagasinReforme;
         String magasinUniqueId = getSelectedMagasinUniqueId(spinner);
         if (magasinUniqueId == null) {
             displayStockMagasin(null, false);
@@ -1664,7 +1693,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.batimentUniqueId = batimentUniqueId;
                 req.date = date;
                 req.heure = heure;
-                req.type = (String) spinnerTypeSoin.getSelectedItem();
+                req.type = spinnerTypeSoin.getText().toString();
                 req.produit = produit;
                 req.quantite = parseDoubleOrNull(etQuantiteSoin.getText());
                 // Optionnel — si renseigné, génère automatiquement une sortie comptable
@@ -1769,6 +1798,18 @@ public class SaisieFormActivity extends AppCompatActivity {
                 Double quantiteKg = parseDoubleOrNull(etQuantiteKgConso.getText());
                 if (quantiteKg == null || quantiteKg <= 0) {
                     toast("Veuillez saisir la quantité consommée (kg)");
+                    return;
+                }
+                // Bloque ici, avec le stock déjà connu (synchronisé ou en cache hors
+                // ligne) — plutôt que de créer une saisie qui échouera de toute façon au
+                // moment de l'envoi (le serveur refait cette même vérification côté
+                // données à jour, voir ConsommationAlimentImpl.create). Ne bloque
+                // jamais si le stock est simplement inconnu (pas encore synchronisé) :
+                // ce n'est pas au client de deviner "0" faute de donnée.
+                if (stockAlimentRestantConnu != null && quantiteKg > stockAlimentRestantConnu) {
+                    toast(String.format(Locale.FRANCE,
+                            "Stock insuffisant : %.1f kg disponible(s) pour ce projet (dernière synchronisation)",
+                            stockAlimentRestantConnu));
                     return;
                 }
                 ConsommationAlimentCreateRequest req = new ConsommationAlimentCreateRequest();
@@ -1915,7 +1956,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.date = date;
                 req.description = description;
                 req.montant = montant;
-                req.categorie = (String) spinnerCategorie.getSelectedItem();
+                req.categorie = spinnerCategorie.getText().toString();
                 requestObject = req;
                 summary = String.format(Locale.FRANCE, "%s %,.0f FCFA — %s",
                         type == SaisieType.TRANSACTION_SORTIE ? "-" : "+", montant, description);
@@ -2208,14 +2249,13 @@ public class SaisieFormActivity extends AppCompatActivity {
                 if (req.periode != null && req.periode.length() == 7) {
                     int annee = Integer.parseInt(req.periode.substring(0, 4));
                     int mois = Integer.parseInt(req.periode.substring(5));
-                    spinnerMoisSalaire.setSelection(mois - 1);
-                    // Spinner peuplé avec [anneeCourante-1, anneeCourante, anneeCourante+1]
-                    // (voir setupSalaireSpinners) — position = écart par rapport à la
-                    // courante, décalé de 1 (position 1 = courante).
+                    spinnerMoisSalaire.setText(MOIS_LABELS[mois - 1], false);
+                    // Peuplé avec [anneeCourante-1, anneeCourante, anneeCourante+1] (voir
+                    // setupSalaireSpinners) — n'affiche que si l'année demandée fait bien
+                    // partie de cette plage.
                     int anneeCourante = Calendar.getInstance().get(Calendar.YEAR);
-                    int position = 1 + (annee - anneeCourante);
-                    if (position >= 0 && position < spinnerAnneeSalaire.getAdapter().getCount()) {
-                        spinnerAnneeSalaire.setSelection(position);
+                    if (Math.abs(annee - anneeCourante) <= 1) {
+                        spinnerAnneeSalaire.setText(String.valueOf(annee), false);
                     }
                 }
                 if (req.quantite != null) etQuantiteSalaire.setText(String.valueOf(req.quantite));
@@ -2255,11 +2295,11 @@ public class SaisieFormActivity extends AppCompatActivity {
         }
     }
 
-    private void selectSpinnerValue(Spinner spinner, String[] options, String value) {
+    private void selectSpinnerValue(AutoCompleteTextView spinner, String[] options, String value) {
         if (value == null) return;
-        for (int i = 0; i < options.length; i++) {
-            if (options[i].equalsIgnoreCase(value)) {
-                spinner.setSelection(i);
+        for (String option : options) {
+            if (option.equalsIgnoreCase(value)) {
+                spinner.setText(option, false);
                 return;
             }
         }
