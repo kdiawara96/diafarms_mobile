@@ -352,16 +352,9 @@
 
                     <View android:layout_width="match_parent" android:layout_height="12dp" />
 
-                    <com.google.android.material.textfield.TextInputLayout
-                        android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:hint="Prix unitaire (FCFA / dose)">
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/etPrixUnitaireVaccin"
-                            android:layout_width="match_parent" android:layout_height="wrap_content"
-                            android:inputType="numberDecimal" />
-                    </com.google.android.material.textfield.TextInputLayout>
-
-                    <View android:layout_width="match_parent" android:layout_height="12dp" />
+                    <!-- Pas de prix ici : la Production ne suit que le fait, le coût réel
+                         se saisit séparément en Comptabilité (catégorie
+                         "Santé / Vétérinaire"). -->
 
                     <TextView
                         android:layout_width="wrap_content" android:layout_height="wrap_content"
@@ -384,12 +377,6 @@
                             android:layout_weight="1" android:text="Topique" android:textSize="12sp" />
                     </LinearLayout>
 
-                    <View android:layout_width="match_parent" android:layout_height="8dp" />
-
-                    <TextView
-                        android:id="@+id/tvCoutCalculeVaccin"
-                        android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:textSize="13sp" android:textStyle="bold" />
                 </LinearLayout>
             </LinearLayout>
 

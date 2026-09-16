@@ -173,12 +173,12 @@ public class SaisieFormActivity extends AppCompatActivity {
     // séparément en Comptabilité (catégorie "Santé / Vétérinaire").
     private TextInputEditText etProduit, etQuantiteSoin, etObservationsSoin;
 
-    // Champs Vaccination (doses + prix, coût auto-calculé), visibles seulement si le
+    // Champs Vaccination (doses seulement, aucun montant — la Production ne suit
+    // que le fait, le coût réel se saisit en Comptabilité), visibles seulement si le
     // type choisi est Vaccination — voir updateGroupSoinsSousType().
     private View groupVaccination;
-    private TextInputEditText etNomVaccin, etQuantiteVaccin, etPrixUnitaireVaccin;
+    private TextInputEditText etNomVaccin, etQuantiteVaccin;
     private CheckBox cbModeOral, cbModeInjection, cbModePulverisation, cbModeTopique;
-    private TextView tvCoutCalculeVaccin;
 
     // Mortalité
     private View groupMortalite;
@@ -393,19 +393,10 @@ public class SaisieFormActivity extends AppCompatActivity {
         groupVaccination = findViewById(R.id.groupVaccination);
         etNomVaccin = findViewById(R.id.etNomVaccin);
         etQuantiteVaccin = findViewById(R.id.etQuantiteVaccin);
-        etPrixUnitaireVaccin = findViewById(R.id.etPrixUnitaireVaccin);
         cbModeOral = findViewById(R.id.cbModeOral);
         cbModeInjection = findViewById(R.id.cbModeInjection);
         cbModePulverisation = findViewById(R.id.cbModePulverisation);
         cbModeTopique = findViewById(R.id.cbModeTopique);
-        tvCoutCalculeVaccin = findViewById(R.id.tvCoutCalculeVaccin);
-        android.text.TextWatcher coutVaccinWatcher = new android.text.TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) { updateCoutCalculeVaccin(); }
-            @Override public void afterTextChanged(Editable s) {}
-        };
-        etQuantiteVaccin.addTextChangedListener(coutVaccinWatcher);
-        etPrixUnitaireVaccin.addTextChangedListener(coutVaccinWatcher);
 
         groupMortalite = findViewById(R.id.groupMortalite);
         etNombreMorts = findViewById(R.id.etNombreMorts);
@@ -611,7 +602,6 @@ public class SaisieFormActivity extends AppCompatActivity {
         boolean vaccination = isTypeSoinVaccination();
         groupSoinsGenerique.setVisibility(vaccination ? View.GONE : View.VISIBLE);
         groupVaccination.setVisibility(vaccination ? View.VISIBLE : View.GONE);
-        if (vaccination) updateCoutCalculeVaccin();
     }
 
     private static final String[] CATEGORIE_VENTE_FIENTES = {"Vente fientes"};
@@ -1633,16 +1623,6 @@ public class SaisieFormActivity extends AppCompatActivity {
         }
     }
 
-    // Aperçu en direct, purement indicatif — le back recalcule quantite × prixUnitaire
-    // de son côté au moment de l'enregistrement (voir VaccinationImpl), même valeur.
-    private void updateCoutCalculeVaccin() {
-        if (tvCoutCalculeVaccin == null) return;
-        int quantite = parseIntSafe(etQuantiteVaccin.getText());
-        Double prixUnitaire = parseDoubleOrNull(etPrixUnitaireVaccin.getText());
-        double cout = quantite * (prixUnitaire != null ? prixUnitaire : 0.0);
-        tvCoutCalculeVaccin.setText(String.format(java.util.Locale.FRANCE, "Coût calculé : %.0f FCFA", cout));
-    }
-
     private java.util.List<String> selectedModesAdministration() {
         java.util.List<String> modes = new java.util.ArrayList<>();
         if (cbModeOral.isChecked()) modes.add("Oral");
@@ -1736,9 +1716,8 @@ public class SaisieFormActivity extends AppCompatActivity {
                     // de l'ancien écran Vaccination dédié, qui n'avait pas ce champ.
                     req.produit = nomVaccin;
                     req.quantite = (double) quantite;
-                    // coutTotal laissé null : recalculé côté serveur à partir de
-                    // quantite × prixUnitaire (voir SoinsCreateRequest/VaccinationImpl).
-                    req.prixUnitaire = parseDoubleOrNull(etPrixUnitaireVaccin.getText());
+                    // Aucun montant ici : la Production ne suit que le fait, le coût réel
+                    // se saisit séparément en Comptabilité (catégorie "Santé / Vétérinaire").
                     req.modeAdministration = selectedModesAdministration();
                     requestObject = req;
                     summary = "Vaccination — " + nomVaccin + " (" + quantite + " doses)";
@@ -2184,9 +2163,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 if ("VACCINATION".equalsIgnoreCase(req.type)) {
                     etNomVaccin.setText(req.produit);
                     if (req.quantite != null) etQuantiteVaccin.setText(String.valueOf(req.quantite.intValue()));
-                    if (req.prixUnitaire != null) etPrixUnitaireVaccin.setText(String.valueOf(req.prixUnitaire));
                     setModesAdministration(req.modeAdministration);
-                    updateCoutCalculeVaccin();
                 } else {
                     etProduit.setText(req.produit);
                     if (req.quantite != null) etQuantiteSoin.setText(String.valueOf(req.quantite));
