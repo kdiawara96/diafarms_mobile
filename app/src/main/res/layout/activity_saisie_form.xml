@@ -307,16 +307,10 @@
 
                     <View android:layout_width="match_parent" android:layout_height="12dp" />
 
-                    <com.google.android.material.textfield.TextInputLayout
-                        android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:hint="Coût total (FCFA, optionnel)">
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/etCoutSoin"
-                            android:layout_width="match_parent" android:layout_height="wrap_content"
-                            android:inputType="numberDecimal" />
-                    </com.google.android.material.textfield.TextInputLayout>
-
-                    <View android:layout_width="match_parent" android:layout_height="12dp" />
+                    <!-- Pas de coût ici : la Production ne suit plus que le fait (quoi/
+                         quand/où), le coût réel se saisit séparément en Comptabilité
+                         (Nouvelle transaction, catégorie "Santé / Vétérinaire") — voir
+                         SaisieFormActivity.onValider et CATEGORIES_TRANSACTION_SORTIE. -->
 
                     <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="match_parent" android:layout_height="wrap_content"

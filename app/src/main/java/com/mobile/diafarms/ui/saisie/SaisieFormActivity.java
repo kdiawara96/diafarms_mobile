@@ -90,10 +90,11 @@ public class SaisieFormActivity extends AppCompatActivity {
     // "Salaire" retiré : le paiement d'un salaire passe obligatoirement par "Payer un
     // salaire" (SALAIRE_PAYER), qui vérifie la grille et empêche un double paiement du
     // même mois — une "Sortie d'argent" catégorie "Salaire" contournerait ce contrôle.
-    // "Santé / Vétérinaire" retiré pour la même raison : passe obligatoirement par
-    // l'écran Santé / Vétérinaire (SaisieType.SOINS), sinon la dépense existe en
-    // double (ici + dans Soins, voir SoinsImpl.syncTransaction côté back).
-    private static final String[] CATEGORIES_TRANSACTION_SORTIE = {"Achat", "Transport", "Électricité / Eau", "Entretien / Maintenance", "Autre"};
+    // "Santé / Vétérinaire" est de retour : depuis le retrait du champ Coût de l'écran
+    // Santé / Vétérinaire (SaisieType.SOINS, sous-type Médicament/Autre — la Production
+    // ne suit plus que le fait), c'est ici, en Comptabilité, que ce coût se saisit —
+    // sauf pour un Vaccin, qui garde son propre calcul automatique (dose × prix).
+    private static final String[] CATEGORIES_TRANSACTION_SORTIE = {"Achat", "Santé / Vétérinaire", "Transport", "Électricité / Eau", "Entretien / Maintenance", "Autre"};
     // Fusion Soins/Vaccination (UI) : un seul point d'entrée (SaisieType.SOINS, voir
     // HomeActivity/btnSoins), le type choisi ici décide quel sous-groupe de champs est
     // affiché (voir updateGroupSoinsSousType()) — Vaccination n'est plus un
@@ -168,7 +169,9 @@ public class SaisieFormActivity extends AppCompatActivity {
     // Champs génériques (Médicament/Autre), visibles seulement si le type choisi
     // n'est pas Vaccination — voir updateGroupSoinsSousType().
     private View groupSoinsGenerique;
-    private TextInputEditText etProduit, etQuantiteSoin, etCoutSoin, etObservationsSoin;
+    // Pas de coût ici : la Production ne suit que le fait, le coût réel se saisit
+    // séparément en Comptabilité (catégorie "Santé / Vétérinaire").
+    private TextInputEditText etProduit, etQuantiteSoin, etObservationsSoin;
 
     // Champs Vaccination (doses + prix, coût auto-calculé), visibles seulement si le
     // type choisi est Vaccination — voir updateGroupSoinsSousType().
@@ -385,7 +388,6 @@ public class SaisieFormActivity extends AppCompatActivity {
         groupSoinsGenerique = findViewById(R.id.groupSoinsGenerique);
         etProduit = findViewById(R.id.etProduit);
         etQuantiteSoin = findViewById(R.id.etQuantiteSoin);
-        etCoutSoin = findViewById(R.id.etCoutSoin);
         etObservationsSoin = findViewById(R.id.etObservationsSoin);
 
         groupVaccination = findViewById(R.id.groupVaccination);
@@ -1752,10 +1754,9 @@ public class SaisieFormActivity extends AppCompatActivity {
                     }
                     req.produit = produit;
                     req.quantite = parseDoubleOrNull(etQuantiteSoin.getText());
-                    // Optionnel — si renseigné, génère automatiquement une sortie comptable
-                    // liée au projet côté back (voir SoinsImpl.syncTransaction) : plus
-                    // besoin de ressaisir ce coût séparément dans "Sortie d'argent".
-                    req.coutTotal = parseDoubleOrNull(etCoutSoin.getText());
+                    // Pas de coût ici : la Production suit le fait, pas l'argent — le coût
+                    // réel se saisit séparément en Comptabilité ("Nouvelle transaction",
+                    // catégorie "Santé / Vétérinaire") pour éviter une double saisie.
                     req.observations = nullIfBlank(textOf(etObservationsSoin));
                     requestObject = req;
                     summary = spinnerTypeSoin.getText().toString() + " — " + produit;
@@ -2189,7 +2190,6 @@ public class SaisieFormActivity extends AppCompatActivity {
                 } else {
                     etProduit.setText(req.produit);
                     if (req.quantite != null) etQuantiteSoin.setText(String.valueOf(req.quantite));
-                    if (req.coutTotal != null) etCoutSoin.setText(String.valueOf(req.coutTotal));
                     etObservationsSoin.setText(req.observations);
                 }
                 selectBatimentByUniqueId(req.batimentUniqueId);
