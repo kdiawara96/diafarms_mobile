@@ -90,7 +90,10 @@ public class SaisieFormActivity extends AppCompatActivity {
     // "Salaire" retiré : le paiement d'un salaire passe obligatoirement par "Payer un
     // salaire" (SALAIRE_PAYER), qui vérifie la grille et empêche un double paiement du
     // même mois — une "Sortie d'argent" catégorie "Salaire" contournerait ce contrôle.
-    private static final String[] CATEGORIES_TRANSACTION_SORTIE = {"Achat", "Santé / Vétérinaire", "Transport", "Électricité / Eau", "Entretien / Maintenance", "Autre"};
+    // "Santé / Vétérinaire" retiré pour la même raison : passe obligatoirement par
+    // l'écran Santé / Vétérinaire (SaisieType.SOINS), sinon la dépense existe en
+    // double (ici + dans Soins, voir SoinsImpl.syncTransaction côté back).
+    private static final String[] CATEGORIES_TRANSACTION_SORTIE = {"Achat", "Transport", "Électricité / Eau", "Entretien / Maintenance", "Autre"};
     // Fusion Soins/Vaccination (UI) : un seul point d'entrée (SaisieType.SOINS, voir
     // HomeActivity/btnSoins), le type choisi ici décide quel sous-groupe de champs est
     // affiché (voir updateGroupSoinsSousType()) — Vaccination n'est plus un
