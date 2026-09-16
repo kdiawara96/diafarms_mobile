@@ -19,7 +19,7 @@ public enum SaisieType {
     // SoinsCreateRequest, SaisieFormActivity.onValider/updateGroupSoinsSousType,
     // SyncManager.dispatch. Plus de SaisieType.VACCINATION distinct : HomeActivity
     // n'a plus qu'un seul bouton Soins.
-    SOINS("Soins", Categorie.PRODUCTION),
+    SOINS("Santé / Vétérinaire", Categorie.PRODUCTION),
     MORTALITE("Mortalité", Categorie.PRODUCTION),
     // Comptage pur des sujets retirés du cheptel vivant (comme Mortalité) — jamais de
     // prix ici, plafonné par l'effectif vivant du projet. Voir diafarms_back
