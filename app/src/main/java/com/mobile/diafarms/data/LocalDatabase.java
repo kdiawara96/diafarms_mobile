@@ -16,7 +16,14 @@ import java.util.UUID;
 
 public class LocalDatabase extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "diafarms.db";
-    private static final int DATABASE_VERSION = 4;
+    // v5 : fusion Soins/Vaccination côté back — le payload_json d'une saisie
+    // VACCINATION en attente change de forme (VaccinCreateRequest -> SoinsCreateRequest
+    // unifié : nomVaccin -> produit, quantite Integer -> Double, date/heure ajoutés).
+    // Une saisie VACCINATION non encore synchronisée avant cette mise à jour serait
+    // désérialisée avec l'ancienne forme et enverrait un payload invalide au nouvel
+    // endpoint /soins/create — destruction simple (déjà le pattern de ce fichier,
+    // voir onUpgrade), acceptable en développement.
+    private static final int DATABASE_VERSION = 5;
 
     // Tables
     private static final String TABLE_ACCOUNTS = "accounts";

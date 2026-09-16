@@ -51,7 +51,6 @@ import com.mobile.diafarms.network.dto.SoinsCreateRequest;
 import com.mobile.diafarms.network.dto.StockAlimentResponse;
 import com.mobile.diafarms.network.dto.StockMagasinResponse;
 import com.mobile.diafarms.network.dto.TransactionCreateRequest;
-import com.mobile.diafarms.network.dto.VaccinCreateRequest;
 import com.mobile.diafarms.network.dto.VenteOeufsCreateRequest;
 import com.mobile.diafarms.network.dto.VenteReformeCreateRequest;
 import com.mobile.diafarms.util.OccupationUtils;
@@ -95,6 +94,10 @@ public class SaisieFormActivity extends AppCompatActivity {
     // "Vaccin" retiré : couvert par la saisie Vaccination dédiée (doses + prix par
     // dose) — Soins ne garde que ce qui n'a pas sa propre fiche détaillée.
     private static final String[] TYPES_SOIN = {"Médicament", "Autre"};
+    // Valeurs enum backend (Soins.type, entité unifiée) correspondant 1-pour-1 à
+    // TYPES_SOIN ci-dessus, dans le même ordre — le spinner reste en français, seule
+    // la valeur envoyée au serveur change.
+    private static final String[] TYPES_SOIN_WIRE = {"MEDICAMENT", "AUTRE"};
 
     private SaisieType type;
     private String projetUniqueId;
@@ -624,10 +627,11 @@ public class SaisieFormActivity extends AppCompatActivity {
                 || type == SaisieType.VENTE_OEUFS || type == SaisieType.VENTE_REFORME || type == SaisieType.VENTE_FIENTES
                 || type == SaisieType.VACCINATION;
         groupBatimentTop.setVisibility(sansBatiment ? View.GONE : View.VISIBLE);
-        // Vaccination n'a pas non plus de champ date/heure propre côté back (voir
-        // Vaccination.java — utilise juste sa date de création), comme Client/Salaire.
+        // Depuis la fusion Soins/Vaccination côté back, Vaccination a maintenant une
+        // vraie date obligatoire (et une heure optionnelle), comme Soins — seuls
+        // Client/Salaire restent sans notion de date/heure de saisie.
         groupDateHeureTop.setVisibility(
-                (type == SaisieType.CLIENT_CREATE || type == SaisieType.SALAIRE_PAYER || type == SaisieType.VACCINATION)
+                (type == SaisieType.CLIENT_CREATE || type == SaisieType.SALAIRE_PAYER)
                         ? View.GONE : View.VISIBLE);
     }
 
@@ -1693,7 +1697,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.batimentUniqueId = batimentUniqueId;
                 req.date = date;
                 req.heure = heure;
-                req.type = spinnerTypeSoin.getText().toString();
+                req.type = soinsTypeToWire(spinnerTypeSoin.getText().toString());
                 req.produit = produit;
                 req.quantite = parseDoubleOrNull(etQuantiteSoin.getText());
                 // Optionnel — si renseigné, génère automatiquement une sortie comptable
@@ -1702,7 +1706,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.coutTotal = parseDoubleOrNull(etCoutSoin.getText());
                 req.observations = nullIfBlank(textOf(etObservationsSoin));
                 requestObject = req;
-                summary = req.type + " — " + produit;
+                summary = spinnerTypeSoin.getText().toString() + " — " + produit;
                 break;
             }
             case VACCINATION: {
@@ -1716,9 +1720,18 @@ public class SaisieFormActivity extends AppCompatActivity {
                     toast("Veuillez saisir le nombre de doses");
                     return;
                 }
-                VaccinCreateRequest req = new VaccinCreateRequest();
-                req.nomVaccin = nomVaccin;
-                req.quantite = quantite;
+                // Même entité/endpoint que Soins depuis la fusion côté back — type
+                // VACCINATION + champs quantite/prixUnitaire/modeAdministration
+                // renseignés (coutTotal laissé null : recalculé côté serveur à partir de
+                // quantite × prixUnitaire, voir SoinsCreateRequest).
+                SoinsCreateRequest req = new SoinsCreateRequest();
+                req.projetUniqueId = projetUniqueId;
+                req.batimentUniqueId = batimentUniqueId;
+                req.date = date;
+                req.heure = heure;
+                req.type = "VACCINATION";
+                req.produit = nomVaccin;
+                req.quantite = (double) quantite;
                 req.prixUnitaire = parseDoubleOrNull(etPrixUnitaireVaccin.getText());
                 req.modeAdministration = selectedModesAdministration();
                 requestObject = req;
@@ -2143,14 +2156,15 @@ public class SaisieFormActivity extends AppCompatActivity {
                 if (req.quantite != null) etQuantiteSoin.setText(String.valueOf(req.quantite));
                 if (req.coutTotal != null) etCoutSoin.setText(String.valueOf(req.coutTotal));
                 etObservationsSoin.setText(req.observations);
-                selectSpinnerValue(spinnerTypeSoin, TYPES_SOIN, req.type);
+                selectSpinnerValue(spinnerTypeSoin, TYPES_SOIN, soinsTypeFromWire(req.type));
                 selectBatimentByUniqueId(req.batimentUniqueId);
                 break;
             }
             case VACCINATION: {
-                VaccinCreateRequest req = gson.fromJson(json, VaccinCreateRequest.class);
-                etNomVaccin.setText(req.nomVaccin);
-                if (req.quantite != null) etQuantiteVaccin.setText(String.valueOf(req.quantite));
+                SoinsCreateRequest req = gson.fromJson(json, SoinsCreateRequest.class);
+                setDateHeure(req.date, req.heure);
+                etNomVaccin.setText(req.produit);
+                if (req.quantite != null) etQuantiteVaccin.setText(String.valueOf(req.quantite.intValue()));
                 if (req.prixUnitaire != null) etPrixUnitaireVaccin.setText(String.valueOf(req.prixUnitaire));
                 setModesAdministration(req.modeAdministration);
                 updateCoutCalculeVaccin();
@@ -2303,6 +2317,23 @@ public class SaisieFormActivity extends AppCompatActivity {
                 return;
             }
         }
+    }
+
+    /** Libellé français du spinner Soins (TYPES_SOIN) -> valeur enum backend
+     * (TYPES_SOIN_WIRE), voir SoinsCreateRequest.type. */
+    private String soinsTypeToWire(String label) {
+        for (int i = 0; i < TYPES_SOIN.length; i++) {
+            if (TYPES_SOIN[i].equalsIgnoreCase(label)) return TYPES_SOIN_WIRE[i];
+        }
+        return TYPES_SOIN_WIRE[0];
+    }
+
+    /** Sens inverse de soinsTypeToWire, pour le pré-remplissage en édition. */
+    private String soinsTypeFromWire(String wire) {
+        for (int i = 0; i < TYPES_SOIN_WIRE.length; i++) {
+            if (TYPES_SOIN_WIRE[i].equalsIgnoreCase(wire)) return TYPES_SOIN[i];
+        }
+        return TYPES_SOIN[0];
     }
 
     private void toast(String message) {

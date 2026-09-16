@@ -25,7 +25,6 @@ import com.mobile.diafarms.network.dto.StockMagasinResponse;
 import com.mobile.diafarms.network.dto.StockOeufsResponse;
 import com.mobile.diafarms.network.dto.StockReformeResponse;
 import com.mobile.diafarms.network.dto.TransactionCreateRequest;
-import com.mobile.diafarms.network.dto.VaccinCreateRequest;
 import com.mobile.diafarms.network.dto.VenteOeufsCreateRequest;
 import com.mobile.diafarms.network.dto.VenteReformeCreateRequest;
 
@@ -86,15 +85,13 @@ public interface DataApi {
     @GET("consommations-aliment/stock/{projetUniqueId}")
     Call<ApiEnvelope<StockAlimentResponse>> getStockAliment(@Path("projetUniqueId") String projetUniqueId);
 
-    // ============== SOINS ==============
+    // ============== SOINS (entité unifiée : Soins générique — Médicament/Autre — ET
+    // Vaccination, fusionnées côté back en une seule table/entité "Soins", distinguées
+    // par le champ type. Vaccination utilise ce même endpoint, avec
+    // type=VACCINATION et les champs quantite/prixUnitaire/modeAdministration
+    // renseignés — voir SaisieFormActivity.onValider). ==============
     @POST("soins/create")
     Call<ApiEnvelope<CreatedEntityResponse>> createSoins(@Body SoinsCreateRequest request);
-
-    // ============== VACCINATION (distinct de Soins — doses + prix, voir la section
-    // "Vaccinations" de la Fiche Projet côté web) ==============
-    @POST("vaccinations/create/{uniqueIdProjet}")
-    Call<ApiEnvelope<CreatedEntityResponse>> createVaccination(
-            @Path("uniqueIdProjet") String projetUniqueId, @Body VaccinCreateRequest request);
 
     // ============== NOTIFICATIONS (alertes ferme entière — voir AlertCheckWorker,
     // vérification périodique en arrière-plan pour les notifications locales) ==============

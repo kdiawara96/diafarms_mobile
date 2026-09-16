@@ -13,9 +13,11 @@ public enum SaisieType {
     // "Entrée" d'aliment : achat/réception pour le projet (onglet Alimentation de la fiche projet côté web).
     ALIMENTATION_ACHAT("Achat d'aliment", Categorie.PRODUCTION),
     SOINS("Soins", Categorie.PRODUCTION),
-    // Distinct de SOINS (générique, type=Vaccin/Médicament/Autre, sans détail) — même
-    // entité que la section "Vaccinations" de la Fiche Projet côté web : nombre de
-    // doses + prix par dose, coût calculé automatiquement.
+    // Écran de saisie dédié pour ergonomie (doses + prix par dose, coût calculé
+    // automatiquement) mais, depuis la fusion Soins/Vaccination côté back, PAS un type
+    // distinct côté serveur : envoyé via le même endpoint que SOINS
+    // (POST /soins/create), avec type="VACCINATION" dans le payload — voir
+    // SoinsCreateRequest, SaisieFormActivity.onValider, SyncManager.dispatch.
     VACCINATION("Vaccination", Categorie.PRODUCTION),
     MORTALITE("Mortalité", Categorie.PRODUCTION),
     // Comptage pur des sujets retirés du cheptel vivant (comme Mortalité) — jamais de
