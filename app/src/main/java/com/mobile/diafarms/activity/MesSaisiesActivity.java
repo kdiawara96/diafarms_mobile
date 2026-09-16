@@ -210,9 +210,10 @@ public class MesSaisiesActivity extends AppCompatActivity {
                 case ALIMENTATION_CONSOMMATION:
                     return R.drawable.ble;
                 case SOINS:
+                    // Couvre Médicament/Autre ET Vaccination depuis la fusion des deux
+                    // écrans/boutons mobile — voir SaisieType.SOINS. Pas d'icône dédiée à
+                    // la vaccination ici : la liste n'a plus qu'une icône par SaisieType.
                     return R.drawable.ic_trousse_secours;
-                case VACCINATION:
-                    return R.drawable.injection;
                 case MORTALITE:
                     return android.R.drawable.ic_dialog_alert;
                 case REFORME:

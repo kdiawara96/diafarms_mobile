@@ -12,13 +12,14 @@ public enum SaisieType {
     ALIMENTATION_CONSOMMATION("Alimentation (sortie)", Categorie.PRODUCTION),
     // "Entrée" d'aliment : achat/réception pour le projet (onglet Alimentation de la fiche projet côté web).
     ALIMENTATION_ACHAT("Achat d'aliment", Categorie.PRODUCTION),
+    // Couvre Médicament/Autre ET Vaccination (fusionnées à la fois côté back — un
+    // seul endpoint POST /soins/create — et côté UI, depuis la fusion des deux
+    // écrans/boutons mobile : un seul point d'entrée, SaisieFormActivity affiche un
+    // sous-groupe de champs différent selon le type choisi dans son spinner. Voir
+    // SoinsCreateRequest, SaisieFormActivity.onValider/updateGroupSoinsSousType,
+    // SyncManager.dispatch. Plus de SaisieType.VACCINATION distinct : HomeActivity
+    // n'a plus qu'un seul bouton Soins.
     SOINS("Soins", Categorie.PRODUCTION),
-    // Écran de saisie dédié pour ergonomie (doses + prix par dose, coût calculé
-    // automatiquement) mais, depuis la fusion Soins/Vaccination côté back, PAS un type
-    // distinct côté serveur : envoyé via le même endpoint que SOINS
-    // (POST /soins/create), avec type="VACCINATION" dans le payload — voir
-    // SoinsCreateRequest, SaisieFormActivity.onValider, SyncManager.dispatch.
-    VACCINATION("Vaccination", Categorie.PRODUCTION),
     MORTALITE("Mortalité", Categorie.PRODUCTION),
     // Comptage pur des sujets retirés du cheptel vivant (comme Mortalité) — jamais de
     // prix ici, plafonné par l'effectif vivant du projet. Voir diafarms_back

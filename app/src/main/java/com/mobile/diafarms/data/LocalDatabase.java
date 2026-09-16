@@ -16,6 +16,13 @@ import java.util.UUID;
 
 public class LocalDatabase extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "diafarms.db";
+    // v6 : fusion Soins/Vaccination côté UI — SaisieType.VACCINATION supprimé (un seul
+    // bouton/écran "Soins" désormais, voir HomeActivity/SaisieFormActivity). Une
+    // saisie VACCINATION en attente, créée avant cette mise à jour, a sa colonne
+    // "type" qui ne correspond plus à aucune constante de l'enum : SaisieType.valueOf
+    // lèverait IllegalArgumentException à la lecture — destruction simple (déjà le
+    // pattern de ce fichier, voir onUpgrade), acceptable en développement (voir v5
+    // ci-dessous pour le précédent similaire lors de la fusion côté back).
     // v5 : fusion Soins/Vaccination côté back — le payload_json d'une saisie
     // VACCINATION en attente change de forme (VaccinCreateRequest -> SoinsCreateRequest
     // unifié : nomVaccin -> produit, quantite Integer -> Double, date/heure ajoutés).
@@ -23,7 +30,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
     // désérialisée avec l'ancienne forme et enverrait un payload invalide au nouvel
     // endpoint /soins/create — destruction simple (déjà le pattern de ce fichier,
     // voir onUpgrade), acceptable en développement.
-    private static final int DATABASE_VERSION = 5;
+    private static final int DATABASE_VERSION = 6;
 
     // Tables
     private static final String TABLE_ACCOUNTS = "accounts";

@@ -94,8 +94,7 @@ public class SyncManager {
 
         switch (saisie.getType()) {
             case SOINS:
-            case VACCINATION:
-                // Même entité/endpoint côté back depuis la fusion Soins/Vaccination — le
+                // Un seul endpoint côté back pour Médicament/Autre/Vaccination — le
                 // payload local porte déjà le bon "type" (VACCINATION/MEDICAMENT/AUTRE),
                 // voir SaisieFormActivity.onValider.
                 api.createSoins(gson.fromJson(json, SoinsCreateRequest.class)).enqueue(callback);

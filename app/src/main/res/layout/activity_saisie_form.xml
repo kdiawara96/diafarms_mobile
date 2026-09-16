@@ -248,7 +248,10 @@
                     android:textStyle="bold" />
             </LinearLayout>
 
-            <!-- ===================== SOINS ===================== -->
+            <!-- ===================== SOINS & VACCINATION (fusionnées, un seul point
+                 d'entrée — voir HomeActivity/btnSoins) : le spinner Type choisit entre
+                 Vaccination/Médicament/Autre, ce qui bascule quel sous-groupe de champs
+                 est affiché (voir updateGroupSoinsSousType() côté Java). ===================== -->
             <LinearLayout
                 android:id="@+id/groupSoins"
                 android:layout_width="match_parent"
@@ -275,118 +278,125 @@
 
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Produit">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etProduit"
-                        android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:inputType="text" />
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <View android:layout_width="match_parent" android:layout_height="12dp" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Quantité">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etQuantiteSoin"
-                        android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:inputType="numberDecimal" />
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <View android:layout_width="match_parent" android:layout_height="12dp" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Coût total (FCFA, optionnel)">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etCoutSoin"
-                        android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:inputType="numberDecimal" />
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <View android:layout_width="match_parent" android:layout_height="12dp" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Observations (optionnel)">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etObservationsSoin"
-                        android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:inputType="textMultiLine" android:minLines="2" />
-                </com.google.android.material.textfield.TextInputLayout>
-            </LinearLayout>
-
-            <!-- ===================== VACCINATION (distinct de Soins — doses + prix,
-                 pas de bâtiment/date propres, voir Vaccination.java côté back) ===================== -->
-            <LinearLayout
-                android:id="@+id/groupVaccination"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:visibility="gone">
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Nom du vaccin">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etNomVaccin"
-                        android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:inputType="text" />
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <View android:layout_width="match_parent" android:layout_height="12dp" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Quantité (doses)">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etQuantiteVaccin"
-                        android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:inputType="number" />
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <View android:layout_width="match_parent" android:layout_height="12dp" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Prix unitaire (FCFA / dose)">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etPrixUnitaireVaccin"
-                        android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:inputType="numberDecimal" />
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <View android:layout_width="match_parent" android:layout_height="12dp" />
-
-                <TextView
-                    android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:text="Mode d'administration (optionnel)" android:textColor="@android:color/black" android:textSize="14sp"
-                    android:layout_marginBottom="6dp" />
+                <!-- Champs génériques (Médicament/Autre) -->
                 <LinearLayout
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:orientation="horizontal">
-                    <CheckBox android:id="@+id/cbModeOral" android:layout_width="0dp" android:layout_height="wrap_content"
-                        android:layout_weight="1" android:text="Oral" android:textSize="12sp" />
-                    <CheckBox android:id="@+id/cbModeInjection" android:layout_width="0dp" android:layout_height="wrap_content"
-                        android:layout_weight="1" android:text="Injection" android:textSize="12sp" />
-                </LinearLayout>
-                <LinearLayout
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:orientation="horizontal">
-                    <CheckBox android:id="@+id/cbModePulverisation" android:layout_width="0dp" android:layout_height="wrap_content"
-                        android:layout_weight="1" android:text="Pulvérisation" android:textSize="12sp" />
-                    <CheckBox android:id="@+id/cbModeTopique" android:layout_width="0dp" android:layout_height="wrap_content"
-                        android:layout_weight="1" android:text="Topique" android:textSize="12sp" />
+                    android:id="@+id/groupSoinsGenerique"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:hint="Produit">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etProduit"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:inputType="text" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:hint="Quantité">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etQuantiteSoin"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:inputType="numberDecimal" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:hint="Coût total (FCFA, optionnel)">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etCoutSoin"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:inputType="numberDecimal" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:hint="Observations (optionnel)">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etObservationsSoin"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:inputType="textMultiLine" android:minLines="2" />
+                    </com.google.android.material.textfield.TextInputLayout>
                 </LinearLayout>
 
-                <View android:layout_width="match_parent" android:layout_height="8dp" />
+                <!-- Champs Vaccination (doses + prix, coût auto-calculé) -->
+                <LinearLayout
+                    android:id="@+id/groupVaccination"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
 
-                <TextView
-                    android:id="@+id/tvCoutCalculeVaccin"
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:textSize="13sp" android:textStyle="bold" />
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:hint="Nom du vaccin">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etNomVaccin"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:inputType="text" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:hint="Quantité (doses)">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etQuantiteVaccin"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:inputType="number" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:hint="Prix unitaire (FCFA / dose)">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etPrixUnitaireVaccin"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:inputType="numberDecimal" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                    <TextView
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="Mode d'administration (optionnel)" android:textColor="@android:color/black" android:textSize="14sp"
+                        android:layout_marginBottom="6dp" />
+                    <LinearLayout
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+                        <CheckBox android:id="@+id/cbModeOral" android:layout_width="0dp" android:layout_height="wrap_content"
+                            android:layout_weight="1" android:text="Oral" android:textSize="12sp" />
+                        <CheckBox android:id="@+id/cbModeInjection" android:layout_width="0dp" android:layout_height="wrap_content"
+                            android:layout_weight="1" android:text="Injection" android:textSize="12sp" />
+                    </LinearLayout>
+                    <LinearLayout
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+                        <CheckBox android:id="@+id/cbModePulverisation" android:layout_width="0dp" android:layout_height="wrap_content"
+                            android:layout_weight="1" android:text="Pulvérisation" android:textSize="12sp" />
+                        <CheckBox android:id="@+id/cbModeTopique" android:layout_width="0dp" android:layout_height="wrap_content"
+                            android:layout_weight="1" android:text="Topique" android:textSize="12sp" />
+                    </LinearLayout>
+
+                    <View android:layout_width="match_parent" android:layout_height="8dp" />
+
+                    <TextView
+                        android:id="@+id/tvCoutCalculeVaccin"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:textSize="13sp" android:textStyle="bold" />
+                </LinearLayout>
             </LinearLayout>
 
             <!-- ===================== MORTALITÉ ===================== -->

@@ -110,8 +110,9 @@ public class HomeActivity extends AppCompatActivity {
     private GridLayout gridProduction;
     private CardView btnCollecteOeufs;
     private CardView btnAlimentation;
+    // Couvre Médicament/Autre ET Vaccination — un seul bouton, le type se choisit
+    // dans le formulaire (voir SaisieFormActivity/SaisieType.SOINS).
     private CardView btnSoins;
-    private CardView btnVaccination;
     private CardView btnMortalite;
     private CardView btnReforme;
 
@@ -234,7 +235,6 @@ public class HomeActivity extends AppCompatActivity {
         btnCollecteOeufs = findViewById(R.id.btnCollecteOeufs);
         btnAlimentation = findViewById(R.id.btnAlimentation);
         btnSoins = findViewById(R.id.btnSoins);
-        btnVaccination = findViewById(R.id.btnVaccination);
         btnMortalite = findViewById(R.id.btnMortalite);
         btnReforme = findViewById(R.id.btnReforme);
 
@@ -628,31 +628,27 @@ public class HomeActivity extends AppCompatActivity {
      * projets chair. On retire/reconstruit la grille à la place, en ne (ré)ajoutant
      * que les cartes réellement visibles, pour qu'elles se resserrent naturellement.
      *
-     * PONTE/MIXTE : 6 cartes (Collecte, Alimentation, Soins, Vaccination, Mortalité,
-     * Réforme) — pair depuis l'ajout de Vaccination, toutes appariées 2 à 2, plus
-     * besoin d'isoler Collecte en pleine largeur comme avant (l'ancien compte de 5
-     * était impair).
-     * REFORME seul : Collecte masquée, 5 cartes (Alimentation, Soins, Vaccination,
-     * Mortalité, Réforme) — impair, la dernière (Réforme) reste seule sur sa ligne,
-     * sans conséquence visuelle grave (cas plus rare, projets chair uniquement). */
+     * PONTE/MIXTE : 5 cartes (Collecte, Alimentation, Soins, Mortalité, Réforme) —
+     * impair depuis la fusion de Vaccination dans Soins (un seul bouton), la dernière
+     * (Réforme) reste donc seule, pleine largeur, sur sa ligne (voir seuleSurSaLigne
+     * ci-dessous — même calcul générique qu'avant l'ajout de Vaccination).
+     * REFORME seul : Collecte masquée, 4 cartes (Alimentation, Soins, Mortalité,
+     * Réforme) — pair, toutes appariées 2 à 2. */
     private void updateSaisieButtonsVisibility() {
         boolean masquerCollecteOeufs = currentProjet != null && currentProjet.isReformeSeule();
 
         gridProduction.removeAllViews();
 
-        if (masquerCollecteOeufs) {
-            addProductionCard(btnAlimentation, false);
-            addProductionCard(btnSoins, false);
-            addProductionCard(btnVaccination, false);
-            addProductionCard(btnMortalite, false);
-            addProductionCard(btnReforme, false);
-        } else {
-            addProductionCard(btnCollecteOeufs, false);
-            addProductionCard(btnAlimentation, false);
-            addProductionCard(btnSoins, false);
-            addProductionCard(btnVaccination, false);
-            addProductionCard(btnMortalite, false);
-            addProductionCard(btnReforme, false);
+        List<CardView> cartes = new ArrayList<>();
+        if (!masquerCollecteOeufs) cartes.add(btnCollecteOeufs);
+        cartes.add(btnAlimentation);
+        cartes.add(btnSoins);
+        cartes.add(btnMortalite);
+        cartes.add(btnReforme);
+
+        for (int i = 0; i < cartes.size(); i++) {
+            boolean seuleSurSaLigne = (i == cartes.size() - 1) && (cartes.size() % 2 != 0);
+            addProductionCard(cartes.get(i), seuleSurSaLigne);
         }
 
         btnCollecteOeufs.setVisibility(masquerCollecteOeufs ? View.GONE : View.VISIBLE);
@@ -755,7 +751,6 @@ public class HomeActivity extends AppCompatActivity {
         btnCollecteOeufs.setOnClickListener(v -> openSaisie(SaisieType.COLLECTE_OEUFS));
         btnAlimentation.setOnClickListener(v -> showChoixAlimentation());
         btnSoins.setOnClickListener(v -> openSaisie(SaisieType.SOINS));
-        btnVaccination.setOnClickListener(v -> openSaisie(SaisieType.VACCINATION));
         btnMortalite.setOnClickListener(v -> openSaisie(SaisieType.MORTALITE));
         btnReforme.setOnClickListener(v -> openSaisie(SaisieType.REFORME));
 

@@ -91,13 +91,15 @@ public class SaisieFormActivity extends AppCompatActivity {
     // salaire" (SALAIRE_PAYER), qui vérifie la grille et empêche un double paiement du
     // même mois — une "Sortie d'argent" catégorie "Salaire" contournerait ce contrôle.
     private static final String[] CATEGORIES_TRANSACTION_SORTIE = {"Achat", "Santé / Vétérinaire", "Transport", "Électricité / Eau", "Entretien / Maintenance", "Autre"};
-    // "Vaccin" retiré : couvert par la saisie Vaccination dédiée (doses + prix par
-    // dose) — Soins ne garde que ce qui n'a pas sa propre fiche détaillée.
-    private static final String[] TYPES_SOIN = {"Médicament", "Autre"};
+    // Fusion Soins/Vaccination (UI) : un seul point d'entrée (SaisieType.SOINS, voir
+    // HomeActivity/btnSoins), le type choisi ici décide quel sous-groupe de champs est
+    // affiché (voir updateGroupSoinsSousType()) — Vaccination n'est plus un
+    // SaisieType/écran distinct.
+    private static final String[] TYPES_SOIN = {"Vaccination", "Médicament", "Autre"};
     // Valeurs enum backend (Soins.type, entité unifiée) correspondant 1-pour-1 à
     // TYPES_SOIN ci-dessus, dans le même ordre — le spinner reste en français, seule
     // la valeur envoyée au serveur change.
-    private static final String[] TYPES_SOIN_WIRE = {"MEDICAMENT", "AUTRE"};
+    private static final String[] TYPES_SOIN_WIRE = {"VACCINATION", "MEDICAMENT", "AUTRE"};
 
     private SaisieType type;
     private String projetUniqueId;
@@ -157,12 +159,16 @@ public class SaisieFormActivity extends AppCompatActivity {
     private TextInputEditText etAlveolesCollectees, etOeufsCollectes, etOeufsCasses, etOeufsNonUtilisables;
     private TextView tvResumeCollecte;
 
-    // Soins
+    // Soins & Vaccination (fusionnées, un seul écran/type — voir TYPES_SOIN ci-dessus)
     private View groupSoins;
     private AutoCompleteTextView spinnerTypeSoin;
+    // Champs génériques (Médicament/Autre), visibles seulement si le type choisi
+    // n'est pas Vaccination — voir updateGroupSoinsSousType().
+    private View groupSoinsGenerique;
     private TextInputEditText etProduit, etQuantiteSoin, etCoutSoin, etObservationsSoin;
 
-    // Vaccination (distinct de Soins)
+    // Champs Vaccination (doses + prix, coût auto-calculé), visibles seulement si le
+    // type choisi est Vaccination — voir updateGroupSoinsSousType().
     private View groupVaccination;
     private TextInputEditText etNomVaccin, etQuantiteVaccin, etPrixUnitaireVaccin;
     private CheckBox cbModeOral, cbModeInjection, cbModePulverisation, cbModeTopique;
@@ -372,6 +378,8 @@ public class SaisieFormActivity extends AppCompatActivity {
 
         groupSoins = findViewById(R.id.groupSoins);
         spinnerTypeSoin = findViewById(R.id.spinnerTypeSoin);
+        spinnerTypeSoin.setOnItemClickListener((parent, view, position, id) -> updateGroupSoinsSousType());
+        groupSoinsGenerique = findViewById(R.id.groupSoinsGenerique);
         etProduit = findViewById(R.id.etProduit);
         etQuantiteSoin = findViewById(R.id.etQuantiteSoin);
         etCoutSoin = findViewById(R.id.etCoutSoin);
@@ -583,6 +591,22 @@ public class SaisieFormActivity extends AppCompatActivity {
                 android.R.layout.simple_dropdown_item_1line, TYPES_SOIN);
         spinnerTypeSoin.setAdapter(typeSoinAdapter);
         spinnerTypeSoin.setText(TYPES_SOIN[0], false);
+        updateGroupSoinsSousType();
+    }
+
+    private boolean isTypeSoinVaccination() {
+        return TYPES_SOIN[0].equalsIgnoreCase(spinnerTypeSoin.getText().toString());
+    }
+
+    /** Bascule quel sous-groupe de champs de la saisie Soins est affiché selon le
+     * type choisi dans spinnerTypeSoin — appelé au changement de sélection, à
+     * l'ouverture du formulaire (applyTypeVisibility) et en édition
+     * (prefillFromExisting), une fois le spinner positionné sur la bonne valeur. */
+    private void updateGroupSoinsSousType() {
+        boolean vaccination = isTypeSoinVaccination();
+        groupSoinsGenerique.setVisibility(vaccination ? View.GONE : View.VISIBLE);
+        groupVaccination.setVisibility(vaccination ? View.VISIBLE : View.GONE);
+        if (vaccination) updateCoutCalculeVaccin();
     }
 
     private static final String[] CATEGORIE_VENTE_FIENTES = {"Vente fientes"};
@@ -598,8 +622,7 @@ public class SaisieFormActivity extends AppCompatActivity {
 
         groupCollecte.setVisibility(type == SaisieType.COLLECTE_OEUFS ? View.VISIBLE : View.GONE);
         groupSoins.setVisibility(type == SaisieType.SOINS ? View.VISIBLE : View.GONE);
-        groupVaccination.setVisibility(type == SaisieType.VACCINATION ? View.VISIBLE : View.GONE);
-        if (type == SaisieType.VACCINATION) updateCoutCalculeVaccin();
+        if (type == SaisieType.SOINS) updateGroupSoinsSousType();
         groupMortalite.setVisibility(type == SaisieType.MORTALITE ? View.VISIBLE : View.GONE);
         groupReforme.setVisibility(type == SaisieType.REFORME ? View.VISIBLE : View.GONE);
         groupAlimentationAchat.setVisibility(type == SaisieType.ALIMENTATION_ACHAT ? View.VISIBLE : View.GONE);
@@ -624,12 +647,14 @@ public class SaisieFormActivity extends AppCompatActivity {
         // Date/Heure est masqué en plus pour ces deux types (une commande garde
         // etDate = dateCommande, un paiement de salaire a sa propre Période dédiée).
         boolean sansBatiment = type == SaisieType.CLIENT_CREATE || type == SaisieType.COMMANDE_CREATE || type == SaisieType.SALAIRE_PAYER
-                || type == SaisieType.VENTE_OEUFS || type == SaisieType.VENTE_REFORME || type == SaisieType.VENTE_FIENTES
-                || type == SaisieType.VACCINATION;
+                || type == SaisieType.VENTE_OEUFS || type == SaisieType.VENTE_REFORME || type == SaisieType.VENTE_FIENTES;
         groupBatimentTop.setVisibility(sansBatiment ? View.GONE : View.VISIBLE);
-        // Depuis la fusion Soins/Vaccination côté back, Vaccination a maintenant une
-        // vraie date obligatoire (et une heure optionnelle), comme Soins — seuls
-        // Client/Salaire restent sans notion de date/heure de saisie.
+        // SOINS affiche toujours le bâtiment, même quand le type choisi dans le
+        // formulaire est Vaccination : optionnel dans ce cas (voir onValider, le
+        // choix "Aucun bâtiment précis" reste valide), obligatoire pour Médicament/
+        // Autre — reprend le comportement de l'ancien écran Vaccination dédié, qui
+        // n'avait tout simplement pas ce champ. Seuls Client/Salaire restent sans
+        // aucune notion de date/heure de saisie.
         groupDateHeureTop.setVisibility(
                 (type == SaisieType.CLIENT_CREATE || type == SaisieType.SALAIRE_PAYER)
                         ? View.GONE : View.VISIBLE);
@@ -1683,59 +1708,55 @@ public class SaisieFormActivity extends AppCompatActivity {
                 break;
             }
             case SOINS: {
-                if (batimentUniqueId == null) {
-                    toast("Veuillez sélectionner le bâtiment");
-                    return;
-                }
-                String produit = textOf(etProduit);
-                if (produit.isEmpty()) {
-                    toast("Veuillez préciser le produit utilisé");
-                    return;
-                }
                 SoinsCreateRequest req = new SoinsCreateRequest();
                 req.projetUniqueId = projetUniqueId;
                 req.batimentUniqueId = batimentUniqueId;
                 req.date = date;
                 req.heure = heure;
                 req.type = soinsTypeToWire(spinnerTypeSoin.getText().toString());
-                req.produit = produit;
-                req.quantite = parseDoubleOrNull(etQuantiteSoin.getText());
-                // Optionnel — si renseigné, génère automatiquement une sortie comptable
-                // liée au projet côté back (voir SoinsImpl.syncTransaction) : plus besoin
-                // de ressaisir ce coût séparément dans "Sortie d'argent".
-                req.coutTotal = parseDoubleOrNull(etCoutSoin.getText());
-                req.observations = nullIfBlank(textOf(etObservationsSoin));
-                requestObject = req;
-                summary = spinnerTypeSoin.getText().toString() + " — " + produit;
-                break;
-            }
-            case VACCINATION: {
-                String nomVaccin = textOf(etNomVaccin);
-                if (nomVaccin.isEmpty()) {
-                    toast("Veuillez préciser le nom du vaccin");
-                    return;
+
+                if (isTypeSoinVaccination()) {
+                    String nomVaccin = textOf(etNomVaccin);
+                    if (nomVaccin.isEmpty()) {
+                        toast("Veuillez préciser le nom du vaccin");
+                        return;
+                    }
+                    int quantite = parseIntSafe(etQuantiteVaccin.getText());
+                    if (quantite <= 0) {
+                        toast("Veuillez saisir le nombre de doses");
+                        return;
+                    }
+                    // batimentUniqueId reste optionnel pour Vaccination (pas de toast si
+                    // "Aucun bâtiment précis" est sélectionné) — reprend le comportement
+                    // de l'ancien écran Vaccination dédié, qui n'avait pas ce champ.
+                    req.produit = nomVaccin;
+                    req.quantite = (double) quantite;
+                    // coutTotal laissé null : recalculé côté serveur à partir de
+                    // quantite × prixUnitaire (voir SoinsCreateRequest/VaccinationImpl).
+                    req.prixUnitaire = parseDoubleOrNull(etPrixUnitaireVaccin.getText());
+                    req.modeAdministration = selectedModesAdministration();
+                    requestObject = req;
+                    summary = "Vaccination — " + nomVaccin + " (" + quantite + " doses)";
+                } else {
+                    if (batimentUniqueId == null) {
+                        toast("Veuillez sélectionner le bâtiment");
+                        return;
+                    }
+                    String produit = textOf(etProduit);
+                    if (produit.isEmpty()) {
+                        toast("Veuillez préciser le produit utilisé");
+                        return;
+                    }
+                    req.produit = produit;
+                    req.quantite = parseDoubleOrNull(etQuantiteSoin.getText());
+                    // Optionnel — si renseigné, génère automatiquement une sortie comptable
+                    // liée au projet côté back (voir SoinsImpl.syncTransaction) : plus
+                    // besoin de ressaisir ce coût séparément dans "Sortie d'argent".
+                    req.coutTotal = parseDoubleOrNull(etCoutSoin.getText());
+                    req.observations = nullIfBlank(textOf(etObservationsSoin));
+                    requestObject = req;
+                    summary = spinnerTypeSoin.getText().toString() + " — " + produit;
                 }
-                int quantite = parseIntSafe(etQuantiteVaccin.getText());
-                if (quantite <= 0) {
-                    toast("Veuillez saisir le nombre de doses");
-                    return;
-                }
-                // Même entité/endpoint que Soins depuis la fusion côté back — type
-                // VACCINATION + champs quantite/prixUnitaire/modeAdministration
-                // renseignés (coutTotal laissé null : recalculé côté serveur à partir de
-                // quantite × prixUnitaire, voir SoinsCreateRequest).
-                SoinsCreateRequest req = new SoinsCreateRequest();
-                req.projetUniqueId = projetUniqueId;
-                req.batimentUniqueId = batimentUniqueId;
-                req.date = date;
-                req.heure = heure;
-                req.type = "VACCINATION";
-                req.produit = nomVaccin;
-                req.quantite = (double) quantite;
-                req.prixUnitaire = parseDoubleOrNull(etPrixUnitaireVaccin.getText());
-                req.modeAdministration = selectedModesAdministration();
-                requestObject = req;
-                summary = nomVaccin + " (" + quantite + " doses)";
                 break;
             }
             case MORTALITE: {
@@ -2152,22 +2173,23 @@ public class SaisieFormActivity extends AppCompatActivity {
             case SOINS: {
                 SoinsCreateRequest req = gson.fromJson(json, SoinsCreateRequest.class);
                 setDateHeure(req.date, req.heure);
-                etProduit.setText(req.produit);
-                if (req.quantite != null) etQuantiteSoin.setText(String.valueOf(req.quantite));
-                if (req.coutTotal != null) etCoutSoin.setText(String.valueOf(req.coutTotal));
-                etObservationsSoin.setText(req.observations);
+                // Bascule d'abord le type (montre/masque le bon sous-groupe de champs,
+                // voir updateGroupSoinsSousType()) avant de remplir les valeurs.
                 selectSpinnerValue(spinnerTypeSoin, TYPES_SOIN, soinsTypeFromWire(req.type));
+                updateGroupSoinsSousType();
+                if ("VACCINATION".equalsIgnoreCase(req.type)) {
+                    etNomVaccin.setText(req.produit);
+                    if (req.quantite != null) etQuantiteVaccin.setText(String.valueOf(req.quantite.intValue()));
+                    if (req.prixUnitaire != null) etPrixUnitaireVaccin.setText(String.valueOf(req.prixUnitaire));
+                    setModesAdministration(req.modeAdministration);
+                    updateCoutCalculeVaccin();
+                } else {
+                    etProduit.setText(req.produit);
+                    if (req.quantite != null) etQuantiteSoin.setText(String.valueOf(req.quantite));
+                    if (req.coutTotal != null) etCoutSoin.setText(String.valueOf(req.coutTotal));
+                    etObservationsSoin.setText(req.observations);
+                }
                 selectBatimentByUniqueId(req.batimentUniqueId);
-                break;
-            }
-            case VACCINATION: {
-                SoinsCreateRequest req = gson.fromJson(json, SoinsCreateRequest.class);
-                setDateHeure(req.date, req.heure);
-                etNomVaccin.setText(req.produit);
-                if (req.quantite != null) etQuantiteVaccin.setText(String.valueOf(req.quantite.intValue()));
-                if (req.prixUnitaire != null) etPrixUnitaireVaccin.setText(String.valueOf(req.prixUnitaire));
-                setModesAdministration(req.modeAdministration);
-                updateCoutCalculeVaccin();
                 break;
             }
             case MORTALITE: {
