@@ -211,7 +211,7 @@ public class SaisieFormActivity extends AppCompatActivity {
 
     // Alimentation - achat
     private View groupAlimentationAchat;
-    private TextInputEditText etNomAliment, etSac, etQuantiteKgAchat, etCoutAchatAliment, etObservationsAchat;
+    private TextInputEditText etNomAliment, etSac, etQuantiteKgAchat, etCoutAchatAliment, etFournisseurAchat, etObservationsAchat;
 
     // Alimentation - consommation
     private View groupConsommation;
@@ -439,6 +439,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         etSac = findViewById(R.id.etSac);
         etQuantiteKgAchat = findViewById(R.id.etQuantiteKgAchat);
         etCoutAchatAliment = findViewById(R.id.etCoutAchatAliment);
+        etFournisseurAchat = findViewById(R.id.etFournisseurAchat);
         etObservationsAchat = findViewById(R.id.etObservationsAchat);
 
         groupConsommation = findViewById(R.id.groupConsommation);
@@ -1980,6 +1981,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.dateDistribution = date;
                 req.heure = heure;
                 req.observations = nullIfBlank(textOf(etObservationsAchat));
+                req.fournisseur = nullIfBlank(textOf(etFournisseurAchat));
                 req.batimentUniqueId = batimentUniqueId;
                 requestObject = req;
                 summary = String.format(Locale.FRANCE, "Achat %s : %.1f kg", nom, quantiteKg);
@@ -2381,6 +2383,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 if (req.sac != null) etSac.setText(String.valueOf(req.sac));
                 if (req.quantiteKg != null) etQuantiteKgAchat.setText(String.valueOf(req.quantiteKg));
                 if (req.coutTotal != null) etCoutAchatAliment.setText(String.valueOf(req.coutTotal));
+                etFournisseurAchat.setText(req.fournisseur);
                 etObservationsAchat.setText(req.observations);
                 selectBatimentByUniqueId(req.batimentUniqueId);
                 break;

@@ -586,6 +586,17 @@
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Fournisseur (optionnel)">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etFournisseurAchat"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="text" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:hint="Observations (optionnel)">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etObservationsAchat"

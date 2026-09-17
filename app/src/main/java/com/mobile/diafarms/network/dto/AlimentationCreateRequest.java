@@ -15,4 +15,5 @@ public class AlimentationCreateRequest {
     public String heure;            // "HH:mm", optionnel
     public String observations;
     public String batimentUniqueId;
+    public String fournisseur; // optionnel
 }
