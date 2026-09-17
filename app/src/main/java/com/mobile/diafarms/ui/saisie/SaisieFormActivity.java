@@ -2001,7 +2001,7 @@ public class SaisieFormActivity extends AppCompatActivity {
             }
             case COMMANDE_CREATE: {
                 if (clients.isEmpty()) {
-                    toast("Aucun client synchronisé — créez-en un d'abord (en ligne) ou synchronisez");
+                    toast("Aucun client synchronisé. Créez-en un d'abord (en ligne) ou synchronisez");
                     return;
                 }
                 String clientUniqueId = getSelectedClientUniqueId(spinnerClientCommande, false);
@@ -2058,7 +2058,7 @@ public class SaisieFormActivity extends AppCompatActivity {
             }
             case SALAIRE_PAYER: {
                 if (salaires.isEmpty()) {
-                    toast("Aucune grille salariale synchronisée — définissez un salaire depuis le web, ou synchronisez");
+                    toast("Aucune grille salariale synchronisée. Définissez un salaire depuis le web, ou synchronisez");
                     return;
                 }
                 SalaireSelectResponse employe = getSelectedSalaireEmploye();
@@ -2121,7 +2121,7 @@ public class SaisieFormActivity extends AppCompatActivity {
             toast("Saisie modifiée");
         } else {
             localDatabase.insertSaisie(type, projetUniqueId, projetLabel, payloadJson, summary);
-            toast("Enregistré — à synchroniser depuis l'accueil");
+            toast("Enregistré, à synchroniser depuis l'accueil");
         }
 
         setResult(RESULT_OK);
