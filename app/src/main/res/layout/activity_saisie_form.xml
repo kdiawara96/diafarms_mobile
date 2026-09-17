@@ -305,21 +305,10 @@
                             android:inputType="numberDecimal" />
                     </com.google.android.material.textfield.TextInputLayout>
 
-                    <View android:layout_width="match_parent" android:layout_height="12dp" />
-
                     <!-- Pas de coût ici : la Production ne suit plus que le fait (quoi/
                          quand/où), le coût réel se saisit séparément en Comptabilité
                          (Nouvelle transaction, catégorie "Santé / Vétérinaire") — voir
                          SaisieFormActivity.onValider et CATEGORIES_TRANSACTION_SORTIE. -->
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:hint="Observations (optionnel)">
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/etObservationsSoin"
-                            android:layout_width="match_parent" android:layout_height="wrap_content"
-                            android:inputType="textMultiLine" android:minLines="2" />
-                    </com.google.android.material.textfield.TextInputLayout>
                 </LinearLayout>
 
                 <!-- Champs Vaccination (doses + prix, coût auto-calculé) -->
@@ -378,6 +367,19 @@
                     </LinearLayout>
 
                 </LinearLayout>
+
+                <!-- Observations : commun aux deux sous-types (Médicament/Autre ET
+                     Vaccination), placé hors des deux sous-groupes ci-dessus. -->
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Observations (optionnel)">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etObservationsSoin"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="textMultiLine" android:minLines="2" />
+                </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
             <!-- ===================== MORTALITÉ ===================== -->

@@ -1699,6 +1699,8 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.date = date;
                 req.heure = heure;
                 req.type = soinsTypeToWire(spinnerTypeSoin.getText().toString());
+                // Commun aux deux sous-types (Médicament/Autre ET Vaccination).
+                req.observations = nullIfBlank(textOf(etObservationsSoin));
 
                 if (isTypeSoinVaccination()) {
                     String nomVaccin = textOf(etNomVaccin);
@@ -1733,10 +1735,9 @@ public class SaisieFormActivity extends AppCompatActivity {
                     }
                     req.produit = produit;
                     req.quantite = parseDoubleOrNull(etQuantiteSoin.getText());
-                    // Pas de coût ici : la Production suit le fait, pas l'argent — le coût
+                    // Pas de coût ici : la Production suit le fait, pas l'argent, le coût
                     // réel se saisit séparément en Comptabilité ("Nouvelle transaction",
                     // catégorie "Santé / Vétérinaire") pour éviter une double saisie.
-                    req.observations = nullIfBlank(textOf(etObservationsSoin));
                     requestObject = req;
                     summary = spinnerTypeSoin.getText().toString() + " : " + produit;
                 }
@@ -2160,6 +2161,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 // voir updateGroupSoinsSousType()) avant de remplir les valeurs.
                 selectSpinnerValue(spinnerTypeSoin, TYPES_SOIN, soinsTypeFromWire(req.type));
                 updateGroupSoinsSousType();
+                etObservationsSoin.setText(req.observations);
                 if ("VACCINATION".equalsIgnoreCase(req.type)) {
                     etNomVaccin.setText(req.produit);
                     if (req.quantite != null) etQuantiteVaccin.setText(String.valueOf(req.quantite.intValue()));
@@ -2167,7 +2169,6 @@ public class SaisieFormActivity extends AppCompatActivity {
                 } else {
                     etProduit.setText(req.produit);
                     if (req.quantite != null) etQuantiteSoin.setText(String.valueOf(req.quantite));
-                    etObservationsSoin.setText(req.observations);
                 }
                 selectBatimentByUniqueId(req.batimentUniqueId);
                 break;
