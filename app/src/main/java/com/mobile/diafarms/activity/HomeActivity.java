@@ -113,6 +113,9 @@ public class HomeActivity extends AppCompatActivity {
     // Couvre Médicament/Autre ET Vaccination — un seul bouton, le type se choisit
     // dans le formulaire (voir SaisieFormActivity/SaisieType.SOINS).
     private CardView btnSoins;
+    // Jamais lié au projet sélectionné (contrairement aux autres cartes de cette
+    // grille) — voir SaisieType.ENTRETIEN et openSaisie().
+    private CardView btnEntretien;
     private CardView btnMortalite;
     private CardView btnReforme;
 
@@ -235,6 +238,7 @@ public class HomeActivity extends AppCompatActivity {
         btnCollecteOeufs = findViewById(R.id.btnCollecteOeufs);
         btnAlimentation = findViewById(R.id.btnAlimentation);
         btnSoins = findViewById(R.id.btnSoins);
+        btnEntretien = findViewById(R.id.btnEntretien);
         btnMortalite = findViewById(R.id.btnMortalite);
         btnReforme = findViewById(R.id.btnReforme);
 
@@ -628,12 +632,11 @@ public class HomeActivity extends AppCompatActivity {
      * projets chair. On retire/reconstruit la grille à la place, en ne (ré)ajoutant
      * que les cartes réellement visibles, pour qu'elles se resserrent naturellement.
      *
-     * PONTE/MIXTE : 5 cartes (Collecte, Alimentation, Soins, Mortalité, Réforme) —
-     * impair depuis la fusion de Vaccination dans Soins (un seul bouton), la dernière
-     * (Réforme) reste donc seule, pleine largeur, sur sa ligne (voir seuleSurSaLigne
-     * ci-dessous — même calcul générique qu'avant l'ajout de Vaccination).
-     * REFORME seul : Collecte masquée, 4 cartes (Alimentation, Soins, Mortalité,
-     * Réforme) — pair, toutes appariées 2 à 2. */
+     * PONTE/MIXTE : 6 cartes (Collecte, Alimentation, Soins, Entretien, Mortalité,
+     * Réforme) — pair, toutes appariées 2 à 2.
+     * REFORME seul : Collecte masquée, 5 cartes — impair, la dernière (Réforme)
+     * reste seule, pleine largeur, sur sa ligne (voir seuleSurSaLigne ci-dessous,
+     * calcul générique quel que soit le nombre de cartes). */
     private void updateSaisieButtonsVisibility() {
         boolean masquerCollecteOeufs = currentProjet != null && currentProjet.isReformeSeule();
 
@@ -643,6 +646,7 @@ public class HomeActivity extends AppCompatActivity {
         if (!masquerCollecteOeufs) cartes.add(btnCollecteOeufs);
         cartes.add(btnAlimentation);
         cartes.add(btnSoins);
+        cartes.add(btnEntretien);
         cartes.add(btnMortalite);
         cartes.add(btnReforme);
 
@@ -751,6 +755,7 @@ public class HomeActivity extends AppCompatActivity {
         btnCollecteOeufs.setOnClickListener(v -> openSaisie(SaisieType.COLLECTE_OEUFS));
         btnAlimentation.setOnClickListener(v -> showChoixAlimentation());
         btnSoins.setOnClickListener(v -> openSaisie(SaisieType.SOINS));
+        btnEntretien.setOnClickListener(v -> openSaisie(SaisieType.ENTRETIEN));
         btnMortalite.setOnClickListener(v -> openSaisie(SaisieType.MORTALITE));
         btnReforme.setOnClickListener(v -> openSaisie(SaisieType.REFORME));
 
@@ -777,10 +782,12 @@ public class HomeActivity extends AppCompatActivity {
         // Vente œufs/réforme (Finance) puisent dans un stock à l'échelle de la ferme
         // entière, pas du projet sélectionné — même exception que les transactions.
         // Client/Commande ne sont pas non plus rattachés à un projet (voir Client.java/
-        // Commande.java côté back : farm-scopés, pas projet-scopés).
+        // Commande.java côté back : farm-scopés, pas projet-scopés). Entretien non plus
+        // (voir Entretien.java) : un poulailler peut être entretenu même vide.
         boolean needsProjet = type != SaisieType.TRANSACTION_ENTREE && type != SaisieType.TRANSACTION_SORTIE
                 && type != SaisieType.VENTE_OEUFS && type != SaisieType.VENTE_REFORME && type != SaisieType.VENTE_FIENTES
-                && type != SaisieType.CLIENT_CREATE && type != SaisieType.COMMANDE_CREATE && type != SaisieType.SALAIRE_PAYER;
+                && type != SaisieType.CLIENT_CREATE && type != SaisieType.COMMANDE_CREATE && type != SaisieType.SALAIRE_PAYER
+                && type != SaisieType.ENTRETIEN;
         if (needsProjet && currentProjet == null) {
             Toast.makeText(this, "Veuillez sélectionner un projet", Toast.LENGTH_SHORT).show();
             return;

@@ -99,6 +99,9 @@ public class SyncManager {
                 // voir SaisieFormActivity.onValider.
                 api.createSoins(gson.fromJson(json, SoinsCreateRequest.class)).enqueue(callback);
                 break;
+            case ENTRETIEN:
+                api.createEntretien(gson.fromJson(json, com.mobile.diafarms.network.dto.EntretienCreateRequest.class)).enqueue(callback);
+                break;
             case MORTALITE:
                 api.createMortalite(gson.fromJson(json, MortaliteCreateRequest.class)).enqueue(callback);
                 break;

@@ -20,6 +20,7 @@ import com.mobile.diafarms.network.dto.ReformeCreateRequest;
 import com.mobile.diafarms.network.dto.SalairePayerRequest;
 import com.mobile.diafarms.network.dto.SalaireSelectResponse;
 import com.mobile.diafarms.network.dto.SoinsCreateRequest;
+import com.mobile.diafarms.network.dto.EntretienCreateRequest;
 import com.mobile.diafarms.network.dto.StockAlimentResponse;
 import com.mobile.diafarms.network.dto.StockMagasinResponse;
 import com.mobile.diafarms.network.dto.StockOeufsResponse;
@@ -92,6 +93,11 @@ public interface DataApi {
     // renseignés — voir SaisieFormActivity.onValider). ==============
     @POST("soins/create")
     Call<ApiEnvelope<CreatedEntityResponse>> createSoins(@Body SoinsCreateRequest request);
+
+    // ============== ENTRETIEN (poulailler ou site — jamais lié à un projet, voir
+    // Entretien.java côté back) ==============
+    @POST("entretiens/create")
+    Call<ApiEnvelope<CreatedEntityResponse>> createEntretien(@Body EntretienCreateRequest request);
 
     // ============== NOTIFICATIONS (alertes ferme entière — voir AlertCheckWorker,
     // vérification périodique en arrière-plan pour les notifications locales) ==============

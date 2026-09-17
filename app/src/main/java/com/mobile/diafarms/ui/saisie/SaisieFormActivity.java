@@ -105,6 +105,11 @@ public class SaisieFormActivity extends AppCompatActivity {
     // la valeur envoyée au serveur change.
     private static final String[] TYPES_SOIN_WIRE = {"VACCINATION", "MEDICAMENT", "AUTRE"};
 
+    private static final String[] NIVEAUX_ENTRETIEN = {"Poulailler", "Site (toute la ferme)"};
+    private static final String[] NIVEAUX_ENTRETIEN_WIRE = {"BATIMENT", "SITE"};
+    private static final String[] TYPES_ENTRETIEN = {"Entretien / Nettoyage", "Remplacement de copeau", "Autre"};
+    private static final String[] TYPES_ENTRETIEN_WIRE = {"NETTOYAGE", "COPEAU", "AUTRE"};
+
     private SaisieType type;
     private String projetUniqueId;
     private String projetLabel;
@@ -121,6 +126,12 @@ public class SaisieFormActivity extends AppCompatActivity {
     // Bâtiment à resélectionner dès que "batiments" sera chargé — voir
     // selectBatimentByUniqueId/applyPendingBatimentSelection.
     private String pendingBatimentSelection;
+
+    // TOUS les poulaillers de la ferme (pas seulement occupés par le projet
+    // sélectionné, contrairement à "batiments" ci-dessus) — pour Entretien
+    // uniquement, voir loadBatimentsEntretien/getBatimentsSelect.
+    private List<com.mobile.diafarms.network.dto.BatimentSelectResponse> batimentsEntretien = new ArrayList<>();
+    private String pendingBatimentEntretienSelection;
 
     // Magasins de vente (VENTE) : liste déjà filtrée par le serveur aux magasins liés
     // à ce vendeur — partagée par les deux spinners (Vente œufs / Vente réforme),
@@ -179,6 +190,13 @@ public class SaisieFormActivity extends AppCompatActivity {
     private View groupVaccination;
     private TextInputEditText etNomVaccin, etQuantiteVaccin;
     private CheckBox cbModeOral, cbModeInjection, cbModePulverisation, cbModeTopique;
+
+    // Entretien (poulailler ou site — jamais lié au projet, voir SaisieType.ENTRETIEN)
+    private View groupEntretien;
+    private AutoCompleteTextView spinnerNiveauEntretien;
+    private View groupEntretienBatiment;
+    private AutoCompleteTextView spinnerBatimentEntretien, spinnerTypeEntretien;
+    private TextInputEditText etDescriptionEntretien, etObservationsEntretien;
 
     // Mortalité
     private View groupMortalite;
@@ -398,6 +416,15 @@ public class SaisieFormActivity extends AppCompatActivity {
         cbModePulverisation = findViewById(R.id.cbModePulverisation);
         cbModeTopique = findViewById(R.id.cbModeTopique);
 
+        groupEntretien = findViewById(R.id.groupEntretien);
+        spinnerNiveauEntretien = findViewById(R.id.spinnerNiveauEntretien);
+        groupEntretienBatiment = findViewById(R.id.groupEntretienBatiment);
+        spinnerBatimentEntretien = findViewById(R.id.spinnerBatimentEntretien);
+        spinnerTypeEntretien = findViewById(R.id.spinnerTypeEntretien);
+        etDescriptionEntretien = findViewById(R.id.etDescriptionEntretien);
+        etObservationsEntretien = findViewById(R.id.etObservationsEntretien);
+        spinnerNiveauEntretien.setOnItemClickListener((parent, view, position, id) -> updateGroupEntretienNiveau());
+
         groupMortalite = findViewById(R.id.groupMortalite);
         etNombreMorts = findViewById(R.id.etNombreMorts);
         etCauseMortalite = findViewById(R.id.etCauseMortalite);
@@ -588,6 +615,16 @@ public class SaisieFormActivity extends AppCompatActivity {
         spinnerTypeSoin.setAdapter(typeSoinAdapter);
         spinnerTypeSoin.setText(TYPES_SOIN[0], false);
         updateGroupSoinsSousType();
+
+        ArrayAdapter<String> niveauEntretienAdapter = new ArrayAdapter<>(this,
+                android.R.layout.simple_dropdown_item_1line, NIVEAUX_ENTRETIEN);
+        spinnerNiveauEntretien.setAdapter(niveauEntretienAdapter);
+        spinnerNiveauEntretien.setText(NIVEAUX_ENTRETIEN[0], false);
+        ArrayAdapter<String> typeEntretienAdapter = new ArrayAdapter<>(this,
+                android.R.layout.simple_dropdown_item_1line, TYPES_ENTRETIEN);
+        spinnerTypeEntretien.setAdapter(typeEntretienAdapter);
+        spinnerTypeEntretien.setText(TYPES_ENTRETIEN[0], false);
+        updateGroupEntretienNiveau();
     }
 
     private boolean isTypeSoinVaccination() {
@@ -604,6 +641,102 @@ public class SaisieFormActivity extends AppCompatActivity {
         groupVaccination.setVisibility(vaccination ? View.VISIBLE : View.GONE);
     }
 
+    private boolean isNiveauEntretienBatiment() {
+        return NIVEAUX_ENTRETIEN[0].equalsIgnoreCase(spinnerNiveauEntretien.getText().toString());
+    }
+
+    /** Bascule le champ poulailler/type selon le niveau choisi — un niveau "Site"
+     * n'a ni poulailler ni type précis (toujours "Autres travaux", voir onValider). */
+    private void updateGroupEntretienNiveau() {
+        boolean batiment = isNiveauEntretienBatiment();
+        groupEntretienBatiment.setVisibility(batiment ? View.VISIBLE : View.GONE);
+        if (batiment && batimentsEntretien.isEmpty()) loadBatimentsEntretien();
+    }
+
+    private String entretienNiveauToWire(String label) {
+        for (int i = 0; i < NIVEAUX_ENTRETIEN.length; i++) {
+            if (NIVEAUX_ENTRETIEN[i].equalsIgnoreCase(label)) return NIVEAUX_ENTRETIEN_WIRE[i];
+        }
+        return NIVEAUX_ENTRETIEN_WIRE[0];
+    }
+
+    private String entretienNiveauFromWire(String wire) {
+        for (int i = 0; i < NIVEAUX_ENTRETIEN_WIRE.length; i++) {
+            if (NIVEAUX_ENTRETIEN_WIRE[i].equalsIgnoreCase(wire)) return NIVEAUX_ENTRETIEN[i];
+        }
+        return NIVEAUX_ENTRETIEN[0];
+    }
+
+    private String entretienTypeToWire(String label) {
+        for (int i = 0; i < TYPES_ENTRETIEN.length; i++) {
+            if (TYPES_ENTRETIEN[i].equalsIgnoreCase(label)) return TYPES_ENTRETIEN_WIRE[i];
+        }
+        return TYPES_ENTRETIEN_WIRE[2]; // AUTRE
+    }
+
+    private String entretienTypeFromWire(String wire) {
+        for (int i = 0; i < TYPES_ENTRETIEN_WIRE.length; i++) {
+            if (TYPES_ENTRETIEN_WIRE[i].equalsIgnoreCase(wire)) return TYPES_ENTRETIEN[i];
+        }
+        return TYPES_ENTRETIEN[2];
+    }
+
+    /** TOUS les poulaillers de la ferme (pas seulement ceux occupés par le projet
+     * sélectionné) — même principe cache-puis-réseau que loadBatiments(), voir
+     * CachePrefetcher.prefetchBatiments (déjà préchargé au démarrage/connexion). */
+    private void loadBatimentsEntretien() {
+        String cached = localDatabase.getCache(CachePrefetcher.CACHE_BATIMENTS_SELECT);
+        if (cached != null) {
+            com.mobile.diafarms.network.dto.BatimentSelectResponse[] arr =
+                    gson.fromJson(cached, com.mobile.diafarms.network.dto.BatimentSelectResponse[].class);
+            batimentsEntretien = new ArrayList<>(java.util.Arrays.asList(arr));
+            populateBatimentEntretienSpinner();
+        }
+
+        ApiClient.dataApi(this).getBatimentsSelect().enqueue(new Callback<ApiEnvelope<List<com.mobile.diafarms.network.dto.BatimentSelectResponse>>>() {
+            @Override
+            public void onResponse(Call<ApiEnvelope<List<com.mobile.diafarms.network.dto.BatimentSelectResponse>>> call,
+                                    Response<ApiEnvelope<List<com.mobile.diafarms.network.dto.BatimentSelectResponse>>> response) {
+                List<com.mobile.diafarms.network.dto.BatimentSelectResponse> data =
+                        response.isSuccessful() && response.body() != null ? response.body().getData() : null;
+                if (data != null) {
+                    localDatabase.putCache(CachePrefetcher.CACHE_BATIMENTS_SELECT, gson.toJson(data));
+                    batimentsEntretien = data;
+                    populateBatimentEntretienSpinner();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiEnvelope<List<com.mobile.diafarms.network.dto.BatimentSelectResponse>>> call, Throwable t) {
+                // bâtiments déjà affichés depuis le cache le cas échéant, rien à faire de plus
+            }
+        });
+    }
+
+    private void populateBatimentEntretienSpinner() {
+        List<String> labels = new ArrayList<>();
+        for (com.mobile.diafarms.network.dto.BatimentSelectResponse b : batimentsEntretien) labels.add(b.getNom());
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, labels);
+        spinnerBatimentEntretien.setAdapter(adapter);
+        applyPendingBatimentEntretienSelection();
+    }
+
+    private void selectBatimentEntretienByUniqueId(String uniqueId) {
+        if (uniqueId == null) return;
+        pendingBatimentEntretienSelection = uniqueId;
+        applyPendingBatimentEntretienSelection();
+    }
+
+    private void applyPendingBatimentEntretienSelection() {
+        if (pendingBatimentEntretienSelection == null) return;
+        for (com.mobile.diafarms.network.dto.BatimentSelectResponse b : batimentsEntretien) {
+            if (pendingBatimentEntretienSelection.equals(b.getUniqueId())) {
+                spinnerBatimentEntretien.setText(b.getNom(), false);
+                return;
+            }
+        }
+    }
+
     private static final String[] CATEGORIE_VENTE_FIENTES = {"Vente fientes"};
 
     private String[] categoriesPourType() {
@@ -618,6 +751,8 @@ public class SaisieFormActivity extends AppCompatActivity {
         groupCollecte.setVisibility(type == SaisieType.COLLECTE_OEUFS ? View.VISIBLE : View.GONE);
         groupSoins.setVisibility(type == SaisieType.SOINS ? View.VISIBLE : View.GONE);
         if (type == SaisieType.SOINS) updateGroupSoinsSousType();
+        groupEntretien.setVisibility(type == SaisieType.ENTRETIEN ? View.VISIBLE : View.GONE);
+        if (type == SaisieType.ENTRETIEN) updateGroupEntretienNiveau();
         groupMortalite.setVisibility(type == SaisieType.MORTALITE ? View.VISIBLE : View.GONE);
         groupReforme.setVisibility(type == SaisieType.REFORME ? View.VISIBLE : View.GONE);
         groupAlimentationAchat.setVisibility(type == SaisieType.ALIMENTATION_ACHAT ? View.VISIBLE : View.GONE);
@@ -641,8 +776,12 @@ public class SaisieFormActivity extends AppCompatActivity {
         // Client et Salaire n'ont en plus aucune notion de date/heure : le bloc
         // Date/Heure est masqué en plus pour ces deux types (une commande garde
         // etDate = dateCommande, un paiement de salaire a sa propre Période dédiée).
+        // ENTRETIEN a son propre champ poulailler (spinnerBatimentEntretien, TOUS les
+        // poulaillers de la ferme) — le champ partagé ci-dessus ne liste que ceux
+        // occupés par le projet sélectionné, non pertinent ici.
         boolean sansBatiment = type == SaisieType.CLIENT_CREATE || type == SaisieType.COMMANDE_CREATE || type == SaisieType.SALAIRE_PAYER
-                || type == SaisieType.VENTE_OEUFS || type == SaisieType.VENTE_REFORME || type == SaisieType.VENTE_FIENTES;
+                || type == SaisieType.VENTE_OEUFS || type == SaisieType.VENTE_REFORME || type == SaisieType.VENTE_FIENTES
+                || type == SaisieType.ENTRETIEN;
         groupBatimentTop.setVisibility(sansBatiment ? View.GONE : View.VISIBLE);
         // SOINS affiche toujours le bâtiment, même quand le type choisi dans le
         // formulaire est Vaccination : optionnel dans ce cas (voir onValider, le
@@ -973,6 +1112,16 @@ public class SaisieFormActivity extends AppCompatActivity {
         String selected = spinnerBatiment.getText().toString();
         for (OccupationBatimentResponse b : batiments) {
             if (b.getNomBatiment().equals(selected)) return b.getBatimentUniqueId();
+        }
+        return null;
+    }
+
+    // Même principe que getSelectedBatimentUniqueId() mais sur batimentsEntretien
+    // (TOUS les poulaillers de la ferme) — voir Entretien.
+    private String getSelectedBatimentEntretienUniqueId() {
+        String selected = spinnerBatimentEntretien.getText().toString();
+        for (com.mobile.diafarms.network.dto.BatimentSelectResponse b : batimentsEntretien) {
+            if (b.getNom().equals(selected)) return b.getUniqueId();
         }
         return null;
     }
@@ -1743,6 +1892,30 @@ public class SaisieFormActivity extends AppCompatActivity {
                 }
                 break;
             }
+            case ENTRETIEN: {
+                boolean niveauBatiment = isNiveauEntretienBatiment();
+                String descriptionEntretien = textOf(etDescriptionEntretien);
+                if (descriptionEntretien.isEmpty()) {
+                    toast("Veuillez préciser la description");
+                    return;
+                }
+                String batimentEntretienUniqueId = niveauBatiment ? getSelectedBatimentEntretienUniqueId() : null;
+                if (niveauBatiment && batimentEntretienUniqueId == null) {
+                    toast("Veuillez sélectionner le poulailler");
+                    return;
+                }
+                com.mobile.diafarms.network.dto.EntretienCreateRequest req = new com.mobile.diafarms.network.dto.EntretienCreateRequest();
+                req.batimentUniqueId = batimentEntretienUniqueId;
+                req.date = date;
+                req.heure = heure;
+                req.niveau = entretienNiveauToWire(spinnerNiveauEntretien.getText().toString());
+                req.type = niveauBatiment ? entretienTypeToWire(spinnerTypeEntretien.getText().toString()) : "AUTRE";
+                req.description = descriptionEntretien;
+                req.observations = nullIfBlank(textOf(etObservationsEntretien));
+                requestObject = req;
+                summary = (niveauBatiment ? spinnerTypeEntretien.getText().toString() : "Site") + " : " + descriptionEntretien;
+                break;
+            }
             case MORTALITE: {
                 if (batimentUniqueId == null) {
                     toast("Veuillez sélectionner le bâtiment");
@@ -2171,6 +2344,18 @@ public class SaisieFormActivity extends AppCompatActivity {
                     if (req.quantite != null) etQuantiteSoin.setText(String.valueOf(req.quantite));
                 }
                 selectBatimentByUniqueId(req.batimentUniqueId);
+                break;
+            }
+            case ENTRETIEN: {
+                com.mobile.diafarms.network.dto.EntretienCreateRequest req =
+                        gson.fromJson(json, com.mobile.diafarms.network.dto.EntretienCreateRequest.class);
+                setDateHeure(req.date, req.heure);
+                selectSpinnerValue(spinnerNiveauEntretien, NIVEAUX_ENTRETIEN, entretienNiveauFromWire(req.niveau));
+                updateGroupEntretienNiveau();
+                selectSpinnerValue(spinnerTypeEntretien, TYPES_ENTRETIEN, entretienTypeFromWire(req.type));
+                selectBatimentEntretienByUniqueId(req.batimentUniqueId);
+                etDescriptionEntretien.setText(req.description);
+                etObservationsEntretien.setText(req.observations);
                 break;
             }
             case MORTALITE: {

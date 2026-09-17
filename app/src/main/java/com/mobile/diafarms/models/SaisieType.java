@@ -20,6 +20,10 @@ public enum SaisieType {
     // SyncManager.dispatch. Plus de SaisieType.VACCINATION distinct : HomeActivity
     // n'a plus qu'un seul bouton Soins.
     SOINS("Santé / Vétérinaire", Categorie.PRODUCTION),
+    // Jamais lié à un projet (contrairement à SOINS) : un poulailler peut être
+    // entretenu même vide, une action "site" concerne toute la ferme. Voir
+    // Entretien.java côté back, EntretienCreateRequest, DataApi.createEntretien.
+    ENTRETIEN("Entretien", Categorie.PRODUCTION),
     MORTALITE("Mortalité", Categorie.PRODUCTION),
     // Comptage pur des sujets retirés du cheptel vivant (comme Mortalité) — jamais de
     // prix ici, plafonné par l'effectif vivant du projet. Voir diafarms_back

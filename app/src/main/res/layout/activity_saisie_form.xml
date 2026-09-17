@@ -382,6 +382,89 @@
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
+            <!-- ===================== ENTRETIEN (poulailler ou site — jamais lié au
+                 projet, voir HomeActivity.openSaisie/Entretien.java côté back).
+                 Le poulailler ici vient de TOUS ceux de la ferme (getBatimentsSelect),
+                 pas seulement ceux occupés par le projet sélectionné en haut (voir
+                 spinnerBatiment/groupBatimentTop, masqué pour ce type). ===================== -->
+            <LinearLayout
+                android:id="@+id/groupEntretien"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Niveau"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
+                    <AutoCompleteTextView
+                        android:id="@+id/spinnerNiveauEntretien"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="none" android:editable="false" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <!-- Visible seulement si niveau = Poulailler -->
+                <LinearLayout
+                    android:id="@+id/groupEntretienBatiment"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:hint="Poulailler"
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                        app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
+                        app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
+                        <AutoCompleteTextView
+                            android:id="@+id/spinnerBatimentEntretien"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:inputType="none" android:editable="false" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:hint="Type"
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                        app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
+                        app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
+                        <AutoCompleteTextView
+                            android:id="@+id/spinnerTypeEntretien"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:inputType="none" android:editable="false" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <View android:layout_width="match_parent" android:layout_height="12dp" />
+                </LinearLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Description">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etDescriptionEntretien"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="text" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Observations (optionnel)">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etObservationsEntretien"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="textMultiLine" android:minLines="2" />
+                </com.google.android.material.textfield.TextInputLayout>
+            </LinearLayout>
+
             <!-- ===================== MORTALITÉ ===================== -->
             <LinearLayout
                 android:id="@+id/groupMortalite"

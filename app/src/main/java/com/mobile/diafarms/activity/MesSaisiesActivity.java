@@ -214,6 +214,8 @@ public class MesSaisiesActivity extends AppCompatActivity {
                     // écrans/boutons mobile — voir SaisieType.SOINS. Pas d'icône dédiée à
                     // la vaccination ici : la liste n'a plus qu'une icône par SaisieType.
                     return R.drawable.ic_trousse_secours;
+                case ENTRETIEN:
+                    return R.drawable.ic_entretien;
                 case MORTALITE:
                     return android.R.drawable.ic_dialog_alert;
                 case REFORME:
