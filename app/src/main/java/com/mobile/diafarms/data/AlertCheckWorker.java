@@ -127,7 +127,7 @@ public class AlertCheckWorker extends Worker {
                 android.app.PendingIntent.FLAG_UPDATE_CURRENT | android.app.PendingIntent.FLAG_IMMUTABLE);
 
         String titre = "CRITIQUE".equals(n.getLevel()) ? "⚠️ Alerte Cocorico" : "Cocorico";
-        String texte = n.getProjetCode() != null ? n.getProjetCode() + " — " + n.getMessage() : n.getMessage();
+        String texte = n.getProjetCode() != null ? n.getProjetCode() + " : " + n.getMessage() : n.getMessage();
 
         boolean critique = "CRITIQUE".equals(n.getLevel());
         return new NotificationCompat.Builder(context, CHANNEL_ID)

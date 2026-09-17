@@ -97,8 +97,8 @@ public class DiagnosticsActivity extends AppCompatActivity {
         });
 
         tvVersion.setText("Cocorico v" + BuildConfig.VERSION_NAME
-                + " (build " + BuildConfig.VERSION_CODE + ") — "
-                + (BuildConfig.DEBUG ? "debug" : "release"));
+                + " (build " + BuildConfig.VERSION_CODE + ", "
+                + (BuildConfig.DEBUG ? "debug" : "release") + ")");
 
         refreshPendingCount();
         refreshErrorLog();
@@ -205,7 +205,7 @@ public class DiagnosticsActivity extends AppCompatActivity {
     private void confirmViderCache() {
         String message = "Les données serveur en cache (projets, alertes, stock...) seront supprimées.\n\n"
                 + "Tant que l'appareil ne se sera pas reconnecté au réseau au moins une fois pour les "
-                + "recharger, elles ne seront plus disponibles hors ligne — vous risquez de vous retrouver "
+                + "recharger, elles ne seront plus disponibles hors ligne. Vous risquez de vous retrouver "
                 + "sans données sur le terrain si vous perdez la connexion avant.\n\n"
                 + "Confirmez avec votre mot de passe hors ligne.";
 

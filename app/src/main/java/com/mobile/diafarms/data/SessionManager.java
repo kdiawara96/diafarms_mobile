@@ -86,7 +86,7 @@ public class SessionManager {
      * l'utilisateur qui la subit sur le terrain. */
     private void recoverFromCorruptedPrefs(Exception cause) {
         Log.e(TAG, "Préférences chiffrées corrompues (Keystore), réinitialisation forcée", cause);
-        com.mobile.diafarms.util.DebugLog.notice(context, TAG, "Préférences chiffrées corrompues (Keystore), réinitialisation forcée — TOUS les comptes et mots de passe locaux de cet appareil sont perdus : "
+        com.mobile.diafarms.util.DebugLog.notice(context, TAG, "Préférences chiffrées corrompues (Keystore), réinitialisation forcée. TOUS les comptes et mots de passe locaux de cet appareil sont perdus : "
                 + cause.getClass().getSimpleName() + (cause.getMessage() != null ? ": " + cause.getMessage() : ""));
         context.deleteSharedPreferences(PREF_NAME);
         resetMasterKeyIfNeeded();

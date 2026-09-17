@@ -26,6 +26,6 @@ public class ProjetSelectResponse {
     public boolean isPonteSeule() { return "PONTE".equalsIgnoreCase(objectif); }
 
     public String getLabel() {
-        return (code != null ? code : "") + (titre != null ? " — " + titre : "");
+        return (code != null ? code : "") + (titre != null ? " : " + titre : "");
     }
 }

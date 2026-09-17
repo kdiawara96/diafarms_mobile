@@ -1688,7 +1688,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.oeufsNonUtilisables = nonUtilisables;
                 requestObject = req;
                 summary = alveoles > 0
-                        ? String.format(Locale.FRANCE, "%d alvéole(s) + %d œufs — %d au total (%d cassés, %d non utilisables)", alveoles, oeufsSupp, collectes, casses, nonUtilisables)
+                        ? String.format(Locale.FRANCE, "%d alvéole(s) + %d œufs, %d au total (%d cassés, %d non utilisables)", alveoles, oeufsSupp, collectes, casses, nonUtilisables)
                         : String.format(Locale.FRANCE, "%d œufs collectés (%d cassés, %d non utilisables)", collectes, casses, nonUtilisables);
                 break;
             }
@@ -1720,7 +1720,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                     // se saisit séparément en Comptabilité (catégorie "Santé / Vétérinaire").
                     req.modeAdministration = selectedModesAdministration();
                     requestObject = req;
-                    summary = "Vaccination — " + nomVaccin + " (" + quantite + " doses)";
+                    summary = "Vaccination : " + nomVaccin + " (" + quantite + " doses)";
                 } else {
                     if (batimentUniqueId == null) {
                         toast("Veuillez sélectionner le bâtiment");
@@ -1738,7 +1738,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                     // catégorie "Santé / Vétérinaire") pour éviter une double saisie.
                     req.observations = nullIfBlank(textOf(etObservationsSoin));
                     requestObject = req;
-                    summary = spinnerTypeSoin.getText().toString() + " — " + produit;
+                    summary = spinnerTypeSoin.getText().toString() + " : " + produit;
                 }
                 break;
             }
@@ -1760,7 +1760,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.nombreMorts = nombreMorts;
                 req.cause = nullIfBlank(textOf(etCauseMortalite));
                 requestObject = req;
-                summary = nombreMorts + " sujet(s) mort(s)" + (req.cause != null ? " — " + req.cause : "");
+                summary = nombreMorts + " sujet(s) mort(s)" + (req.cause != null ? " : " + req.cause : "");
                 break;
             }
             case REFORME: {
@@ -1781,7 +1781,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.nombreSujets = nombreSujets;
                 req.cause = nullIfBlank(textOf(etCauseReforme));
                 requestObject = req;
-                summary = nombreSujets + " sujet(s) réformé(s)" + (req.cause != null ? " — " + req.cause : "");
+                summary = nombreSujets + " sujet(s) réformé(s)" + (req.cause != null ? " : " + req.cause : "");
                 break;
             }
             case ALIMENTATION_ACHAT: {
@@ -1808,7 +1808,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.observations = nullIfBlank(textOf(etObservationsAchat));
                 req.batimentUniqueId = batimentUniqueId;
                 requestObject = req;
-                summary = String.format(Locale.FRANCE, "Achat %s — %.1f kg", nom, quantiteKg);
+                summary = String.format(Locale.FRANCE, "Achat %s : %.1f kg", nom, quantiteKg);
                 break;
             }
             case ALIMENTATION_CONSOMMATION: {
@@ -1888,7 +1888,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.typeOeuf = casse ? "CASSE" : "BON";
                 requestObject = req;
                 summary = enAlveoles
-                        ? String.format(Locale.FRANCE, "Vente de %d alvéole(s) — %d œufs (%,.0f FCFA)", saisie, quantite, montant)
+                        ? String.format(Locale.FRANCE, "Vente de %d alvéole(s), %d œufs (%,.0f FCFA)", saisie, quantite, montant)
                         : String.format(Locale.FRANCE, "Vente de %d œufs (%,.0f FCFA)", quantite, montant);
                 break;
             }
@@ -1975,7 +1975,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.montant = montant;
                 req.categorie = spinnerCategorie.getText().toString();
                 requestObject = req;
-                summary = String.format(Locale.FRANCE, "%s %,.0f FCFA — %s",
+                summary = String.format(Locale.FRANCE, "%s %,.0f FCFA : %s",
                         type == SaisieType.TRANSACTION_SORTIE ? "-" : "+", montant, description);
                 break;
             }
@@ -1996,7 +1996,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.adresse = nullIfBlank(textOf(etClientAdresse));
                 req.email = nullIfBlank(textOf(etClientEmail));
                 requestObject = req;
-                summary = "Nouveau client — " + nom;
+                summary = "Nouveau client : " + nom;
                 break;
             }
             case COMMANDE_CREATE: {
@@ -2107,7 +2107,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.montant = montantSalaire;
                 req.description = nullIfBlank(textOf(etDescriptionSalaire));
                 requestObject = req;
-                summary = String.format(Locale.FRANCE, "Salaire de %s — %s (%,.0f FCFA)", employe.getEmployeNom(), periode, montantSalaire);
+                summary = String.format(Locale.FRANCE, "Salaire de %s, %s (%,.0f FCFA)", employe.getEmployeNom(), periode, montantSalaire);
                 break;
             }
             default:

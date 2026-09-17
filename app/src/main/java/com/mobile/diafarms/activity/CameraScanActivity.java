@@ -456,7 +456,7 @@ public class CameraScanActivity extends AppCompatActivity {
             // SessionManager.recoverFromCorruptedPrefs) — sans ce log on ne peut pas
             // distinguer "jamais écrit" de "écrit puis reperdu" en cas de souci.
             DebugLog.notice(this, TAG, "Mot de passe local enregistré pour " + identifiantsAcceptes
-                    + " — relecture immédiate : hasLocalPassword=" + sessionManager.hasLocalPassword()
+                    + ", relecture immédiate : hasLocalPassword=" + sessionManager.hasLocalPassword()
                     + " identifiantsRelus=" + sessionManager.getLocalPasswordIdentifiants());
             Toast.makeText(this, "Mot de passe hors ligne enregistré", Toast.LENGTH_SHORT).show();
             dialog.dismiss();
