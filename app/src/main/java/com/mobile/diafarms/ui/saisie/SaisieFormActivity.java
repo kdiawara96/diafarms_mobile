@@ -86,7 +86,7 @@ public class SaisieFormActivity extends AppCompatActivity {
     // TRANSACTION_SORTIE choisi depuis l'accueil), donc pas besoin de basculer la
     // liste dynamiquement ici, contrairement au web où un seul formulaire couvre
     // les deux types.
-    private static final String[] CATEGORIES_TRANSACTION_ENTREE = {"Vente", "Autre"};
+    private static final String[] CATEGORIES_TRANSACTION_ENTREE = {"Vente", "Location", "Don", "Autre"};
     // "Salaire" retiré : le paiement d'un salaire passe obligatoirement par "Payer un
     // salaire" (SALAIRE_PAYER), qui vérifie la grille et empêche un double paiement du
     // même mois — une "Sortie d'argent" catégorie "Salaire" contournerait ce contrôle.
