@@ -94,7 +94,12 @@ public class SaisieFormActivity extends AppCompatActivity {
     // Santé / Vétérinaire (SaisieType.SOINS, sous-type Médicament/Autre — la Production
     // ne suit plus que le fait), c'est ici, en Comptabilité, que ce coût se saisit —
     // sauf pour un Vaccin, qui garde son propre calcul automatique (dose × prix).
-    private static final String[] CATEGORIES_TRANSACTION_SORTIE = {"Achat", "Santé / Vétérinaire", "Transport", "Électricité / Eau", "Entretien / Maintenance", "Autre"};
+    // Même liste que le web (CreateTransactionDialog/EditTransactionDialog,
+    // CATEGORIES_SORTIE) : le mobile n'avait que 6 entrées dont "Transport" à la place
+    // de "Logistique", sans Alvéole/Copeau/Matériels, donc impossible de saisir ces
+    // dépenses depuis le terrain. Les anciennes saisies "Transport" déjà envoyées
+    // restent valides côté back (catégorie libre), seule la liste proposée change.
+    private static final String[] CATEGORIES_TRANSACTION_SORTIE = {"Achat", "Santé / Vétérinaire", "Logistique", "Électricité / Eau", "Entretien / Maintenance", "Alvéole", "Copeau", "Matériels", "Autre"};
     // Fusion Soins/Vaccination (UI) : un seul point d'entrée (SaisieType.SOINS, voir
     // HomeActivity/btnSoins), le type choisi ici décide quel sous-groupe de champs est
     // affiché (voir updateGroupSoinsSousType()) — Vaccination n'est plus un
