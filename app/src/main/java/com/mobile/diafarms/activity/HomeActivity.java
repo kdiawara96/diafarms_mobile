@@ -713,7 +713,11 @@ public class HomeActivity extends AppCompatActivity {
     }
 
     private void renderProjetDetail(ProjetDetailResponse detail) {
-        tvPoulesCount.setText(detail.getNbSujets() != null ? String.valueOf(detail.getNbSujets()) : "");
+        // Effectif VIVANT (initial - mortalité - réforme), comme "Mortalité cumulée" côté
+        // web : afficher l'effectif initial donnait 1000 même après des morts. Repli sur
+        // l'initial si l'ancien cache/serveur ne fournit pas effectifVivant.
+        Integer effectifAffiche = detail.getEffectifVivant() != null ? detail.getEffectifVivant() : detail.getNbSujets();
+        tvPoulesCount.setText(effectifAffiche != null ? String.valueOf(effectifAffiche) : "");
         tvTauxPonte.setText(detail.getTauxPonte() != null
                 ? String.format(Locale.FRANCE, "%.0f%%", detail.getTauxPonte()) : "");
         tvJoursRestants.setText(joursRestants(detail.getFinPrevue()));
