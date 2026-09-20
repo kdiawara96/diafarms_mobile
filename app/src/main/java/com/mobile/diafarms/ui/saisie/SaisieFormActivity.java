@@ -1975,14 +1975,19 @@ public class SaisieFormActivity extends AppCompatActivity {
                     toast("Veuillez préciser l'aliment et la quantité (kg)");
                     return;
                 }
+                Double coutAchat = parseDoubleOrNull(etCoutAchatAliment.getText());
+                if (coutAchat == null || coutAchat <= 0) {
+                    toast("Veuillez saisir le coût total de l'achat");
+                    return;
+                }
                 AlimentationCreateRequest req = new AlimentationCreateRequest();
                 req.nomAliment = nom;
                 req.sac = parseDoubleOrNull(etSac.getText());
                 req.quantiteKg = quantiteKg;
-                // Optionnel — si renseigné, génère automatiquement une sortie comptable
-                // liée au projet côté back (voir AlimentationImpl.syncTransaction) : plus
-                // besoin de ressaisir ce coût séparément dans "Sortie d'argent".
-                req.coutTotal = parseDoubleOrNull(etCoutAchatAliment.getText());
+                // Obligatoire : génère la sortie comptable liée au projet côté back (voir
+                // AlimentationImpl.syncTransaction) : pas besoin de la ressaisir dans
+                // "Sortie d'argent".
+                req.coutTotal = coutAchat;
                 req.dateDistribution = date;
                 req.heure = heure;
                 req.observations = nullIfBlank(textOf(etObservationsAchat));

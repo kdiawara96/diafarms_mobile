@@ -10,8 +10,10 @@ public enum SaisieType {
     COLLECTE_OEUFS("Collecte d'œufs", Categorie.PRODUCTION),
     // "Sortie" d'aliment : consommation, tirée du stock du projet (carte Alimentation).
     ALIMENTATION_CONSOMMATION("Alimentation (sortie)", Categorie.PRODUCTION),
-    // "Entrée" d'aliment : achat/réception pour le projet (onglet Alimentation de la fiche projet côté web).
-    ALIMENTATION_ACHAT("Achat d'aliment", Categorie.PRODUCTION),
+    // "Entrée" d'aliment : achat pour le projet. Acte financier (stock + sortie d'argent,
+    // coût obligatoire), donc côté Comptable et non plus Production — voir
+    // diafarms_back AlimentationImpl.ensureCanManageAchat.
+    ALIMENTATION_ACHAT("Achat d'aliment", Categorie.FINANCE),
     // Couvre Médicament/Autre ET Vaccination (fusionnées à la fois côté back — un
     // seul endpoint POST /soins/create — et côté UI, depuis la fusion des deux
     // écrans/boutons mobile : un seul point d'entrée, SaisieFormActivity affiche un

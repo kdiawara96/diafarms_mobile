@@ -135,6 +135,7 @@ public class HomeActivity extends AppCompatActivity {
     private CardView btnNouveauClient;
     private CardView btnNouvelleCommande;
     private CardView btnPayerSalaire;
+    private CardView btnAchatAliment;
     private CardView cardStatsFinance;
     private TextView tvMesEntrees;
     private TextView tvMesSorties;
@@ -254,6 +255,7 @@ public class HomeActivity extends AppCompatActivity {
         btnNouveauClient = findViewById(R.id.btnNouveauClient);
         btnNouvelleCommande = findViewById(R.id.btnNouvelleCommande);
         btnPayerSalaire = findViewById(R.id.btnPayerSalaire);
+        btnAchatAliment = findViewById(R.id.btnAchatAliment);
         cardStatsFinance = findViewById(R.id.cardStatsFinance);
         tvMesEntrees = findViewById(R.id.tvMesEntrees);
         tvMesSorties = findViewById(R.id.tvMesSorties);
@@ -365,6 +367,7 @@ public class HomeActivity extends AppCompatActivity {
             btnEntreeArgent.setVisibility(View.GONE);
             btnSortieArgent.setVisibility(View.GONE);
             btnPayerSalaire.setVisibility(View.GONE);
+            btnAchatAliment.setVisibility(View.GONE);
         }
         if (isVente) {
             btnVenteOeufs.setVisibility(View.GONE);
@@ -423,6 +426,7 @@ public class HomeActivity extends AppCompatActivity {
             // la grille (ajouter un salarié, fixer son taux) reste une action web (voir
             // SaisieType.SALAIRE_PAYER, DefinirSalaireDialog côté web).
             btnPayerSalaire.setVisibility(s.isComptableMobileEnabled() ? View.VISIBLE : View.GONE);
+            btnAchatAliment.setVisibility(s.isComptableMobileEnabled() ? View.VISIBLE : View.GONE);
         }
         if (currentUser.isVente()) {
             btnVenteOeufs.setVisibility(s.isVenteMobileEnabled() ? View.VISIBLE : View.GONE);
@@ -753,8 +757,8 @@ public class HomeActivity extends AppCompatActivity {
     private void setupClickListeners() {
         // Production
         btnCollecteOeufs.setOnClickListener(v -> openSaisie(SaisieType.COLLECTE_OEUFS));
-        // Consommation uniquement : l'achat d'aliment est un acte financier, saisi par la
-        // comptabilité sur le web (voir AlimentationImpl.ensureCanManageAchat).
+        // Consommation uniquement : l'achat d'aliment est un acte financier, saisi par le
+        // comptable (carte "Achat d'aliment", voir AlimentationImpl.ensureCanManageAchat).
         btnAlimentation.setOnClickListener(v -> openSaisie(SaisieType.ALIMENTATION_CONSOMMATION));
         btnSoins.setOnClickListener(v -> openSaisie(SaisieType.SOINS));
         btnEntretien.setOnClickListener(v -> openSaisie(SaisieType.ENTRETIEN));
@@ -770,6 +774,7 @@ public class HomeActivity extends AppCompatActivity {
         btnNouveauClient.setOnClickListener(v -> openSaisie(SaisieType.CLIENT_CREATE));
         btnNouvelleCommande.setOnClickListener(v -> openSaisie(SaisieType.COMMANDE_CREATE));
         btnPayerSalaire.setOnClickListener(v -> openSaisie(SaisieType.SALAIRE_PAYER));
+        btnAchatAliment.setOnClickListener(v -> openSaisie(SaisieType.ALIMENTATION_ACHAT));
 
         // Sync — écouteur sur l'ImageButton interne, même raison que btnDiagnostics ci-dessus.
         findViewById(R.id.imgBtnSync).setOnClickListener(v -> forceSync());

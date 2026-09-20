@@ -525,7 +525,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Achat ou consommation"
+                            android:text="Consommation d'aliment"
                             android:textColor="@color/white_translucent_70"
                             android:textSize="12sp"/>
                     </LinearLayout>
@@ -859,6 +859,54 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Grille déjà définie"
+                            android:textColor="@color/gray_text_soft"
+                            android:textSize="11sp"
+                            android:gravity="center"/>
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <!-- Achat d'aliment (COMPTABLE) : acte financier (stock + sortie d'argent),
+                     retiré de la Production — voir AlimentationImpl.ensureCanManageAchat. -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/btnAchatAliment"
+                    android:layout_width="0dp"
+                    android:layout_height="120dp"
+                    android:layout_columnWeight="1"
+                    android:layout_margin="6dp"
+                    app:cardCornerRadius="16dp"
+                    app:cardBackgroundColor="@color/gray_bg"
+                    app:cardElevation="1dp"
+                    android:foreground="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:visibility="gone">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="8dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="🌾"
+                            android:textSize="28sp"/>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:text="Achat d'aliment"
+                            android:textColor="@color/gray_text_dark"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:gravity="center"/>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Stock + dépense"
                             android:textColor="@color/gray_text_soft"
                             android:textSize="11sp"
                             android:gravity="center"/>
