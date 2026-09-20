@@ -753,7 +753,9 @@ public class HomeActivity extends AppCompatActivity {
     private void setupClickListeners() {
         // Production
         btnCollecteOeufs.setOnClickListener(v -> openSaisie(SaisieType.COLLECTE_OEUFS));
-        btnAlimentation.setOnClickListener(v -> showChoixAlimentation());
+        // Consommation uniquement : l'achat d'aliment est un acte financier, saisi par la
+        // comptabilité sur le web (voir AlimentationImpl.ensureCanManageAchat).
+        btnAlimentation.setOnClickListener(v -> openSaisie(SaisieType.ALIMENTATION_CONSOMMATION));
         btnSoins.setOnClickListener(v -> openSaisie(SaisieType.SOINS));
         btnEntretien.setOnClickListener(v -> openSaisie(SaisieType.ENTRETIEN));
         btnMortalite.setOnClickListener(v -> openSaisie(SaisieType.MORTALITE));
@@ -800,17 +802,6 @@ public class HomeActivity extends AppCompatActivity {
             intent.putExtra(SaisieFormActivity.EXTRA_PROJET_LABEL, currentProjet.getLabel());
         }
         startActivity(intent);
-    }
-
-    /** La carte "Alimentation" couvre les deux flux (achat = entrant, consommation =
-     * sortant) : on demande lequel plutôt que d'avoir une carte séparée sur l'accueil. */
-    private void showChoixAlimentation() {
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-                .setTitle("Alimentation")
-                .setItems(new CharSequence[]{"Achat (entrant)", "Consommation (sortant)"}, (dialog, which) -> {
-                    openSaisie(which == 0 ? SaisieType.ALIMENTATION_ACHAT : SaisieType.ALIMENTATION_CONSOMMATION);
-                })
-                .show();
     }
 
     /** Abonne un NetworkCallback pour refléter la connectivité réelle sur l'indicateur
