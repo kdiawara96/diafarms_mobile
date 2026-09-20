@@ -73,7 +73,7 @@ public class SyncManager {
                     localDatabase.markSynced(saisie.getLocalId(), data.getUniqueId());
                     syncNext(list, index + 1, success + 1, failed, callback);
                 } else {
-                    String message = response.body() != null ? response.body().getMessage() : "Échec de l'envoi";
+                    String message = extractServerMessage(response);
                     localDatabase.markError(saisie.getLocalId(), message);
                     syncNext(list, index + 1, success, failed + 1, callback);
                 }
@@ -87,6 +87,27 @@ public class SyncManager {
         };
 
         dispatch(saisie, retrofitCallback);
+    }
+
+    /** Raison réelle du refus. Sur un 400 le corps est dans errorBody() (response.body()
+     * est alors null) : le serveur y explique pourquoi (ex: "dépasserait l'effectif
+     * vivant"), message qui n'était jamais affiché, seulement "Échec de l'envoi". */
+    private String extractServerMessage(Response<ApiEnvelope<CreatedEntityResponse>> response) {
+        try {
+            if (response.body() != null && response.body().getMessage() != null) {
+                return response.body().getMessage();
+            }
+            if (response.errorBody() != null) {
+                ApiEnvelope<?> envelope = gson.fromJson(response.errorBody().string(), ApiEnvelope.class);
+                if (envelope != null) {
+                    if (envelope.getErrors() != null && !envelope.getErrors().isEmpty()) return envelope.getErrors().get(0);
+                    if (envelope.getMessage() != null) return envelope.getMessage();
+                }
+            }
+        } catch (Exception ignored) {
+            // corps illisible : message générique ci-dessous
+        }
+        return "Échec de l'envoi";
     }
 
     private void dispatch(SaisieLocale saisie, Callback<ApiEnvelope<CreatedEntityResponse>> callback) {

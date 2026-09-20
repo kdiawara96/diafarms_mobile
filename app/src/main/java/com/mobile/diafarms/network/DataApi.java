@@ -10,6 +10,7 @@ import com.mobile.diafarms.network.dto.ConsommationAlimentCreateRequest;
 import com.mobile.diafarms.network.dto.CreatedEntityResponse;
 import com.mobile.diafarms.network.dto.AlimentationCreateRequest;
 import com.mobile.diafarms.network.dto.EffectifReformeResponse;
+import com.mobile.diafarms.network.dto.PlafondSaisieResponse;
 import com.mobile.diafarms.network.dto.FarmAppSettingsResponse;
 import com.mobile.diafarms.network.dto.MagasinSelectResponse;
 import com.mobile.diafarms.network.dto.MortaliteCreateRequest;
@@ -114,6 +115,13 @@ public interface DataApi {
 
     // ============== RÉFORME (Production : comptage pur, plafonné par l'effectif
     // vivant DU PROJET — aucun prix, voir diafarms_back ReformeImpl) ==============
+    // Plafond d'une saisie (effectif vivant du poulailler/projet, œufs encore collectables
+    // ce jour-là) : alimente les alertes de cohérence en direct du formulaire.
+    @GET("plafond-saisie")
+    Call<ApiEnvelope<PlafondSaisieResponse>> getPlafondSaisie(@Query("projetUniqueId") String projetUniqueId,
+                                                              @Query("batimentUniqueId") String batimentUniqueId,
+                                                              @Query("date") String date);
+
     @GET("reformes/effectif/{projetUniqueId}")
     Call<ApiEnvelope<EffectifReformeResponse>> getEffectifReforme(@Path("projetUniqueId") String projetUniqueId);
 

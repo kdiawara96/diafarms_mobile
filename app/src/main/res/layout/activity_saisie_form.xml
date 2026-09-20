@@ -1391,6 +1391,21 @@
                 </LinearLayout>
             </LinearLayout>
 
+            <!-- Alerte de cohérence EN DIRECT (valeur saisie au-delà de l'effectif vivant ou du
+                 stock connu) : masquée tant que tout est cohérent, voir
+                 SaisieFormActivity.refreshCoherence. Le bouton Enregistrer est grisé avec. -->
+            <TextView
+                android:id="@+id/tvAlerteCoherence"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:padding="12dp"
+                android:background="#FDECEA"
+                android:textColor="#B3261E"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+
             <View android:layout_width="match_parent" android:layout_height="28dp" />
 
             <com.google.android.material.button.MaterialButton

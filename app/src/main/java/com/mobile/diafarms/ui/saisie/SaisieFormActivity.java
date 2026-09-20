@@ -39,6 +39,7 @@ import com.mobile.diafarms.network.dto.CollecteOeufsCreateRequest;
 import com.mobile.diafarms.network.dto.CommandeCreateRequest;
 import com.mobile.diafarms.network.dto.ConsommationAlimentCreateRequest;
 import com.mobile.diafarms.network.dto.EffectifReformeResponse;
+import com.mobile.diafarms.network.dto.PlafondSaisieResponse;
 import com.mobile.diafarms.network.dto.MagasinSelectResponse;
 import com.mobile.diafarms.network.dto.MortaliteCreateRequest;
 import com.mobile.diafarms.network.dto.OccupationBatimentResponse;
@@ -342,6 +343,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         applyTypeVisibility();
         setupDateHeurePickers();
         loadBatiments();
+        setupCoherenceChecks();
 
         if (type == SaisieType.ALIMENTATION_CONSOMMATION && projetUniqueId != null) {
             loadStock();
@@ -470,6 +472,7 @@ public class SaisieFormActivity extends AppCompatActivity {
             tilQuantiteOeufsVente.setHint(enAlveoles ? "Nombre d'alvéoles vendues" : "Nombre d'œufs vendus");
             tilPrixUnitaireOeufs.setHint(enAlveoles ? "Prix par alvéole (FCFA)" : "Prix unitaire (FCFA)");
             recalculerMontantVenteOeufs();
+            refreshCoherence();
         });
         // Montant théorique jamais saisi à la main : toujours quantité × prix unitaire
         // (voir recalculerMontantVenteOeufs) — un rabais se reflète dans le montant
@@ -1204,6 +1207,7 @@ public class SaisieFormActivity extends AppCompatActivity {
             tvStockInfo.setText(fromCache ? "Stock non disponible (hors ligne)" : "Stock non disponible");
             stockAlimentRestantConnu = null;
         }
+        refreshCoherence();
     }
 
     /**
@@ -1720,6 +1724,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 tvStockReformeInfo.setText(fromCache ? "Stock non disponible (hors ligne)" : "Stock non disponible");
             }
         }
+        refreshCoherence();
     }
 
     /**
@@ -1760,6 +1765,185 @@ public class SaisieFormActivity extends AppCompatActivity {
         } else {
             tvEffectifReformeInfo.setText(fromCache ? "Effectif non disponible (hors ligne)" : "Effectif non disponible");
         }
+        refreshCoherence();
+    }
+
+    // ===================== Alertes de cohérence en direct =====================
+    // Le contrôle réel est refait par le serveur à l'enregistrement, mais sans ça une
+    // valeur aberrante (ex: 300 alvéoles pour 1000 poules) était acceptée par le
+    // téléphone et ne se faisait refuser qu'à la synchronisation, sans explication.
+    // Ici on alerte pendant la frappe et on grise Enregistrer. Les plafonds inconnus
+    // (jamais chargés, pas de cache hors ligne) ne bloquent rien : le serveur reste juge.
+    private TextView tvAlerteCoherence;
+    private Integer plafondEffectifVivant, plafondOeufsRestants, plafondOeufsDejaCollectes;
+    private String plafondPerimetre;
+    private String plafondCleDemandee;
+
+    private void setupCoherenceChecks() {
+        tvAlerteCoherence = findViewById(R.id.tvAlerteCoherence);
+        TextWatcher valeurs = new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable s) { refreshCoherence(); }
+        };
+        TextInputEditText[] champs = {etAlveolesCollectees, etOeufsCollectes, etOeufsCasses, etOeufsNonUtilisables,
+                etNombreMorts, etNombreSujetsReforme, etQuantiteKgConso, etQuantiteOeufsVente, etNombreSujetsVente};
+        for (TextInputEditText et : champs) {
+            if (et != null) et.addTextChangedListener(valeurs);
+        }
+        // Le plafond dépend du bâtiment et de la date choisis : rechargé quand ils changent.
+        TextWatcher contexte = new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable s) { loadPlafondSaisie(); }
+        };
+        etDate.addTextChangedListener(contexte);
+        spinnerBatiment.addTextChangedListener(contexte);
+        loadPlafondSaisie();
+    }
+
+    /** Effectif vivant du poulailler (sinon du projet) et œufs encore collectables ce
+     * jour-là, pour Collecte et Mortalité. Même schéma cache puis réseau que
+     * loadEffectifReforme. */
+    private void loadPlafondSaisie() {
+        if ((type != SaisieType.COLLECTE_OEUFS && type != SaisieType.MORTALITE)
+                || projetUniqueId == null || projetUniqueId.isEmpty()) return;
+        String batiment = getSelectedBatimentUniqueId();
+        String date = textOf(etDate);
+        if (date.isEmpty()) return;
+        String cle = projetUniqueId + "|" + batiment + "|" + date;
+        if (cle.equals(plafondCleDemandee)) return;
+        plafondCleDemandee = cle;
+        String cacheKey = "plafond_saisie_" + cle;
+        PlafondSaisieResponse cached = getCachedOrNull(cacheKey, PlafondSaisieResponse.class);
+        appliquerPlafond(cached);
+
+        ApiClient.dataApi(this).getPlafondSaisie(projetUniqueId, batiment, date)
+                .enqueue(new Callback<ApiEnvelope<PlafondSaisieResponse>>() {
+                    @Override
+                    public void onResponse(Call<ApiEnvelope<PlafondSaisieResponse>> call, Response<ApiEnvelope<PlafondSaisieResponse>> response) {
+                        if (!cle.equals(plafondCleDemandee)) return; // réponse d'un choix périmé
+                        PlafondSaisieResponse p = response.isSuccessful() && response.body() != null ? response.body().getData() : null;
+                        if (p != null) {
+                            localDatabase.putCache(cacheKey, gson.toJson(p));
+                            appliquerPlafond(p);
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<ApiEnvelope<PlafondSaisieResponse>> call, Throwable t) {
+                        // Hors ligne : on garde le plafond en cache s'il existe, sinon rien ne bloque.
+                    }
+                });
+    }
+
+    private void appliquerPlafond(PlafondSaisieResponse p) {
+        plafondEffectifVivant = p != null ? p.getEffectifVivant() : null;
+        plafondOeufsRestants = p != null ? p.getOeufsRestants() : null;
+        plafondOeufsDejaCollectes = p != null ? p.getOeufsDejaCollectes() : null;
+        plafondPerimetre = p != null ? p.getPerimetre() : null;
+        refreshCoherence();
+    }
+
+    /** Marque un champ en erreur (contour rouge) sans texte : le message complet est dans
+     * tvAlerteCoherence, un demi-champ étant trop étroit pour le porter. */
+    private void marquerChamp(TextInputEditText et, boolean enErreur) {
+        if (et == null) return;
+        android.view.ViewParent p = et.getParent();
+        while (p != null && !(p instanceof TextInputLayout)) p = p.getParent();
+        if (p instanceof TextInputLayout) ((TextInputLayout) p).setError(enErreur ? " " : null);
+    }
+
+    private void refreshCoherence() {
+        if (tvAlerteCoherence == null) return;
+        String message = null;
+        TextInputEditText[] fautifs = {};
+        switch (type) {
+            case COLLECTE_OEUFS: {
+                int total = oeufsCollectesReel();
+                int casses = parseIntSafe(etOeufsCasses.getText());
+                int nonUtilisables = parseIntSafe(etOeufsNonUtilisables.getText());
+                if (plafondOeufsRestants != null && plafondEffectifVivant != null && total > plafondOeufsRestants) {
+                    String lieu = "BATIMENT".equals(plafondPerimetre) ? "ce poulailler" : "ce projet";
+                    int deja = plafondOeufsDejaCollectes != null ? plafondOeufsDejaCollectes : 0;
+                    message = String.format(Locale.FRANCE,
+                            "Impossible : %d œufs saisis (%s), alors que %s n'a que %d poule(s) vivante(s), donc au plus %d œufs par jour%s. Il en reste %d à collecter au maximum. Vérifiez le nombre d'alvéoles.",
+                            total, AlveoleUtils.formatOeufsAvecAlveoles(total), lieu, plafondEffectifVivant, plafondEffectifVivant,
+                            deja > 0 ? String.format(Locale.FRANCE, " (%d déjà collectés ce jour)", deja) : "", plafondOeufsRestants);
+                    fautifs = new TextInputEditText[]{etAlveolesCollectees, etOeufsCollectes};
+                } else if (casses + nonUtilisables > total) {
+                    message = String.format(Locale.FRANCE,
+                            "Impossible : %d cassé(s) + %d non utilisable(s) dépassent les %d œuf(s) collecté(s). Les cassés et non utilisables sont des œufs parmi ceux collectés.",
+                            casses, nonUtilisables, total);
+                    fautifs = new TextInputEditText[]{etOeufsCasses, etOeufsNonUtilisables};
+                }
+                break;
+            }
+            case MORTALITE: {
+                int morts = parseIntSafe(etNombreMorts.getText());
+                if (plafondEffectifVivant != null && morts > plafondEffectifVivant) {
+                    String lieu = "BATIMENT".equals(plafondPerimetre) ? "ce poulailler" : "le projet";
+                    message = String.format(Locale.FRANCE,
+                            "Impossible : %d morts saisis, alors qu'il n'y a que %d sujet(s) vivant(s) dans %s (%d de trop).",
+                            morts, plafondEffectifVivant, lieu, morts - plafondEffectifVivant);
+                    fautifs = new TextInputEditText[]{etNombreMorts};
+                }
+                break;
+            }
+            case REFORME: {
+                int nombre = parseIntSafe(etNombreSujetsReforme.getText());
+                if (effectifReformeDisponible != null && nombre > effectifReformeDisponible) {
+                    message = String.format(Locale.FRANCE,
+                            "Impossible : %d sujets réformés saisis, alors qu'il n'y a que %d sujet(s) vivant(s) dans le projet (%d de trop).",
+                            nombre, effectifReformeDisponible, nombre - effectifReformeDisponible);
+                    fautifs = new TextInputEditText[]{etNombreSujetsReforme};
+                }
+                break;
+            }
+            case ALIMENTATION_CONSOMMATION: {
+                Double kg = parseDoubleOrNull(etQuantiteKgConso.getText());
+                if (kg != null && stockAlimentRestantConnu != null && kg > stockAlimentRestantConnu) {
+                    message = String.format(Locale.FRANCE,
+                            "Impossible : %.1f kg saisis, alors qu'il ne reste que %.1f kg de stock pour ce projet. Si un achat n'est pas encore enregistré, il doit l'être par la comptabilité.",
+                            kg, stockAlimentRestantConnu);
+                    fautifs = new TextInputEditText[]{etQuantiteKgConso};
+                }
+                break;
+            }
+            case VENTE_OEUFS: {
+                int saisi = parseIntSafe(etQuantiteOeufsVente.getText());
+                int enOeufs = isVenteOeufsEnAlveoles() ? AlveoleUtils.alveolesToOeufs(saisi) : saisi;
+                if (stockOeufsDisponible != null && enOeufs > stockOeufsDisponible) {
+                    message = String.format(Locale.FRANCE,
+                            "Impossible : %d œufs saisis (%s), alors que le stock %sde ce magasin n'est que de %d œufs (%s). Vérifiez l'unité (œuf ou alvéole).",
+                            enOeufs, AlveoleUtils.formatOeufsAvecAlveoles(enOeufs), isVenteOeufsCasse() ? "d'œufs cassés " : "",
+                            stockOeufsDisponible, AlveoleUtils.formatOeufsAvecAlveoles(stockOeufsDisponible));
+                    fautifs = new TextInputEditText[]{etQuantiteOeufsVente};
+                }
+                break;
+            }
+            case VENTE_REFORME: {
+                int nombre = parseIntSafe(etNombreSujetsVente.getText());
+                if (stockReformeDisponible != null && nombre > stockReformeDisponible) {
+                    message = String.format(Locale.FRANCE,
+                            "Impossible : %d sujets saisis, alors que le stock de réforme de ce magasin n'est que de %d.",
+                            nombre, stockReformeDisponible);
+                    fautifs = new TextInputEditText[]{etNombreSujetsVente};
+                }
+                break;
+            }
+            default:
+                break;
+        }
+
+        TextInputEditText[] tous = {etAlveolesCollectees, etOeufsCollectes, etOeufsCasses, etOeufsNonUtilisables,
+                etNombreMorts, etNombreSujetsReforme, etQuantiteKgConso, etQuantiteOeufsVente, etNombreSujetsVente};
+        for (TextInputEditText et : tous) marquerChamp(et, false);
+        for (TextInputEditText et : fautifs) marquerChamp(et, true);
+
+        tvAlerteCoherence.setText(message);
+        tvAlerteCoherence.setVisibility(message != null ? View.VISIBLE : View.GONE);
+        btnValiderForm.setEnabled(message == null);
     }
 
     private int parseIntSafe(CharSequence s) {
