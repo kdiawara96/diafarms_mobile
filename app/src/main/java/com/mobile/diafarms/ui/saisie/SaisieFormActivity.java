@@ -1845,7 +1845,9 @@ public class SaisieFormActivity extends AppCompatActivity {
     private List<SaisieLocale> saisiesEnAttente(SaisieType t) {
         List<SaisieLocale> res = new ArrayList<>();
         for (SaisieLocale s : localDatabase.getSaisiesByType(t)) {
-            if (SaisieLocale.STATUT_LOCAL.equals(s.getSyncStatus())) res.add(s);
+            // En modification, la saisie éditée ne doit pas se compter contre elle-même.
+            if (SaisieLocale.STATUT_LOCAL.equals(s.getSyncStatus())
+                    && (editingLocalId == null || !editingLocalId.equals(s.getLocalId()))) res.add(s);
         }
         return res;
     }
