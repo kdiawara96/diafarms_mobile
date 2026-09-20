@@ -99,7 +99,7 @@ public class SaisieFormActivity extends AppCompatActivity {
     // de "Logistique", sans Alvéole/Copeau/Matériels, donc impossible de saisir ces
     // dépenses depuis le terrain. Les anciennes saisies "Transport" déjà envoyées
     // restent valides côté back (catégorie libre), seule la liste proposée change.
-    private static final String[] CATEGORIES_TRANSACTION_SORTIE = {"Achat", "Santé / Vétérinaire", "Logistique", "Électricité / Eau", "Entretien / Maintenance", "Alvéole", "Copeau", "Matériels", "Autre"};
+    private static final String[] CATEGORIES_TRANSACTION_SORTIE = {"Santé / Vétérinaire", "Logistique", "Électricité / Eau", "Entretien / Maintenance", "Alvéole", "Copeau", "Matériels", "Autre"};
     // Fusion Soins/Vaccination (UI) : un seul point d'entrée (SaisieType.SOINS, voir
     // HomeActivity/btnSoins), le type choisi ici décide quel sous-groupe de champs est
     // affiché (voir updateGroupSoinsSousType()) — Vaccination n'est plus un
