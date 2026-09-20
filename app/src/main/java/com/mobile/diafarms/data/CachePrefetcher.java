@@ -42,6 +42,9 @@ public class CachePrefetcher {
     public static final String CACHE_NOTIFICATIONS_PREFIX = "notifications_";
     public static final String CACHE_STOCK_ALIMENT_PREFIX = "stock_aliment_";
     // Effectif vivant (Production, ReformeImpl) : par projet, comme le stock aliment.
+    // Plafond de saisie (effectif vivant + œufs déjà collectés) par projet et poulailler,
+    // préchargé comme le stock : les alertes du formulaire marchent ainsi hors ligne.
+    public static final String CACHE_PLAFOND_PREFIX = "plafond_saisie_";
     public static final String CACHE_EFFECTIF_REFORME_PREFIX = "effectif_reforme_";
     // Magasins de vente (VENTE) : liste déjà filtrée aux magasins liés au vendeur côté
     // serveur, et stock par magasin précis (un vendeur peut être lié à plusieurs).
@@ -219,12 +222,44 @@ public class CachePrefetcher {
         prefetchSalaires(appContext, localDatabase);
     }
 
+    /** Plafond d'aujourd'hui pour le projet entier et pour chaque poulailler actuellement
+     * occupé : le formulaire s'en sert hors ligne (voir SaisieFormActivity.loadPlafondSaisie). */
+    private static void prefetchPlafonds(Context appContext, LocalDatabase localDatabase, String projetUniqueId, ProjetDetailResponse detail) {
+        String aujourdhui = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
+        java.util.List<String> batiments = new java.util.ArrayList<>();
+        batiments.add(null); // projet entier (aucun poulailler choisi)
+        if (detail.getOccupationBatiment() != null) {
+            for (com.mobile.diafarms.network.dto.OccupationBatimentResponse o : detail.getOccupationBatiment()) {
+                if (o.getDateSortie() == null && o.getBatimentUniqueId() != null) batiments.add(o.getBatimentUniqueId());
+            }
+        }
+        for (String batiment : batiments) {
+            ApiClient.dataApi(appContext).getPlafondSaisie(projetUniqueId, batiment, aujourdhui)
+                    .enqueue(new Callback<ApiEnvelope<com.mobile.diafarms.network.dto.PlafondSaisieResponse>>() {
+                        @Override
+                        public void onResponse(Call<ApiEnvelope<com.mobile.diafarms.network.dto.PlafondSaisieResponse>> call,
+                                               Response<ApiEnvelope<com.mobile.diafarms.network.dto.PlafondSaisieResponse>> response) {
+                            if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
+                                com.mobile.diafarms.network.dto.PlafondSaisieResponse p = response.body().getData();
+                                p.setCacheDate(aujourdhui);
+                                localDatabase.putCache(CACHE_PLAFOND_PREFIX + projetUniqueId + "_" + batiment, gson.toJson(p));
+                            }
+                        }
+
+                        @Override
+                        public void onFailure(Call<ApiEnvelope<com.mobile.diafarms.network.dto.PlafondSaisieResponse>> call, Throwable t) { }
+                    });
+        }
+    }
+
     private static void prefetchOneProjet(Context appContext, LocalDatabase localDatabase, String projetUniqueId) {
         ApiClient.dataApi(appContext).getProjetDetail(projetUniqueId).enqueue(new Callback<ApiEnvelope<ProjetDetailResponse>>() {
             @Override
             public void onResponse(Call<ApiEnvelope<ProjetDetailResponse>> call, Response<ApiEnvelope<ProjetDetailResponse>> response) {
                 if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
-                    localDatabase.putCache(CACHE_PROJET_DETAIL_PREFIX + projetUniqueId, gson.toJson(response.body().getData()));
+                    ProjetDetailResponse detail = response.body().getData();
+                    localDatabase.putCache(CACHE_PROJET_DETAIL_PREFIX + projetUniqueId, gson.toJson(detail));
+                    prefetchPlafonds(appContext, localDatabase, projetUniqueId, detail);
                 }
             }
 

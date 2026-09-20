@@ -8,9 +8,14 @@ public class PlafondSaisieResponse {
     private String perimetre; // "BATIMENT" ou "PROJET"
     private Integer oeufsDejaCollectes;
     private Integer oeufsRestants;
+    // Jour pour lequel oeufsDejaCollectes a été calculé : renseigné par le téléphone (pas
+    // par le serveur) au moment de mettre en cache, voir CachePrefetcher/SaisieFormActivity.
+    private String cacheDate;
 
     public Integer getEffectifVivant() { return effectifVivant; }
     public String getPerimetre() { return perimetre; }
     public Integer getOeufsDejaCollectes() { return oeufsDejaCollectes; }
     public Integer getOeufsRestants() { return oeufsRestants; }
+    public String getCacheDate() { return cacheDate; }
+    public void setCacheDate(String cacheDate) { this.cacheDate = cacheDate; }
 }
