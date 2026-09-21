@@ -57,6 +57,9 @@ public class CachePrefetcher {
     public static final String CACHE_STOCK_MAGASIN_STOCKAGE_PREFIX = "stock_magasin_stockage_";
     // Poulaillers de la ferme (PRODUCTION) : liste complète non filtrée par le serveur —
     // bâtiment d'élevage optionnel de Collecte œufs (distinct du magasin de stockage).
+    // Rattachement facultatif d'une dépense : tous les sites / tous les poulaillers (occupés ou non).
+    public static final String CACHE_SITES_SELECT = "sites_select";
+    public static final String CACHE_BATIMENTS_TOUS = "batiments_tous";
     public static final String CACHE_BATIMENTS_SELECT = "batiments_select";
     // Clients de la ferme (VENTE) : uniquement ceux déjà synchronisés côté serveur —
     // voir ClientSelectResponse et SaisieFormActivity (sélecteur optionnel d'une vente,
@@ -174,6 +177,33 @@ public class CachePrefetcher {
         });
     }
 
+    /** Sites et poulaillers (tous) pour le rattachement facultatif d'une dépense, disponibles hors ligne. */
+    private static void prefetchRattachements(Context appContext, LocalDatabase localDatabase) {
+        ApiClient.dataApi(appContext).getSites().enqueue(new Callback<ApiEnvelope<List<com.mobile.diafarms.network.dto.SiteSelectResponse>>>() {
+            @Override
+            public void onResponse(Call<ApiEnvelope<List<com.mobile.diafarms.network.dto.SiteSelectResponse>>> call,
+                                   Response<ApiEnvelope<List<com.mobile.diafarms.network.dto.SiteSelectResponse>>> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
+                    localDatabase.putCache(CACHE_SITES_SELECT, gson.toJson(response.body().getData()));
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiEnvelope<List<com.mobile.diafarms.network.dto.SiteSelectResponse>>> call, Throwable t) { }
+        });
+        ApiClient.dataApi(appContext).getBatimentsTous().enqueue(new Callback<ApiEnvelope<List<BatimentSelectResponse>>>() {
+            @Override
+            public void onResponse(Call<ApiEnvelope<List<BatimentSelectResponse>>> call, Response<ApiEnvelope<List<BatimentSelectResponse>>> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
+                    localDatabase.putCache(CACHE_BATIMENTS_TOUS, gson.toJson(response.body().getData()));
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiEnvelope<List<BatimentSelectResponse>>> call, Throwable t) { }
+        });
+    }
+
     /** Précharge la liste des clients déjà synchronisés côté serveur (farm-scopée, pas
      * de filtre par rôle côté back) — inoffensif pour un rôle sans accès Vente, la
      * liste sera juste inutilisée. Voir CACHE_CLIENTS_SELECT. */
@@ -218,6 +248,7 @@ public class CachePrefetcher {
         prefetchMagasins(appContext, localDatabase);
         prefetchMagasinsStockage(appContext, localDatabase);
         prefetchBatiments(appContext, localDatabase);
+        prefetchRattachements(appContext, localDatabase);
         prefetchClients(appContext, localDatabase);
         prefetchSalaires(appContext, localDatabase);
     }

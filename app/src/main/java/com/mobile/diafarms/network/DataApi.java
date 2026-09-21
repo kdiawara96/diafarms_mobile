@@ -11,6 +11,7 @@ import com.mobile.diafarms.network.dto.CreatedEntityResponse;
 import com.mobile.diafarms.network.dto.AlimentationCreateRequest;
 import com.mobile.diafarms.network.dto.EffectifReformeResponse;
 import com.mobile.diafarms.network.dto.PlafondSaisieResponse;
+import com.mobile.diafarms.network.dto.SiteSelectResponse;
 import com.mobile.diafarms.network.dto.FarmAppSettingsResponse;
 import com.mobile.diafarms.network.dto.MagasinSelectResponse;
 import com.mobile.diafarms.network.dto.MortaliteCreateRequest;
@@ -56,6 +57,15 @@ public interface DataApi {
     // Magasin (voir getMagasinsSelect ci-dessous, type VENTE/STOCKAGE).
     @GET("batiments/select")
     Call<ApiEnvelope<List<BatimentSelectResponse>>> getBatimentsSelect();
+
+    // TOUS les poulaillers actifs (occupés ou non), pour rattacher une dépense à un poulailler.
+    // batiments/select ne renvoie que les poulaillers LIBRES : inutilisable pour ça.
+    @GET("batiments/tous")
+    Call<ApiEnvelope<List<BatimentSelectResponse>>> getBatimentsTous();
+
+    // Sites (emplacements) de la ferme, pour rattacher facultativement une dépense à un site.
+    @GET("sites/list")
+    Call<ApiEnvelope<List<SiteSelectResponse>>> getSites();
 
     // Stock d'œufs pas encore transféré vers un magasin de vente, dans ce magasin de
     // stockage précis — pure info contextuelle à la collecte (voir SaisieFormActivity),

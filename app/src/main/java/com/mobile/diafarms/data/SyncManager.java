@@ -86,7 +86,13 @@ public class SyncManager {
             }
         };
 
-        dispatch(saisie, retrofitCallback);
+        // Un type que dispatch ne sait pas envoyer ne doit JAMAIS bloquer la suite : avant,
+        // aucun callback n'était appelé pour lui (ex: Vente de fientes) et toute la
+        // synchronisation restait suspendue. On le marque en erreur et on continue.
+        if (!dispatch(saisie, retrofitCallback)) {
+            localDatabase.markError(saisie.getLocalId(), "Ce type de saisie ne peut pas être envoyé par cette version de l'application");
+            syncNext(list, index + 1, success, failed + 1, callback);
+        }
     }
 
     /** Raison réelle du refus. Sur un 400 le corps est dans errorBody() (response.body()
@@ -110,7 +116,8 @@ public class SyncManager {
         return "Échec de l'envoi";
     }
 
-    private void dispatch(SaisieLocale saisie, Callback<ApiEnvelope<CreatedEntityResponse>> callback) {
+    /** true si la saisie a été mise en file d'envoi (le callback sera appelé), false si ce type n'est pas géré. */
+    private boolean dispatch(SaisieLocale saisie, Callback<ApiEnvelope<CreatedEntityResponse>> callback) {
         String json = saisie.getPayloadJson();
 
         switch (saisie.getType()) {
@@ -147,6 +154,9 @@ public class SyncManager {
                 break;
             case TRANSACTION_ENTREE:
             case TRANSACTION_SORTIE:
+            // Vente de fientes = simple transaction "entrée" commune, catégorie fixe (voir
+            // SaisieType.VENTE_FIENTES) : même endpoint et même payload que les deux ci-dessus.
+            case VENTE_FIENTES:
                 api.createTransaction(gson.fromJson(json, TransactionCreateRequest.class)).enqueue(callback);
                 break;
             case CLIENT_CREATE:
@@ -158,6 +168,9 @@ public class SyncManager {
             case SALAIRE_PAYER:
                 api.payerSalaire(gson.fromJson(json, SalairePayerRequest.class)).enqueue(callback);
                 break;
+            default:
+                return false;
         }
+        return true;
     }
 }

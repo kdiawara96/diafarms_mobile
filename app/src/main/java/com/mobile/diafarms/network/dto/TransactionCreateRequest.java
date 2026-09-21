@@ -12,4 +12,7 @@ public class TransactionCreateRequest {
     public String description;
     public Double montant;
     public String categorie;
+    // Rattachements FACULTATIFS (absents = ferme entière), voir Transaction.site/batiment côté back.
+    public String siteUniqueId;
+    public String batimentUniqueId;
 }
