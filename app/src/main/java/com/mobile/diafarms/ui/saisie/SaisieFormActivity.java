@@ -89,7 +89,9 @@ public class SaisieFormActivity extends AppCompatActivity {
     // TRANSACTION_SORTIE choisi depuis l'accueil), donc pas besoin de basculer la
     // liste dynamiquement ici, contrairement au web où un seul formulaire couvre
     // les deux types.
-    private static final String[] CATEGORIES_TRANSACTION_ENTREE = {"Vente", "Location", "Don", "Autre"};
+    // "Vente" retirée — voir CreateTransactionDialog côté web : une vente réelle passe
+    // par Vente œufs/réforme/fientes/Autre vente, jamais une "Entrée d'argent" manuelle.
+    private static final String[] CATEGORIES_TRANSACTION_ENTREE = {"Location", "Don", "Autre"};
     // "Salaire" retiré : le paiement d'un salaire passe obligatoirement par "Payer un
     // salaire" (SALAIRE_PAYER), qui vérifie la grille et empêche un double paiement du
     // même mois — une "Sortie d'argent" catégorie "Salaire" contournerait ce contrôle.
@@ -1226,15 +1228,28 @@ public class SaisieFormActivity extends AppCompatActivity {
         populateBatimentSpinner();
     }
 
+    // Collecte, sortie d'aliment, soins (vaccination comprise), mortalité et réforme se
+    // passent dans UN poulailler : pas de choix "Aucun" pour elles (le serveur refuse
+    // aussi, voir PoulaillerObligatoire). L'achat d'aliment reste lié au seul projet.
+    private boolean poulaillerObligatoire() {
+        return type == SaisieType.COLLECTE_OEUFS || type == SaisieType.ALIMENTATION_CONSOMMATION
+                || type == SaisieType.SOINS || type == SaisieType.MORTALITE || type == SaisieType.REFORME;
+    }
+
     private void populateBatimentSpinner() {
         List<String> labels = new ArrayList<>();
-        labels.add("Aucun bâtiment précis");
+        boolean obligatoire = poulaillerObligatoire();
+        com.google.android.material.textfield.TextInputLayout til = findViewById(R.id.tilBatimentTop);
+        if (til != null) til.setHint(obligatoire ? "Poulailler *" : "Poulailler (optionnel)");
+        if (!obligatoire) labels.add("Aucun bâtiment précis");
         for (OccupationBatimentResponse b : batiments) {
             labels.add(b.getNomBatiment());
         }
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, labels);
         spinnerBatiment.setAdapter(adapter);
-        spinnerBatiment.setText(labels.get(0), false);
+        // Obligatoire : présélectionné seulement s'il n'y a qu'un poulailler, sinon on
+        // laisse vide pour forcer un vrai choix.
+        spinnerBatiment.setText(!obligatoire ? labels.get(0) : (batiments.size() == 1 ? labels.get(0) : ""), false);
         // La liste des bâtiments vient de (ré)arriver (réseau ou cache) : si une
         // sélection avait été demandée avant que loadBatiments() ait fini de charger
         // (voir applyPendingBatimentSelection), on la réapplique maintenant.
@@ -2220,7 +2235,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         switch (type) {
             case COLLECTE_OEUFS: {
                 if (batimentUniqueId == null) {
-                    toast("Veuillez sélectionner le bâtiment");
+                    toast("Veuillez sélectionner le poulailler");
                     return;
                 }
                 String batimentStockageUniqueId = getSelectedBatimentStockageUniqueId();
@@ -2273,9 +2288,11 @@ public class SaisieFormActivity extends AppCompatActivity {
                         toast("Veuillez saisir le nombre de doses");
                         return;
                     }
-                    // batimentUniqueId reste optionnel pour Vaccination (pas de toast si
-                    // "Aucun bâtiment précis" est sélectionné) — reprend le comportement
-                    // de l'ancien écran Vaccination dédié, qui n'avait pas ce champ.
+                    // Poulailler obligatoire, vaccination comprise.
+                    if (batimentUniqueId == null) {
+                        toast("Veuillez sélectionner le poulailler");
+                        return;
+                    }
                     req.produit = nomVaccin;
                     req.quantite = (double) quantite;
                     // Aucun montant ici : la Production ne suit que le fait, le coût réel
@@ -2285,7 +2302,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                     summary = "Vaccination : " + nomVaccin + " (" + quantite + " doses)";
                 } else {
                     if (batimentUniqueId == null) {
-                        toast("Veuillez sélectionner le bâtiment");
+                        toast("Veuillez sélectionner le poulailler");
                         return;
                     }
                     String produit = textOf(etProduit);
@@ -2329,7 +2346,7 @@ public class SaisieFormActivity extends AppCompatActivity {
             }
             case MORTALITE: {
                 if (batimentUniqueId == null) {
-                    toast("Veuillez sélectionner le bâtiment");
+                    toast("Veuillez sélectionner le poulailler");
                     return;
                 }
                 int nombreMorts = parseIntSafe(etNombreMorts.getText());
@@ -2349,6 +2366,10 @@ public class SaisieFormActivity extends AppCompatActivity {
                 break;
             }
             case REFORME: {
+                if (batimentUniqueId == null) {
+                    toast("Veuillez sélectionner le poulailler");
+                    return;
+                }
                 int nombreSujets = parseIntSafe(etNombreSujetsReforme.getText());
                 if (nombreSujets <= 0) {
                     toast("Veuillez saisir le nombre de sujets réformés");
@@ -2370,10 +2391,8 @@ public class SaisieFormActivity extends AppCompatActivity {
                 break;
             }
             case ALIMENTATION_ACHAT: {
-                if (batimentUniqueId == null) {
-                    toast("Veuillez sélectionner le bâtiment");
-                    return;
-                }
+                // Un achat est lié au projet (stock du projet) ; le poulailler reste
+                // facultatif, c'est la consommation qui se fait dans un poulailler.
                 String nom = textOf(etNomAliment);
                 Double quantiteKg = parseDoubleOrNull(etQuantiteKgAchat.getText());
                 if (nom.isEmpty() || quantiteKg == null || quantiteKg <= 0) {
@@ -2403,6 +2422,10 @@ public class SaisieFormActivity extends AppCompatActivity {
                 break;
             }
             case ALIMENTATION_CONSOMMATION: {
+                if (batimentUniqueId == null) {
+                    toast("Veuillez sélectionner le poulailler");
+                    return;
+                }
                 Double quantiteKg = parseDoubleOrNull(etQuantiteKgConso.getText());
                 if (quantiteKg == null || quantiteKg <= 0) {
                     toast("Veuillez saisir la quantité consommée (kg)");

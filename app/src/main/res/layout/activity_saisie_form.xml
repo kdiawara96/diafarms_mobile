@@ -45,8 +45,9 @@
 
             <View android:layout_width="match_parent" android:layout_height="20dp" />
 
-            <!-- Bâtiment (optionnel, commun à tous les types sauf Client/Commande, voir
-                 SaisieFormActivity.applyTypeVisibility) -->
+            <!-- Poulailler (obligatoire pour collecte, sortie d'aliment, soins, mortalité,
+                 réforme ; facultatif sinon — libellé fixé par
+                 SaisieFormActivity.populateBatimentSpinner) -->
             <LinearLayout
                 android:id="@+id/groupBatimentTop"
                 android:layout_width="match_parent"
@@ -54,6 +55,7 @@
                 android:orientation="vertical">
 
                 <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilBatimentTop"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:hint="Poulailler (optionnel)"
