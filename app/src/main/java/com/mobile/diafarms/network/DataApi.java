@@ -21,6 +21,7 @@ import com.mobile.diafarms.network.dto.ProjetSelectResponse;
 import com.mobile.diafarms.network.dto.ReformeCreateRequest;
 import com.mobile.diafarms.network.dto.SalairePayerRequest;
 import com.mobile.diafarms.network.dto.SalaireSelectResponse;
+import com.mobile.diafarms.network.dto.SessionPeseeSyncRequest;
 import com.mobile.diafarms.network.dto.SoinsCreateRequest;
 import com.mobile.diafarms.network.dto.EntretienCreateRequest;
 import com.mobile.diafarms.network.dto.StockAlimentResponse;
@@ -175,6 +176,12 @@ public interface DataApi {
     // ============== ALIMENTATION — CONSOMMATION (aliment sortant) ==============
     @POST("consommations-aliment/create")
     Call<ApiEnvelope<CreatedEntityResponse>> createConsommationAliment(@Body ConsommationAlimentCreateRequest request);
+
+    // ============== SESSIONS DE PESÉE (Production) — envoi de l'état complet de la
+    // session, idempotent côté serveur (voir SessionPeseeSyncRequest). La réponse est
+    // un SessionPeseeDTO : seul son uniqueId est lu ici. ==============
+    @POST("pesees/sessions/sync")
+    Call<ApiEnvelope<CreatedEntityResponse>> syncSessionPesee(@Body SessionPeseeSyncRequest request);
 
     // ============== TRANSACTIONS (finance) ==============
     @POST("transactions/create")

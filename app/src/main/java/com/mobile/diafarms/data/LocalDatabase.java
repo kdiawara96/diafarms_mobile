@@ -183,8 +183,8 @@ public class LocalDatabase extends SQLiteOpenHelper {
     /**
      * Crée une nouvelle saisie locale (statut LOCAL) et retourne son localId généré.
      */
-    public void insertSaisie(SaisieType type, String projetUniqueId, String projetLabel,
-                             String payloadJson, String displaySummary) {
+    public String insertSaisie(SaisieType type, String projetUniqueId, String projetLabel,
+                               String payloadJson, String displaySummary) {
         String localId = UUID.randomUUID().toString();
 
         SQLiteDatabase db = this.getWritableDatabase();
@@ -199,6 +199,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
         values.put(COL_CREATED_AT, System.currentTimeMillis());
 
         db.insert(TABLE_SAISIES, null, values);
+        return localId;
     }
 
     /** Met à jour le contenu d'une saisie encore LOCAL/ERROR (repasse à LOCAL après modification). */
@@ -227,6 +228,32 @@ public class LocalDatabase extends SQLiteOpenHelper {
         values.put(COL_SERVER_UNIQUE_ID, serverUniqueId);
         values.putNull(COL_ERROR_MESSAGE);
         db.update(TABLE_SAISIES, values, COL_LOCAL_ID + "=?", new String[]{localId});
+    }
+
+    /**
+     * Comme markSynced, mais seulement si payload_json est encore celui qui a été envoyé.
+     * Pour une saisie réécrite au fil de l'eau (session de pesée) : si une pesée a été
+     * ajoutée pendant l'envoi, la ligne doit rester LOCAL pour que ce nouvel état parte
+     * au prochain envoi. Retourne true si la ligne a été marquée synchronisée.
+     */
+    public boolean markSyncedIfPayloadUnchanged(String localId, String serverUniqueId, String sentPayloadJson) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COL_SYNC_STATUS, SaisieLocale.STATUT_SYNCED);
+        values.put(COL_SERVER_UNIQUE_ID, serverUniqueId);
+        values.putNull(COL_ERROR_MESSAGE);
+        return db.update(TABLE_SAISIES, values, COL_LOCAL_ID + "=? AND " + COL_PAYLOAD_JSON + "=?",
+                new String[]{localId, sentPayloadJson}) > 0;
+    }
+
+    /** Comme markError, mais sans effet si le contenu a changé depuis l'envoi (voir markSyncedIfPayloadUnchanged). */
+    public void markErrorIfPayloadUnchanged(String localId, String errorMessage, String sentPayloadJson) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COL_SYNC_STATUS, SaisieLocale.STATUT_ERROR);
+        values.put(COL_ERROR_MESSAGE, errorMessage);
+        db.update(TABLE_SAISIES, values, COL_LOCAL_ID + "=? AND " + COL_PAYLOAD_JSON + "=?",
+                new String[]{localId, sentPayloadJson});
     }
 
     public void markError(String localId, String errorMessage) {

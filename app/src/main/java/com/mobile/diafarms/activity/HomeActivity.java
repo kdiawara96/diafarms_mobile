@@ -118,6 +118,8 @@ public class HomeActivity extends AppCompatActivity {
     private CardView btnEntretien;
     private CardView btnMortalite;
     private CardView btnReforme;
+    // Sessions de pesée du projet sélectionné — écran dédié PeseeSessionActivity.
+    private CardView btnPesee;
 
     // Vues Comptable et Vente — deux rôles distincts, deux sections indépendantes
     // (voir setupVisibilityByRole/loadFarmAppSettings) : avant, un seul titre "Saisie
@@ -242,6 +244,7 @@ public class HomeActivity extends AppCompatActivity {
         btnEntretien = findViewById(R.id.btnEntretien);
         btnMortalite = findViewById(R.id.btnMortalite);
         btnReforme = findViewById(R.id.btnReforme);
+        btnPesee = findViewById(R.id.btnPesee);
 
         tvSectionComptable = findViewById(R.id.tvSectionComptable);
         gridComptable = findViewById(R.id.gridComptable);
@@ -636,11 +639,11 @@ public class HomeActivity extends AppCompatActivity {
      * projets chair. On retire/reconstruit la grille à la place, en ne (ré)ajoutant
      * que les cartes réellement visibles, pour qu'elles se resserrent naturellement.
      *
-     * PONTE/MIXTE : 6 cartes (Collecte, Alimentation, Soins, Entretien, Mortalité,
-     * Réforme) — pair, toutes appariées 2 à 2.
-     * REFORME seul : Collecte masquée, 5 cartes — impair, la dernière (Réforme)
-     * reste seule, pleine largeur, sur sa ligne (voir seuleSurSaLigne ci-dessous,
-     * calcul générique quel que soit le nombre de cartes). */
+     * PONTE/MIXTE : 7 cartes (Collecte, Alimentation, Soins, Entretien, Mortalité,
+     * Réforme, Pesée) — impair, la dernière (Pesée) reste seule, pleine largeur.
+     * REFORME seul : Collecte masquée, 6 cartes — pair, toutes appariées 2 à 2
+     * (une dernière carte isolée resterait seule, pleine largeur, sur sa ligne (voir seuleSurSaLigne ci-dessous,
+     * calcul générique quel que soit le nombre de cartes)). */
     private void updateSaisieButtonsVisibility() {
         boolean masquerCollecteOeufs = currentProjet != null && currentProjet.isReformeSeule();
 
@@ -653,6 +656,7 @@ public class HomeActivity extends AppCompatActivity {
         cartes.add(btnEntretien);
         cartes.add(btnMortalite);
         cartes.add(btnReforme);
+        cartes.add(btnPesee);
 
         for (int i = 0; i < cartes.size(); i++) {
             boolean seuleSurSaLigne = (i == cartes.size() - 1) && (cartes.size() % 2 != 0);
@@ -768,6 +772,7 @@ public class HomeActivity extends AppCompatActivity {
         btnEntretien.setOnClickListener(v -> openSaisie(SaisieType.ENTRETIEN));
         btnMortalite.setOnClickListener(v -> openSaisie(SaisieType.MORTALITE));
         btnReforme.setOnClickListener(v -> openSaisie(SaisieType.REFORME));
+        btnPesee.setOnClickListener(v -> openPesee());
 
         // Finance
         btnEntreeArgent.setOnClickListener(v -> openSaisie(SaisieType.TRANSACTION_ENTREE));
@@ -787,6 +792,18 @@ public class HomeActivity extends AppCompatActivity {
         // Mes saisies
         cardLastEntry.setOnClickListener(v -> startActivity(new Intent(this, MesSaisiesActivity.class)));
         tvPendingCount.setOnClickListener(v -> startActivity(new Intent(this, MesSaisiesActivity.class)));
+    }
+
+    /** Sessions de pesée du projet sélectionné : le projet est celui de l'accueil, jamais redemandé. */
+    private void openPesee() {
+        if (currentProjet == null) {
+            Toast.makeText(this, "Veuillez sélectionner un projet", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        Intent intent = new Intent(this, PeseeSessionActivity.class);
+        intent.putExtra(PeseeSessionActivity.EXTRA_PROJET_ID, currentProjet.getUniqueId());
+        intent.putExtra(PeseeSessionActivity.EXTRA_PROJET_LABEL, currentProjet.getLabel());
+        startActivity(intent);
     }
 
     private void openSaisie(SaisieType type) {

@@ -28,6 +28,8 @@ import com.mobile.diafarms.R;
 import com.mobile.diafarms.data.LocalDatabase;
 import com.mobile.diafarms.models.SaisieLocale;
 import com.mobile.diafarms.models.SaisieType;
+import com.mobile.diafarms.network.dto.SessionPeseeSyncRequest;
+import com.google.gson.Gson;
 import com.mobile.diafarms.ui.saisie.SaisieFormActivity;
 
 import java.text.SimpleDateFormat;
@@ -113,6 +115,14 @@ public class MesSaisiesActivity extends AppCompatActivity {
     }
 
     private void openEdit(SaisieLocale saisie) {
+        // Session de pesée : écran dédié (consultation, ou suite de la saisie si en cours),
+        // jamais le formulaire générique.
+        if (saisie.getType() == SaisieType.PESEE_SESSION) {
+            Intent intent = new Intent(this, PeseeSessionActivity.class);
+            intent.putExtra(PeseeSessionActivity.EXTRA_LOCAL_ID, saisie.getLocalId());
+            editLauncher.launch(intent);
+            return;
+        }
         Intent intent = new Intent(this, SaisieFormActivity.class);
         intent.putExtra(SaisieFormActivity.EXTRA_TYPE, saisie.getType().name());
         intent.putExtra(SaisieFormActivity.EXTRA_PROJET_ID, saisie.getProjetUniqueId());
@@ -136,6 +146,7 @@ public class MesSaisiesActivity extends AppCompatActivity {
 
     private class SaisieAdapter extends BaseAdapter {
         private List<SaisieLocale> items;
+        private final Gson gson = new Gson();
         private final SimpleDateFormat displayFormat = new SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.FRANCE);
 
         SaisieAdapter(List<SaisieLocale> items) {
@@ -191,12 +202,33 @@ public class MesSaisiesActivity extends AppCompatActivity {
             }
 
             boolean editable = saisie.isEditable();
+            boolean deletable = editable;
+            if (saisie.getType() == SaisieType.PESEE_SESSION) {
+                // Toujours consultable (ouvre l'écran de la session). Suppression seulement
+                // d'une session jamais envoyée et encore en cours : une fois reçue par le
+                // serveur, la supprimer ici ne la supprimerait pas là-bas.
+                editable = true;
+                deletable = saisie.isEditable() && saisie.getServerUniqueId() == null && !isSessionTerminee(saisie);
+                view.setOnClickListener(v -> openEdit(saisie));
+            } else {
+                view.setOnClickListener(null);
+                view.setClickable(false);
+            }
             btnEdit.setVisibility(editable ? View.VISIBLE : View.GONE);
-            btnDelete.setVisibility(editable ? View.VISIBLE : View.GONE);
+            btnDelete.setVisibility(deletable ? View.VISIBLE : View.GONE);
             btnEdit.setOnClickListener(v -> openEdit(saisie));
             btnDelete.setOnClickListener(v -> confirmDelete(saisie));
 
             return view;
+        }
+
+        private boolean isSessionTerminee(SaisieLocale saisie) {
+            try {
+                SessionPeseeSyncRequest req = gson.fromJson(saisie.getPayloadJson(), SessionPeseeSyncRequest.class);
+                return req != null && req.isTerminee();
+            } catch (Exception e) {
+                return false;
+            }
         }
 
         // Mêmes icônes que les cartes de saisie de l'accueil (HomeActivity), pour rester
@@ -218,6 +250,8 @@ public class MesSaisiesActivity extends AppCompatActivity {
                     return R.drawable.ic_entretien;
                 case MORTALITE:
                     return android.R.drawable.ic_dialog_alert;
+                case PESEE_SESSION:
+                    return R.drawable.ic_pesee;
                 case REFORME:
                 case VENTE_REFORME:
                     return R.drawable.reforme;

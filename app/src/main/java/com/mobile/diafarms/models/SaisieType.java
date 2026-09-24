@@ -31,6 +31,11 @@ public enum SaisieType {
     // prix ici, plafonné par l'effectif vivant du projet. Voir diafarms_back
     // ReformeImpl. La vente réelle (avec montant) est un acte Finance séparé.
     REFORME("Réforme", Categorie.PRODUCTION),
+    // UNE ligne locale par session (pas une par pesée) : payload_json = l'état complet
+    // de la session (SessionPeseeSyncRequest), réécrit à chaque ajout/annulation/clôture
+    // et renvoyé en entier au serveur (idempotent). Écran dédié PeseeSessionActivity,
+    // jamais SaisieFormActivity.
+    PESEE_SESSION("Session de pesée", Categorie.PRODUCTION),
     // Ventes plafonnées côté serveur par le stock d'œufs vendables / de sujets
     // réformés de TOUTE LA FERME (pas d'un projet précis) — voir diafarms_back
     // VenteOeufsImpl/VenteReformeImpl. Catégorie Finance : c'est un acte commercial

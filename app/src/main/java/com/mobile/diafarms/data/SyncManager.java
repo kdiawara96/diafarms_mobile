@@ -4,6 +4,7 @@ import android.content.Context;
 
 import com.google.gson.Gson;
 import com.mobile.diafarms.models.SaisieLocale;
+import com.mobile.diafarms.models.SaisieType;
 import com.mobile.diafarms.network.ApiClient;
 import com.mobile.diafarms.network.DataApi;
 import com.mobile.diafarms.network.dto.AlimentationCreateRequest;
@@ -16,6 +17,7 @@ import com.mobile.diafarms.network.dto.CreatedEntityResponse;
 import com.mobile.diafarms.network.dto.MortaliteCreateRequest;
 import com.mobile.diafarms.network.dto.ReformeCreateRequest;
 import com.mobile.diafarms.network.dto.SalairePayerRequest;
+import com.mobile.diafarms.network.dto.SessionPeseeSyncRequest;
 import com.mobile.diafarms.network.dto.SoinsCreateRequest;
 import com.mobile.diafarms.network.dto.TransactionCreateRequest;
 import com.mobile.diafarms.network.dto.VenteOeufsCreateRequest;
@@ -70,18 +72,18 @@ public class SyncManager {
                         ? response.body().getData() : null;
 
                 if (data != null && data.getUniqueId() != null) {
-                    localDatabase.markSynced(saisie.getLocalId(), data.getUniqueId());
+                    markSynced(saisie, data.getUniqueId());
                     syncNext(list, index + 1, success + 1, failed, callback);
                 } else {
                     String message = extractServerMessage(response);
-                    localDatabase.markError(saisie.getLocalId(), message);
+                    markError(saisie, message);
                     syncNext(list, index + 1, success, failed + 1, callback);
                 }
             }
 
             @Override
             public void onFailure(Call<ApiEnvelope<CreatedEntityResponse>> call, Throwable t) {
-                localDatabase.markError(saisie.getLocalId(), "Réseau indisponible");
+                markError(saisie, "Réseau indisponible");
                 syncNext(list, index + 1, success, failed + 1, callback);
             }
         };
@@ -90,8 +92,28 @@ public class SyncManager {
         // aucun callback n'était appelé pour lui (ex: Vente de fientes) et toute la
         // synchronisation restait suspendue. On le marque en erreur et on continue.
         if (!dispatch(saisie, retrofitCallback)) {
-            localDatabase.markError(saisie.getLocalId(), "Ce type de saisie ne peut pas être envoyé par cette version de l'application");
+            markError(saisie, "Ce type de saisie ne peut pas être envoyé par cette version de l'application");
             syncNext(list, index + 1, success, failed + 1, callback);
+        }
+    }
+
+    /** Une session de pesée peut être réécrite (nouvelle pesée, annulation, clôture)
+     * PENDANT son envoi : on ne marque alors pas le nouvel état comme synchronisé (ni en
+     * erreur) — la ligne reste LOCAL et repart au prochain envoi. Seulement pour ce type :
+     * les autres ne sont pas idempotents côté serveur, un renvoi y créerait un doublon. */
+    private void markSynced(SaisieLocale saisie, String serverUniqueId) {
+        if (saisie.getType() == SaisieType.PESEE_SESSION) {
+            localDatabase.markSyncedIfPayloadUnchanged(saisie.getLocalId(), serverUniqueId, saisie.getPayloadJson());
+        } else {
+            localDatabase.markSynced(saisie.getLocalId(), serverUniqueId);
+        }
+    }
+
+    private void markError(SaisieLocale saisie, String message) {
+        if (saisie.getType() == SaisieType.PESEE_SESSION) {
+            localDatabase.markErrorIfPayloadUnchanged(saisie.getLocalId(), message, saisie.getPayloadJson());
+        } else {
+            localDatabase.markError(saisie.getLocalId(), message);
         }
     }
 
@@ -164,6 +186,9 @@ public class SyncManager {
                 break;
             case COMMANDE_CREATE:
                 api.createCommande(gson.fromJson(json, CommandeCreateRequest.class)).enqueue(callback);
+                break;
+            case PESEE_SESSION:
+                api.syncSessionPesee(gson.fromJson(json, SessionPeseeSyncRequest.class)).enqueue(callback);
                 break;
             case SALAIRE_PAYER:
                 api.payerSalaire(gson.fromJson(json, SalairePayerRequest.class)).enqueue(callback);
