@@ -132,6 +132,26 @@ public class MesSaisiesActivity extends AppCompatActivity {
     }
 
     private void confirmDelete(SaisieLocale saisie) {
+        if (saisie.getType() == SaisieType.PESEE_SESSION) {
+            String message = "Les pesées non envoyées de cette session seront perdues sur ce téléphone.";
+            if (saisie.getServerUniqueId() != null) {
+                message += "\n\nLa partie déjà reçue par le serveur n'est pas supprimée là-bas.";
+            }
+            if (saisie.getErrorMessage() != null) {
+                message += "\n\nErreur du serveur : " + saisie.getErrorMessage();
+            }
+            new MaterialAlertDialogBuilder(this)
+                    .setTitle("Supprimer cette session de pesée ?")
+                    .setMessage(message + "\n\nCette action est définitive.")
+                    .setPositiveButton("Supprimer définitivement", (dialog, which) -> {
+                        localDatabase.deleteSaisie(saisie.getLocalId());
+                        Toast.makeText(this, "Session de pesée supprimée", Toast.LENGTH_SHORT).show();
+                        refreshList();
+                    })
+                    .setNegativeButton("Garder", null)
+                    .show();
+            return;
+        }
         new MaterialAlertDialogBuilder(this)
                 .setTitle("Supprimer cette saisie")
                 .setMessage("Cette saisie locale sera définitivement supprimée. Continuer ?")
@@ -204,11 +224,19 @@ public class MesSaisiesActivity extends AppCompatActivity {
             boolean editable = saisie.isEditable();
             boolean deletable = editable;
             if (saisie.getType() == SaisieType.PESEE_SESSION) {
-                // Toujours consultable (ouvre l'écran de la session). Suppression seulement
-                // d'une session jamais envoyée et encore en cours : une fois reçue par le
-                // serveur, la supprimer ici ne la supprimerait pas là-bas.
+                // Toujours consultable (ouvre l'écran de la session). Suppression : session
+                // jamais envoyée et encore en cours, ou refusée par le serveur (ERROR) —
+                // sinon une session bloquée resterait en attente pour toujours. Confirmation
+                // forte dans confirmDelete.
                 editable = true;
-                deletable = saisie.isEditable() && saisie.getServerUniqueId() == null && !isSessionTerminee(saisie);
+                boolean enErreur = SaisieLocale.STATUT_ERROR.equals(saisie.getSyncStatus());
+                deletable = enErreur
+                        || (saisie.isEditable() && saisie.getServerUniqueId() == null && !isSessionTerminee(saisie));
+                if (enErreur) {
+                    // Le badge de statut est petit : message du serveur répété, lisible, sous le résumé.
+                    tvSummary.setText(saisie.getDisplaySummary() + "\nRefusée : "
+                            + (saisie.getErrorMessage() != null ? saisie.getErrorMessage() : "envoi échoué"));
+                }
                 view.setOnClickListener(v -> openEdit(saisie));
             } else {
                 view.setOnClickListener(null);

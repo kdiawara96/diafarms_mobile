@@ -72,8 +72,10 @@ public class SyncManager {
                         ? response.body().getData() : null;
 
                 if (data != null && data.getUniqueId() != null) {
-                    markSynced(saisie, data.getUniqueId());
-                    syncNext(list, index + 1, success + 1, failed, callback);
+                    // Une session de pesée modifiée pendant l'envoi reste LOCAL : elle
+                    // n'est comptée ni comme synchronisée ni comme en échec.
+                    boolean synced = markSynced(saisie, data.getUniqueId());
+                    syncNext(list, index + 1, synced ? success + 1 : success, failed, callback);
                 } else {
                     String message = extractServerMessage(response);
                     markError(saisie, message);
@@ -101,12 +103,12 @@ public class SyncManager {
      * PENDANT son envoi : on ne marque alors pas le nouvel état comme synchronisé (ni en
      * erreur) — la ligne reste LOCAL et repart au prochain envoi. Seulement pour ce type :
      * les autres ne sont pas idempotents côté serveur, un renvoi y créerait un doublon. */
-    private void markSynced(SaisieLocale saisie, String serverUniqueId) {
+    private boolean markSynced(SaisieLocale saisie, String serverUniqueId) {
         if (saisie.getType() == SaisieType.PESEE_SESSION) {
-            localDatabase.markSyncedIfPayloadUnchanged(saisie.getLocalId(), serverUniqueId, saisie.getPayloadJson());
-        } else {
-            localDatabase.markSynced(saisie.getLocalId(), serverUniqueId);
+            return localDatabase.markSyncedIfPayloadUnchanged(saisie.getLocalId(), serverUniqueId, saisie.getPayloadJson());
         }
+        localDatabase.markSynced(saisie.getLocalId(), serverUniqueId);
+        return true;
     }
 
     private void markError(SaisieLocale saisie, String message) {

@@ -202,7 +202,10 @@ public class LocalDatabase extends SQLiteOpenHelper {
         return localId;
     }
 
-    /** Met à jour le contenu d'une saisie encore LOCAL/ERROR (repasse à LOCAL après modification). */
+    /** Remplace le contenu d'une saisie et la repasse à LOCAL (message d'erreur effacé).
+     * Appelée pour une saisie LOCAL/ERROR modifiée, et aussi pour une session de pesée
+     * déjà SYNCED qui reçoit une nouvelle pesée/annulation/clôture (elle repart alors
+     * au prochain envoi). server_unique_id n'est pas touché. */
     public void updateSaisie(String localId, String projetUniqueId, String projetLabel,
                               String payloadJson, String displaySummary) {
         SQLiteDatabase db = this.getWritableDatabase();
@@ -235,9 +238,15 @@ public class LocalDatabase extends SQLiteOpenHelper {
      * Pour une saisie réécrite au fil de l'eau (session de pesée) : si une pesée a été
      * ajoutée pendant l'envoi, la ligne doit rester LOCAL pour que ce nouvel état parte
      * au prochain envoi. Retourne true si la ligne a été marquée synchronisée.
+     * server_unique_id est enregistré dans tous les cas (réponse 2xx = la session existe
+     * côté serveur), même si la ligne reste LOCAL.
      */
     public boolean markSyncedIfPayloadUnchanged(String localId, String serverUniqueId, String sentPayloadJson) {
         SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues idValues = new ContentValues();
+        idValues.put(COL_SERVER_UNIQUE_ID, serverUniqueId);
+        db.update(TABLE_SAISIES, idValues, COL_LOCAL_ID + "=?", new String[]{localId});
+
         ContentValues values = new ContentValues();
         values.put(COL_SYNC_STATUS, SaisieLocale.STATUT_SYNCED);
         values.put(COL_SERVER_UNIQUE_ID, serverUniqueId);

@@ -59,6 +59,12 @@ public class PeseeSessionActivity extends AppCompatActivity {
     public static final String EXTRA_PROJET_LABEL = "PROJET_LABEL";
     /** Présent à l'ouverture depuis "Mes saisies" : ouvre directement cette session. */
     public static final String EXTRA_LOCAL_ID = "LOCAL_ID";
+    private static final String STATE_SESSION_LOCAL_ID = "sessionLocalId";
+
+    // Bornes de saisie (fautes de frappe : "63" au lieu de "6,3" reste possible, mais
+    // plus "630000").
+    private static final int NOMBRE_MAX = 10000;
+    private static final double POIDS_MAX_KG = 10000d;
 
     private static final SimpleDateFormat ISO_LOCAL = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US);
     private static final SimpleDateFormat AFFICHAGE_DATE_HEURE = new SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.FRANCE);
@@ -94,6 +100,8 @@ public class PeseeSessionActivity extends AppCompatActivity {
     private TextView tvAucunePesee;
     private LinearLayout containerPesees;
     private MaterialButton btnTerminer;
+    // Anti double tap sur "Nouvelle session" : un seul dialogue, une seule création.
+    private boolean dialogueNouvelleSessionOuvert;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -151,8 +159,23 @@ public class PeseeSessionActivity extends AppCompatActivity {
         projetLabel = getIntent().getStringExtra(EXTRA_PROJET_LABEL);
         String localId = getIntent().getStringExtra(EXTRA_LOCAL_ID);
 
+        // Recréation (rotation, retour après que le système a tué l'activité...) : on
+        // rouvre la session qui était affichée plutôt que de retomber sur l'accueil.
+        String sessionRestauree = savedInstanceState != null
+                ? savedInstanceState.getString(STATE_SESSION_LOCAL_ID) : null;
+        if (localId != null) ouvertSurSession = true;
+        if (sessionRestauree != null) {
+            SaisieLocale saisie = localDatabase.getSaisieById(sessionRestauree);
+            if (saisie != null && saisie.getType() == SaisieType.PESEE_SESSION) {
+                projetUniqueId = saisie.getProjetUniqueId();
+                projetLabel = saisie.getProjetLabel();
+                afficherProjet();
+                ouvrirSession(saisie);
+                return;
+            }
+        }
+
         if (localId != null) {
-            ouvertSurSession = true;
             SaisieLocale saisie = localDatabase.getSaisieById(localId);
             if (saisie == null || saisie.getType() != SaisieType.PESEE_SESSION) {
                 Toast.makeText(this, "Session de pesée introuvable", Toast.LENGTH_SHORT).show();
@@ -172,6 +195,12 @@ public class PeseeSessionActivity extends AppCompatActivity {
             afficherProjet();
             afficherAccueil();
         }
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        if (sessionLocalId != null) outState.putString(STATE_SESSION_LOCAL_ID, sessionLocalId);
     }
 
     private void afficherProjet() {
@@ -224,10 +253,13 @@ public class PeseeSessionActivity extends AppCompatActivity {
     }
 
     private void demanderNouvelleSession() {
+        if (dialogueNouvelleSessionOuvert || session != null) return;
+        dialogueNouvelleSessionOuvert = true;
         TextInputLayout til = new TextInputLayout(this, null, com.google.android.material.R.attr.textInputOutlinedStyle);
         til.setHint("Nombre habituel de sujets par pesée");
         TextInputEditText et = new TextInputEditText(til.getContext());
         et.setInputType(InputType.TYPE_CLASS_NUMBER);
+        et.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(5)});
         et.setText("1");
         et.setSelectAllOnFocus(true);
         et.setTextSize(22);
@@ -242,14 +274,19 @@ public class PeseeSessionActivity extends AppCompatActivity {
                 .setPositiveButton("Commencer", null)
                 .setNegativeButton("Annuler", null)
                 .create();
+        final boolean[] creee = {false};
+        dialog.setOnDismissListener(d -> dialogueNouvelleSessionOuvert = false);
         dialog.setOnShowListener(d -> {
             et.requestFocus();
             dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                if (creee[0]) return; // double tap sur "Commencer"
                 Integer nombre = parseEntier(et.getText() != null ? et.getText().toString() : "");
-                if (nombre == null || nombre < 1) {
-                    til.setError("Entier supérieur ou égal à 1");
+                if (nombre == null || nombre < 1 || nombre > NOMBRE_MAX) {
+                    til.setError("Entier entre 1 et " + NOMBRE_MAX);
                     return;
                 }
+                creee[0] = true;
+                v.setEnabled(false);
                 dialog.dismiss();
                 creerSession(nombre);
             });
@@ -381,12 +418,18 @@ public class PeseeSessionActivity extends AppCompatActivity {
         Integer nombre = parseEntier(etNombre.getText() != null ? etNombre.getText().toString() : "");
         Double poids = parseDecimal(etPoids.getText() != null ? etPoids.getText().toString() : "");
         boolean ok = true;
-        if (nombre == null || nombre < 1) {
-            tilNombre.setError("Au moins 1");
+        if (nombre == null || nombre < 1 || nombre > NOMBRE_MAX) {
+            tilNombre.setError("Entre 1 et " + NOMBRE_MAX);
             ok = false;
         }
-        if (poids == null || poids <= 0) {
+        // Arrondi d'abord (3 décimales, comme le serveur), puis contrôle : "0,0004"
+        // donnerait sinon une pesée à 0 kg, refusée au moment de l'envoi.
+        Double poidsArrondi = poids != null ? Math.round(poids * 1000d) / 1000d : null;
+        if (poidsArrondi == null || poidsArrondi <= 0) {
             tilPoids.setError("Poids supérieur à 0");
+            ok = false;
+        } else if (poidsArrondi > POIDS_MAX_KG) {
+            tilPoids.setError("Au plus " + (int) POIDS_MAX_KG + " kg par pesée");
             ok = false;
         }
         if (!ok) return;
@@ -394,7 +437,7 @@ public class PeseeSessionActivity extends AppCompatActivity {
         SessionPeseeSyncRequest.Pesee p = new SessionPeseeSyncRequest.Pesee();
         p.uniqueId = UUID.randomUUID().toString();
         p.nombreSujets = nombre;
-        p.poidsKg = Math.round(poids * 1000d) / 1000d;
+        p.poidsKg = poidsArrondi;
         p.dateHeure = maintenantIso();
         p.annulee = false;
         session.pesees.add(p);
@@ -462,12 +505,12 @@ public class PeseeSessionActivity extends AppCompatActivity {
 
     // ===================== OUTILS =====================
 
-    /** Ex. "Pesée — 6 sujets, 13,0 kg, moy. 2,17 kg (en cours)". */
+    /** Ex. "Pesée — 6 sujets, 13,0 kg, moy. 2,167 kg (en cours)". */
     public static String resume(SessionPeseeSyncRequest s) {
         int sujets = s.totalSujets();
         String txt = "Pesée — " + sujets + (sujets > 1 ? " sujets, " : " sujet, ")
                 + String.format(Locale.FRANCE, "%.1f", s.poidsTotalKg()) + " kg";
-        if (sujets > 0) txt += ", moy. " + String.format(Locale.FRANCE, "%.2f", s.poidsMoyenKg()) + " kg";
+        if (sujets > 0) txt += ", moy. " + formatMoyenne(s.poidsMoyenKg()) + " kg";
         return txt + (s.isTerminee() ? " (terminée)" : " (en cours)");
     }
 
@@ -505,8 +548,10 @@ public class PeseeSessionActivity extends AppCompatActivity {
         return new DecimalFormat("0.0##", DecimalFormatSymbols.getInstance(Locale.FRANCE)).format(kg);
     }
 
+    /** 3 décimales, comme le serveur et le web (arrondi HALF_UP côté back). */
     private static String formatMoyenne(double kg) {
-        return String.format(Locale.FRANCE, "%.2f", kg);
+        return new java.math.BigDecimal(Double.toString(kg)).setScale(3, java.math.RoundingMode.HALF_UP)
+                .toPlainString().replace('.', ',');
     }
 
     private static Integer parseEntier(String s) {
