@@ -241,6 +241,10 @@ public class SaisieFormActivity extends AppCompatActivity {
     private RadioGroup radioGroupUniteVenteOeufs;
     private TextInputLayout tilQuantiteOeufsVente, tilPrixUnitaireOeufs;
     private TextInputEditText etQuantiteOeufsVente, etPrixUnitaireOeufs, etMontantVenteOeufs, etMontantRapporteVenteOeufs;
+    // Libellé/visibilité pilotés par la présence d'un client (spinnerClientVenteOeufs) —
+    // voir refreshModePaiementVenteOeufs.
+    private TextInputLayout tilMontantRapporteVenteOeufs, tilModePaiementVenteOeufs;
+    private AutoCompleteTextView spinnerModePaiementVenteOeufs;
     private Integer stockOeufsDisponible;
     // Bon (défaut) ou cassé — deux pools de stock magasin totalement séparés côté
     // serveur (voir TypeStockMagasin.OEUFS_CASSES) : bascule quel disponible est
@@ -276,6 +280,9 @@ public class SaisieFormActivity extends AppCompatActivity {
     private TextInputLayout tilPoidsTotalReforme, tilPrixUnitaireReforme;
     private View spacerPoidsTotalReforme;
     private TextInputEditText etPoidsTotalReforme;
+    // Même principe que Vente d'œufs — voir refreshModePaiementVenteReforme.
+    private TextInputLayout tilMontantRapporteVenteReforme, tilModePaiementVenteReforme;
+    private AutoCompleteTextView spinnerModePaiementVenteReforme;
 
     // Nouveau client (VENTE) — voir Client.java côté back, aucune notion de date ici.
     private View groupClient;
@@ -297,6 +304,10 @@ public class SaisieFormActivity extends AppCompatActivity {
     private TextInputLayout tilQuantiteCommande, tilPrixUnitaireCommande;
     private TextInputEditText etQuantiteCommande, etPrixUnitaireCommande, etMontantEstimeCommande, etAcompteCommande;
     private TextInputEditText etDateLivraisonCommande;
+    // Visible seulement si l'acompte saisi ci-dessus est > 0 — voir
+    // refreshModePaiementCommande.
+    private TextInputLayout tilModePaiementCommande;
+    private AutoCompleteTextView spinnerModePaiementCommande;
     private final Calendar dateLivraisonCal = Calendar.getInstance();
 
     // Payer un salaire (COMPTABLE) — grille déjà synchronisée côté serveur (voir
@@ -474,6 +485,10 @@ public class SaisieFormActivity extends AppCompatActivity {
         spinnerMagasinOeufs = findViewById(R.id.spinnerMagasinOeufs);
         spinnerMagasinOeufs.setOnItemClickListener((parent, view, position, id) -> loadStockPourMagasinSelectionne());
         spinnerClientVenteOeufs = findViewById(R.id.spinnerClientVenteOeufs);
+        spinnerClientVenteOeufs.setOnItemClickListener((parent, view, position, id) -> refreshModePaiementVenteOeufs());
+        tilMontantRapporteVenteOeufs = findViewById(R.id.tilMontantRapporteVenteOeufs);
+        tilModePaiementVenteOeufs = findViewById(R.id.tilModePaiementVenteOeufs);
+        spinnerModePaiementVenteOeufs = findViewById(R.id.spinnerModePaiementVenteOeufs);
         tvStockOeufsInfo = findViewById(R.id.tvStockOeufsInfo);
         radioGroupTypeOeufVente = findViewById(R.id.radioGroupTypeOeufVente);
         radioGroupTypeOeufVente.setOnCheckedChangeListener((group, checkedId) -> refreshStockOeufsAffiche());
@@ -514,6 +529,10 @@ public class SaisieFormActivity extends AppCompatActivity {
         spinnerMagasinReforme = findViewById(R.id.spinnerMagasinReforme);
         spinnerMagasinReforme.setOnItemClickListener((parent, view, position, id) -> loadStockPourMagasinSelectionne());
         spinnerClientVenteReforme = findViewById(R.id.spinnerClientVenteReforme);
+        spinnerClientVenteReforme.setOnItemClickListener((parent, view, position, id) -> refreshModePaiementVenteReforme());
+        tilMontantRapporteVenteReforme = findViewById(R.id.tilMontantRapporteVenteReforme);
+        tilModePaiementVenteReforme = findViewById(R.id.tilModePaiementVenteReforme);
+        spinnerModePaiementVenteReforme = findViewById(R.id.spinnerModePaiementVenteReforme);
         tvStockReformeInfo = findViewById(R.id.tvStockReformeInfo);
         etNombreSujetsVente = findViewById(R.id.etNombreSujetsVente);
         radioGroupTypeVenteReforme = findViewById(R.id.radioGroupTypeVenteReforme);
@@ -577,6 +596,13 @@ public class SaisieFormActivity extends AppCompatActivity {
         });
         applyLabelsQuantiteCommande();
         etAcompteCommande = findViewById(R.id.etAcompteCommande);
+        tilModePaiementCommande = findViewById(R.id.tilModePaiementCommande);
+        spinnerModePaiementCommande = findViewById(R.id.spinnerModePaiementCommande);
+        etAcompteCommande.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) { refreshModePaiementCommande(); }
+            @Override public void afterTextChanged(Editable s) {}
+        });
         etDateLivraisonCommande = findViewById(R.id.etDateLivraisonCommande);
         etDateLivraisonCommande.setHint("Aucune");
         etDateLivraisonCommande.setOnClickListener(v ->
@@ -657,6 +683,23 @@ public class SaisieFormActivity extends AppCompatActivity {
         spinnerTypeEntretien.setAdapter(typeEntretienAdapter);
         spinnerTypeEntretien.setText(TYPES_ENTRETIEN[0], false);
         updateGroupEntretienNiveau();
+
+        // Mode de paiement — liste statique (miroir de l'enum ModePaiement côté back),
+        // Espèces par défaut. Visibilité/pertinence pilotées séparément (voir
+        // refreshModePaiementVenteOeufs/Reforme/Commande) : un adaptateur distinct par
+        // sélecteur, même si la liste est identique, pour éviter de partager l'état de
+        // filtre d'un ArrayAdapter entre plusieurs AutoCompleteTextView actifs en même
+        // temps (VenteOeufs/VenteReforme + Commande ne sont jamais affichés ensemble,
+        // mais autant rester prudent).
+        spinnerModePaiementVenteOeufs.setAdapter(new ArrayAdapter<>(this,
+                android.R.layout.simple_dropdown_item_1line, MODE_PAIEMENT_LABELS));
+        spinnerModePaiementVenteReforme.setAdapter(new ArrayAdapter<>(this,
+                android.R.layout.simple_dropdown_item_1line, MODE_PAIEMENT_LABELS));
+        spinnerModePaiementCommande.setAdapter(new ArrayAdapter<>(this,
+                android.R.layout.simple_dropdown_item_1line, MODE_PAIEMENT_LABELS));
+        spinnerModePaiementVenteOeufs.setText(MODE_PAIEMENT_LABELS[0], false);
+        spinnerModePaiementVenteReforme.setText(MODE_PAIEMENT_LABELS[0], false);
+        spinnerModePaiementCommande.setText(MODE_PAIEMENT_LABELS[0], false);
     }
 
     private boolean isTypeSoinVaccination() {
@@ -1531,9 +1574,66 @@ public class SaisieFormActivity extends AppCompatActivity {
                 spinnerClientVenteOeufs.setText(nom, false);
                 spinnerClientVenteReforme.setText(nom, false);
                 spinnerClientCommande.setText(nom, false);
+                // Appelé explicitement (pas seulement via OnItemClickListener) car
+                // AutoCompleteTextView.setText(..., false) ne déclenche jamais le
+                // listener — même raisonnement que applyPendingMagasinSelection.
+                refreshModePaiementVenteOeufs();
+                refreshModePaiementVenteReforme();
                 return;
             }
         }
+    }
+
+    // ===================== MODE DE PAIEMENT (acompte commande, vente à un client) =====================
+
+    // Miroir de l'enum ModePaiement côté back — Espèces en position 0 = défaut.
+    private static final String[] MODE_PAIEMENT_VALEURS =
+            {"ESPECES", "ORANGE_MONEY", "MOOV_MONEY", "WAVE", "VIREMENT", "CHEQUE", "AUTRE"};
+    private static final String[] MODE_PAIEMENT_LABELS =
+            {"Espèces", "Orange Money", "Moov Money", "Wave", "Virement", "Chèque", "Autre"};
+
+    private String getSelectedModePaiement(AutoCompleteTextView spinner) {
+        String selected = spinner.getText().toString();
+        for (int i = 0; i < MODE_PAIEMENT_LABELS.length; i++) {
+            if (MODE_PAIEMENT_LABELS[i].equals(selected)) return MODE_PAIEMENT_VALEURS[i];
+        }
+        return null;
+    }
+
+    /** Espèces par défaut si value est null/inconnue (saisie hors ligne antérieure à ce
+     * champ, ou toujours pas de valeur en édition) — cohérent avec le défaut serveur. */
+    private void selectModePaiementByValue(AutoCompleteTextView spinner, String value) {
+        for (int i = 0; i < MODE_PAIEMENT_VALEURS.length; i++) {
+            if (MODE_PAIEMENT_VALEURS[i].equals(value)) {
+                spinner.setText(MODE_PAIEMENT_LABELS[i], false);
+                return;
+            }
+        }
+        spinner.setText(MODE_PAIEMENT_LABELS[0], false);
+    }
+
+    /** Un mode de paiement n'a de sens que si le montant rapporté devient un paiement
+     * client (voir VenteOeufsCreateRequest.modePaiement) — sinon (vente directe) c'est
+     * un simple contrôle de caisse vendeur, le champ reste masqué et modePaiement part
+     * null (voir onValider). */
+    private void refreshModePaiementVenteOeufs() {
+        boolean hasClient = getSelectedClientUniqueId(spinnerClientVenteOeufs, true) != null;
+        tilMontantRapporteVenteOeufs.setHint(hasClient ? "Montant reçu maintenant (FCFA)" : "Montant rapporté (FCFA)");
+        tilModePaiementVenteOeufs.setVisibility(hasClient ? View.VISIBLE : View.GONE);
+    }
+
+    /** Même raisonnement que refreshModePaiementVenteOeufs. */
+    private void refreshModePaiementVenteReforme() {
+        boolean hasClient = getSelectedClientUniqueId(spinnerClientVenteReforme, true) != null;
+        tilMontantRapporteVenteReforme.setHint(hasClient ? "Montant reçu maintenant (FCFA)" : "Montant rapporté (FCFA)");
+        tilModePaiementVenteReforme.setVisibility(hasClient ? View.VISIBLE : View.GONE);
+    }
+
+    /** Un mode de paiement n'a de sens que s'il y a réellement un acompte à qualifier —
+     * champ masqué et modePaiement part null sinon (voir onValider). */
+    private void refreshModePaiementCommande() {
+        Double acompte = parseDoubleOrNull(etAcompteCommande.getText());
+        tilModePaiementCommande.setVisibility(acompte != null && acompte > 0 ? View.VISIBLE : View.GONE);
     }
 
     // ===================== PAYER UN SALAIRE (COMPTABLE) =====================
@@ -2499,6 +2599,9 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.prixUnitaire = enAlveoles ? prixSaisi / AlveoleUtils.OEUFS_PAR_ALVEOLE : prixSaisi;
                 req.montant = montant;
                 req.montantRapporte = montantRapporte;
+                // Seulement pertinent si le montant rapporté devient un paiement client —
+                // voir refreshModePaiementVenteOeufs/VenteOeufsCreateRequest.modePaiement.
+                req.modePaiement = req.clientUniqueId != null ? getSelectedModePaiement(spinnerModePaiementVenteOeufs) : null;
                 req.typeOeuf = casse ? "CASSE" : "BON";
                 requestObject = req;
                 summary = enAlveoles
@@ -2551,6 +2654,8 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.prixUnitaire = prixReforme;
                 req.montant = montant;
                 req.montantRapporte = montantRapporteReforme;
+                // Même raisonnement que VENTE_OEUFS ci-dessus.
+                req.modePaiement = req.clientUniqueId != null ? getSelectedModePaiement(spinnerModePaiementVenteReforme) : null;
                 req.typeVente = kiloReforme ? "KILO" : "TETE";
                 req.poidsTotalKg = kiloReforme ? poidsTotalReforme : null;
                 requestObject = req;
@@ -2667,6 +2772,10 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.prixUnitaireEstime = prixReelCommande;
                 req.montantEstime = montantEstime;
                 req.montantAcompte = parseDoubleOrNull(etAcompteCommande.getText());
+                // Seulement pertinent s'il y a réellement un acompte — voir
+                // refreshModePaiementCommande/CommandeCreateRequest.modePaiement.
+                req.modePaiement = (req.montantAcompte != null && req.montantAcompte > 0)
+                        ? getSelectedModePaiement(spinnerModePaiementCommande) : null;
                 req.dateCommande = date;
                 req.dateLivraisonPrevue = nullIfBlank(textOf(etDateLivraisonCommande));
                 requestObject = req;
@@ -2855,6 +2964,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 if (req.montant != null) etMontantVenteOeufs.setText(String.valueOf(req.montant));
                 if (req.montantRapporte != null) etMontantRapporteVenteOeufs.setText(String.valueOf(req.montantRapporte));
                 if ("CASSE".equals(req.typeOeuf)) radioGroupTypeOeufVente.check(R.id.radioTypeOeufCasse);
+                selectModePaiementByValue(spinnerModePaiementVenteOeufs, req.modePaiement);
                 selectMagasinByUniqueId(req.magasinUniqueId);
                 selectClientByUniqueId(req.clientUniqueId);
                 break;
@@ -2869,6 +2979,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 if ("KILO".equals(req.typeVente)) radioGroupTypeVenteReforme.check(R.id.radioTypeVenteReformeKilo);
                 if (req.poidsTotalKg != null) etPoidsTotalReforme.setText(String.valueOf(req.poidsTotalKg));
                 refreshTypeVenteReformeUi();
+                selectModePaiementByValue(spinnerModePaiementVenteReforme, req.modePaiement);
                 selectMagasinByUniqueId(req.magasinUniqueId);
                 selectClientByUniqueId(req.clientUniqueId);
                 break;
@@ -2895,6 +3006,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 if (req.prixUnitaireEstime != null) etPrixUnitaireCommande.setText(String.valueOf(req.prixUnitaireEstime));
                 if (req.montantEstime != null) etMontantEstimeCommande.setText(String.valueOf(req.montantEstime));
                 if (req.montantAcompte != null) etAcompteCommande.setText(String.valueOf(req.montantAcompte));
+                selectModePaiementByValue(spinnerModePaiementCommande, req.modePaiement);
                 if (req.dateLivraisonPrevue != null) etDateLivraisonCommande.setText(req.dateLivraisonPrevue);
                 selectMagasinByUniqueId(req.magasinUniqueId);
                 selectClientByUniqueId(req.clientUniqueId);

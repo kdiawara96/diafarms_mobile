@@ -16,4 +16,8 @@ public class VenteOeufsCreateRequest {
     public Double montant; // montant théorique
     public Double montantRapporte; // optionnel — ce qui revient RÉELLEMENT en caisse ; si différent du montant théorique, l'écart est suivi comme dette (client si renseigné, sinon vendeur)
     public String typeOeuf; // "BON" (défaut) ou "CASSE" — voir TypeVenteOeufs côté backend
+    // Mode de paiement du montant rapporté — seulement pertinent quand clientUniqueId
+    // est renseigné (montantRapporte devient alors un paiement client) ; null sinon
+    // (contrôle de caisse vendeur). Serveur défaut ESPECES si null — voir ModePaiement.
+    public String modePaiement;
 }

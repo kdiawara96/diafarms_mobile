@@ -12,6 +12,10 @@ public class CommandeCreateRequest {
     public Double prixUnitaireEstime; // optionnel, informatif
     public Double montantEstime;
     public Double montantAcompte; // optionnel
+    // Mode de paiement de l'acompte — ESPECES/ORANGE_MONEY/MOOV_MONEY/WAVE/VIREMENT/
+    // CHEQUE/AUTRE, null si pas d'acompte (serveur défaut ESPECES si acompte > 0 et
+    // mode null, voir ModePaiement côté back).
+    public String modePaiement;
     public String dateCommande; // "yyyy-MM-dd", optionnel (défaut aujourd'hui côté back)
     public String dateLivraisonPrevue; // "yyyy-MM-dd", optionnel
 }

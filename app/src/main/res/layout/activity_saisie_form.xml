@@ -773,14 +773,41 @@
                      montant théorique, l'écart est suivi comme dette (client sélectionné
                      ci-dessus si renseigné, sinon vendeur), voir SoldeClient/SoldeVendeur
                      côté back. Pré-rempli = montant théorique (vente payée intégralement),
-                     à corriger explicitement si ce n'est pas le cas. -->
+                     à corriger explicitement si ce n'est pas le cas. Libellé/hint changé
+                     dynamiquement selon la présence d'un client ("Montant reçu maintenant" /
+                     "Montant rapporté") — voir refreshModePaiementVenteOeufs. -->
                 <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilMontantRapporteVenteOeufs"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:hint="Montant rapporté (FCFA)">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etMontantRapporteVenteOeufs"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
                         android:inputType="numberDecimal" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <!-- Visible seulement quand un client est sélectionné ci-dessus (sinon
+                     envoyé null — voir onValider) : n'a de sens que pour un paiement
+                     client, pas pour un contrôle de caisse vendeur. -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilModePaiementVenteOeufs"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Mode de paiement"
+                    android:visibility="gone"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
+
+                    <AutoCompleteTextView
+                        android:id="@+id/spinnerModePaiementVenteOeufs"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none"
+                        android:editable="false" />
+
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
@@ -914,14 +941,40 @@
 
                 <!-- Ce qui revient RÉELLEMENT en caisse aujourd'hui — même principe que
                      Vente d'œufs (voir groupVenteOeufs). Pré-rempli = montant théorique,
-                     à corriger explicitement si ce n'est pas le cas. -->
+                     à corriger explicitement si ce n'est pas le cas. Libellé/hint changé
+                     dynamiquement selon la présence d'un client — voir
+                     refreshModePaiementVenteReforme. -->
                 <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilMontantRapporteVenteReforme"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:hint="Montant rapporté (FCFA)">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etMontantRapporteVenteReforme"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
                         android:inputType="numberDecimal" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <!-- Visible seulement quand un client est sélectionné ci-dessus — même
+                     principe que Vente d'œufs (voir groupVenteOeufs). -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilModePaiementVenteReforme"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Mode de paiement"
+                    android:visibility="gone"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
+
+                    <AutoCompleteTextView
+                        android:id="@+id/spinnerModePaiementVenteReforme"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none"
+                        android:editable="false" />
+
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
@@ -1131,6 +1184,30 @@
                         android:id="@+id/etAcompteCommande"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
                         android:inputType="numberDecimal" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <!-- Visible seulement si un acompte > 0 est saisi ci-dessus (sinon envoyé
+                     null — voir onValider) : n'a de sens que s'il y a réellement un
+                     paiement à qualifier. -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilModePaiementCommande"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Mode de paiement"
+                    android:visibility="gone"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
+
+                    <AutoCompleteTextView
+                        android:id="@+id/spinnerModePaiementCommande"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none"
+                        android:editable="false" />
+
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <View android:layout_width="match_parent" android:layout_height="12dp" />

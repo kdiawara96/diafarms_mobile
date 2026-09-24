@@ -15,4 +15,7 @@ public class VenteReformeCreateRequest {
     public Double montantRapporte; // optionnel — ce qui revient RÉELLEMENT en caisse ; si différent du montant théorique, l'écart est suivi comme dette (client si renseigné, sinon vendeur)
     public String typeVente; // "TETE" (défaut) ou "KILO" — voir TypeVenteReforme côté back
     public Double poidsTotalKg; // obligatoire si typeVente="KILO", null sinon
+    // Mode de paiement du montant rapporté — même principe que VenteOeufsCreateRequest,
+    // seulement pertinent quand clientUniqueId est renseigné.
+    public String modePaiement;
 }
