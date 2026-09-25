@@ -254,7 +254,7 @@ public class PeseeSessionActivity extends AppCompatActivity {
             btn.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
             btn.setTextSize(15);
             btn.setCornerRadius(dp(12));
-            btn.setText("Reprendre — début " + formatDateAffichage(req.dateDebut) + "\n"
+            btn.setText("Reprendre - début " + formatDateAffichage(req.dateDebut) + "\n"
                     + req.totalSujets() + " sujet(s), " + formatKg(req.poidsTotalKg()) + " kg, "
                     + req.peseesActives().size() + " pesée(s)");
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
@@ -399,7 +399,7 @@ public class PeseeSessionActivity extends AppCompatActivity {
 
         tvTotalSujets.setText(String.valueOf(session.totalSujets()));
         tvPoidsTotal.setText(formatKg(session.poidsTotalKg()));
-        tvPoidsMoyen.setText(session.totalSujets() > 0 ? formatMoyenne(session.poidsMoyenKg()) : "—");
+        tvPoidsMoyen.setText(session.totalSujets() > 0 ? formatMoyenne(session.poidsMoyenKg()) : "-");
 
         // Session terminée : lecture seule (saisie, annulation et clôture désactivées).
         layoutSaisiePesee.setVisibility(terminee ? View.GONE : View.VISIBLE);
@@ -660,7 +660,7 @@ public class PeseeSessionActivity extends AppCompatActivity {
             Toast.makeText(this, "Ajoutez au moins une pesée avant de terminer la session", Toast.LENGTH_LONG).show();
             return;
         }
-        String derniere = "—";
+        String derniere = "-";
         for (SessionPeseeSyncRequest.Pesee p : actives) derniere = p.dateHeure; // ordre de saisie
         String recap = "Total sujets : " + session.totalSujets()
                 + "\nPoids total : " + formatKg(session.poidsTotalKg()) + " kg"
@@ -730,7 +730,7 @@ public class PeseeSessionActivity extends AppCompatActivity {
     /** Ex. "Pesée — 6 sujets, 13,0 kg, moy. 2,167 kg (en cours)". */
     public static String resume(SessionPeseeSyncRequest s) {
         int sujets = s.totalSujets();
-        String txt = "Pesée — " + sujets + (sujets > 1 ? " sujets, " : " sujet, ")
+        String txt = "Pesée : " + sujets + (sujets > 1 ? " sujets, " : " sujet, ")
                 + String.format(Locale.FRANCE, "%.1f", s.poidsTotalKg()) + " kg";
         if (sujets > 0) txt += ", moy. " + formatMoyenne(s.poidsMoyenKg()) + " kg";
         return txt + (s.isTerminee() ? " (terminée)" : " (en cours)");
@@ -749,7 +749,7 @@ public class PeseeSessionActivity extends AppCompatActivity {
     }
 
     private static synchronized String formatDateAffichage(String iso) {
-        if (iso == null) return "—";
+        if (iso == null) return "-";
         try {
             return AFFICHAGE_DATE_HEURE.format(ISO_LOCAL.parse(iso));
         } catch (ParseException e) {
