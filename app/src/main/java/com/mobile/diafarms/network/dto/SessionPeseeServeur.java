@@ -25,7 +25,8 @@ public class SessionPeseeServeur {
     public String creeParNom;
     public Long version;           // +1 à chaque changement côté serveur
     public String origine;         // MOBILE | WEB
-    public List<Pesee> pesees = new ArrayList<>();
+    /** null si la réponse ne porte pas le détail des pesées (repli dans SyncManager). */
+    public List<Pesee> pesees;
     /** Journal des actions faites sur le web, chronologique. */
     public List<Evenement> evenements = new ArrayList<>();
     /** Synchro seulement : pesées envoyées NON enregistrées (session déjà terminée). */

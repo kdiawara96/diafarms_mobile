@@ -33,8 +33,11 @@ import java.util.List;
 public final class PeseeServeurSync {
 
     private static final Gson GSON = new Gson();
-    private static final int ID_BASE_MODIFS = 4000;
-    private static final int ID_BASE_REFUS = 5000;
+    // AlertCheckWorker notifie sans tag avec des id 1000..10999 : ici un tag par session
+    // (localId complet), aucun chevauchement possible.
+    private static final String TAG_MODIFS = "pesee_modifs_";
+    private static final String TAG_REFUS = "pesee_refus_";
+    private static final int ID_PESEE = 1;
 
     private PeseeServeurSync() {}
 
@@ -58,6 +61,7 @@ public final class PeseeServeurSync {
         }
         if (courant == null) return null;
         SessionPeseeSyncRequest.Fusion f = SessionPeseeSyncRequest.fusionner(envoye, courant, serveur);
+        if (f.ignoree) return f; // lecture périmée : rien à écrire ni à notifier
         String json = GSON.toJson(f.etat);
         String uidServeur = serveur != null && serveur.uniqueId != null ? serveur.uniqueId : courant.uniqueId;
         boolean dejaAJour = json.equals(actuelle.getPayloadJson())
@@ -96,6 +100,7 @@ public final class PeseeServeurSync {
         String resume = PeseeSessionActivity.resume(req);
         String localId = db.insertSaisie(SaisieType.PESEE_SESSION, serveur.projetUniqueId, projetLabel, json, resume);
         db.enregistrerApresEnvoi(localId, serveur.uniqueId, json, resume, true);
+        db.deleteCache(CachePrefetcher.CACHE_PESEE_DETAIL_PREFIX + serveur.uniqueId);
         return localId;
     }
 
@@ -110,15 +115,19 @@ public final class PeseeServeurSync {
                 int autres = nouveaux.size() - 1;
                 texte += " et " + autres + (autres > 1 ? " autres modifications" : " autre modification");
             }
-            poster(context, localId, ID_BASE_MODIFS, "Session de pesée modifiée", texte);
+            poster(context, localId, TAG_MODIFS, "Session de pesée modifiée", texte);
         }
         if (f.nouvellesRefusees > 0) {
-            poster(context, localId, ID_BASE_REFUS, "Session de pesée terminée sur le web",
-                    "Session terminée sur le web : " + f.nouvellesRefusees + " pesée(s) non enregistrée(s)");
+            // Terminée par le web (ou un autre appareil) pendant qu'on pesait, ou déjà
+            // terminée par ce téléphone (pesées ajoutées pendant l'envoi de la clôture).
+            String titre = f.termineeParServeur ? "Session de pesée terminée sur le web" : "Session de pesée déjà terminée";
+            String texte = (f.termineeParServeur ? "Session terminée sur le web : " : "Session déjà terminée : ")
+                    + f.nouvellesRefusees + " pesée(s) non enregistrée(s)";
+            poster(context, localId, TAG_REFUS, titre, texte);
         }
     }
 
-    private static void poster(Context context, String localId, int idBase, String titre, String texte) {
+    private static void poster(Context context, String localId, String tagBase, String titre, String texte) {
         Context app = context.getApplicationContext();
         boolean permission = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU
                 || ActivityCompat.checkSelfPermission(app, android.Manifest.permission.POST_NOTIFICATIONS)
@@ -128,9 +137,11 @@ public final class PeseeServeurSync {
 
         Intent intent = new Intent(app, PeseeSessionActivity.class);
         intent.putExtra(PeseeSessionActivity.EXTRA_LOCAL_ID, localId);
+        // data unique par session : deux sessions n'écrasent jamais le PendingIntent l'une
+        // de l'autre (les extras ne comptent pas dans l'égalité des Intent).
+        intent.setData(android.net.Uri.parse("diafarms://pesee/" + tagBase + localId));
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        int id = idBase + Math.abs(localId.hashCode() % 1000);
-        PendingIntent pi = PendingIntent.getActivity(app, id, intent,
+        PendingIntent pi = PendingIntent.getActivity(app, 0, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         NotificationCompat.Builder b = new NotificationCompat.Builder(app, AlertCheckWorker.CHANNEL_ID)
@@ -144,7 +155,7 @@ public final class PeseeServeurSync {
                 .setAutoCancel(true)
                 .setContentIntent(pi);
         try {
-            NotificationManagerCompat.from(app).notify(id, b.build());
+            NotificationManagerCompat.from(app).notify(tagBase + localId, ID_PESEE, b.build());
         } catch (SecurityException ignored) {
             // permission retirée entre-temps
         }

@@ -229,8 +229,17 @@ public class PeseeSessionActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         actif = true;
+        if (session == null && projetUniqueId != null && layoutEntree.getVisibility() == View.VISIBLE) {
+            dessinerSessionsEnCours(); // une synchro a pu importer/changer des sessions
+        }
         // Une synchro (lancée depuis l'accueil) a pu marquer des pesées comme envoyées.
         if (session != null && recharger()) rafraichirSession();
+    }
+
+    @Override
+    protected void onPause() {
+        actif = false;
+        super.onPause();
     }
 
     @Override
@@ -593,7 +602,7 @@ public class PeseeSessionActivity extends AppCompatActivity {
         // Clôture envoyée = session figée côté serveur. Sinon elle peut encore être rouverte.
         boolean clotureEnvoyee = session.isClotureEnvoyee(ligneSynchronisee);
         int refusees = 0;
-        for (SessionPeseeSyncRequest.Pesee p : session.pesees) if (p.isRefusee()) refusees++;
+        for (SessionPeseeSyncRequest.Pesee p : session.pesees) if (p != null && p.isRefusee()) refusees++;
         String texteTerminee = clotureEnvoyee
                 ? "Session terminée et enregistrée sur le serveur : modification impossible."
                 : "Session terminée, pas encore envoyée : vous pouvez encore la rouvrir.";
@@ -858,6 +867,10 @@ public class PeseeSessionActivity extends AppCompatActivity {
                     SessionPeseeSyncRequest.Pesee cible = peseeModifiable(uniqueId);
                     if (cible == null) return;
                     session.pesees.remove(cible);
+                    // Pierre tombale : si le serveur l'a reçue malgré tout (réponse perdue),
+                    // elle reviendra annulée (voir SessionPeseeSyncRequest.fusionner).
+                    if (session.peseesSupprimees == null) session.peseesSupprimees = new ArrayList<>();
+                    if (!session.peseesSupprimees.contains(cible.uniqueId)) session.peseesSupprimees.add(cible.uniqueId);
                     enregistrer();
                     rafraichirSession();
                     Toast.makeText(this, "Pesée supprimée", Toast.LENGTH_SHORT).show();

@@ -37,6 +37,11 @@ public class SessionPeseeSyncRequest {
     public String dernierEvenementVu;
     /** LOCAL SEULEMENT : journal des modifications faites sur le web (affiché dans l'écran). */
     public List<EvenementWeb> evenementsWeb;
+    /** LOCAL SEULEMENT : uniqueId des pesées supprimées sur le téléphone alors qu'elles
+     * n'étaient pas marquées envoyées. Si le serveur les connaît quand même (réponse d'un
+     * envoi précédent perdue), elles reviennent annulées, pour que l'annulation parte.
+     * Oubliées dès que le serveur les montre annulées (ou que la session y est terminée). */
+    public List<String> peseesSupprimees;
 
     public static class EvenementWeb {
         public String uniqueId;
@@ -97,6 +102,7 @@ public class SessionPeseeSyncRequest {
         r.versionServeur = null;
         r.dernierEvenementVu = null;
         r.evenementsWeb = null;
+        r.peseesSupprimees = null;
         if (r.pesees != null) {
             List<Pesee> aEnvoyer = new ArrayList<>();
             for (Pesee p : r.pesees) {
@@ -126,6 +132,9 @@ public class SessionPeseeSyncRequest {
         public int nouvellesRefusees;
         /** true si la session vient de passer TERMINEE du fait du serveur (web). */
         public boolean termineeParServeur;
+        /** Lecture (sans envoi) plus ancienne que l'état local déjà connu : ignorée, rien
+         * à écrire ({@code etat} = copie de l'état actuel). */
+        public boolean ignoree;
     }
 
     /**
@@ -167,6 +176,15 @@ public class SessionPeseeSyncRequest {
         if (r.pesees == null) r.pesees = new ArrayList<>();
         r.pesees.removeIf(Objects::isNull);
         Fusion f = new Fusion();
+        // Lecture périmée (réponse d'un GET partie avant une synchro plus récente) : ignorée.
+        if (envoye == null && serveur.version != null && r.versionServeur != null
+                && serveur.version < r.versionServeur) {
+            f.etat = r;
+            f.ignoree = true;
+            f.aJour = false;
+            return f;
+        }
+        List<String> supprimees = r.peseesSupprimees != null ? new ArrayList<>(r.peseesSupprimees) : new ArrayList<>();
 
         // Étape 1 : changements locaux faits pendant l'envoi.
         if (envoye != null && envoye.pesees != null) {
@@ -227,12 +245,14 @@ public class SessionPeseeSyncRequest {
         // Pesées du serveur inconnues du téléphone (web, autre appareil).
         for (SessionPeseeServeur.Pesee s : surServeur.values()) {
             if (indexOf(r.pesees, s.uniqueId) >= 0) continue;
+            boolean supprimee = supprimees.contains(s.uniqueId);
             Pesee n = new Pesee();
             n.uniqueId = s.uniqueId;
             n.nombreSujets = s.nombreSujets;
             n.poidsKg = s.poidsKg;
             n.dateHeure = s.dateHeure;
-            n.annulee = Boolean.TRUE.equals(s.annulee);
+            // Supprimée ici mais connue du serveur : revient annulée (annulation à envoyer).
+            n.annulee = Boolean.TRUE.equals(s.annulee) || (supprimee && !serveur.isTerminee());
             n.envoyee = true;
             n.origine = s.origine;
             n.modifiee = Boolean.TRUE.equals(s.modifiee) ? Boolean.TRUE : null;
@@ -245,6 +265,15 @@ public class SessionPeseeSyncRequest {
                 if (idx >= 0 && !surServeur.containsKey(uid)) f.nouvellesRefusees += refuser(r.pesees.get(idx));
             }
         }
+
+        // Pierres tombales : oubliées quand le serveur montre la pesée annulée, ou quand la
+        // session y est terminée (plus rien ne peut y être annulé).
+        java.util.Iterator<String> it = supprimees.iterator();
+        while (it.hasNext()) {
+            SessionPeseeServeur.Pesee s = surServeur.get(it.next());
+            if (serveur.isTerminee() || (s != null && Boolean.TRUE.equals(s.annulee))) it.remove();
+        }
+        r.peseesSupprimees = supprimees.isEmpty() ? null : supprimees;
 
         boolean etaitTerminee = r.isTerminee() && Boolean.TRUE.equals(r.termineeEnvoyee);
         if (serveur.isTerminee()) {
@@ -261,7 +290,19 @@ public class SessionPeseeSyncRequest {
                 }
             }
         } else if (r.isTerminee()) {
-            r.termineeEnvoyee = false; // clôture locale pas encore reçue par le serveur
+            // Clôture locale pas encore reçue par le serveur. Une simple lecture ne revient
+            // jamais sur une clôture déjà acceptée (true → false).
+            if (envoye != null || !Boolean.TRUE.equals(r.termineeEnvoyee)) r.termineeEnvoyee = false;
+            if (!Boolean.TRUE.equals(r.termineeEnvoyee)) {
+                // Des pesées (web) ont pu arriver après la clôture locale : dateFin ≥ la
+                // dernière pesée active (le serveur refuse dateFin < dateDebut, et une fin
+                // avant la dernière pesée serait incohérente).
+                for (Pesee c : r.peseesActives()) {
+                    if (c.dateHeure != null && (r.dateFin == null || c.dateHeure.compareTo(r.dateFin) > 0)) {
+                        r.dateFin = c.dateHeure;
+                    }
+                }
+            }
         }
         if (serveur.nombreParDefaut != null) r.nombreParDefaut = serveur.nombreParDefaut;
         if (serveur.dateDebut != null) r.dateDebut = serveur.dateDebut;
@@ -322,7 +363,7 @@ public class SessionPeseeSyncRequest {
                                          java.util.Map<String, SessionPeseeServeur.Pesee> surServeur,
                                          boolean termineeServeur) {
         if (termineeServeur) return false; // le serveur refuserait tout : rien à renvoyer
-        if (r.isTerminee()) return true;   // clôture locale en attente
+        if (r.isTerminee()) return !Boolean.TRUE.equals(r.termineeEnvoyee); // clôture locale en attente
         for (Pesee c : r.pesees) {
             if (c.isRefusee()) continue;
             SessionPeseeServeur.Pesee s = surServeur.get(c.uniqueId);
@@ -351,11 +392,12 @@ public class SessionPeseeSyncRequest {
         pesees.add(idx + 1, nouvelle);
     }
 
+    /** Retourne 1 si la pesée compte pour l'utilisateur (non annulée ici), 0 sinon. */
     private static int refuser(Pesee p) {
         if (p.isRefusee()) return 0;
         p.refusee = true;
         p.envoyee = true; // plus rien à envoyer pour elle
-        return 1;
+        return p.isAnnulee() ? 0 : 1;
     }
 
     private static boolean memesValeurs(Pesee a, Pesee b) {
@@ -383,6 +425,7 @@ public class SessionPeseeSyncRequest {
         s.uniqueId = envoye.uniqueId;
         s.statut = envoye.isTerminee() ? STATUT_TERMINEE : STATUT_EN_COURS;
         s.dateFin = envoye.dateFin;
+        s.pesees = new ArrayList<>();
         if (envoye.pesees != null) {
             for (Pesee p : envoye.pesees) {
                 if (p == null || p.uniqueId == null || p.isRefusee()) continue;

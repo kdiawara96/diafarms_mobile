@@ -250,9 +250,10 @@ public class CachePrefetcher {
      * (évite de refaire l'appel /projets/select quand l'appelant l'a déjà en main). */
     public static void prefetchProjectsDetails(Context context, LocalDatabase localDatabase, List<ProjetSelectResponse> projets) {
         Context appContext = context.getApplicationContext();
+        int[] budgetPesees = {PESEE_DETAILS_MAX_PAR_PASSAGE}; // partagé entre les projets
         for (ProjetSelectResponse projet : projets) {
             prefetchOneProjet(appContext, localDatabase, projet.getUniqueId());
-            prefetchPesees(appContext, localDatabase, projet.getUniqueId());
+            prefetchPesees(appContext, localDatabase, projet.getUniqueId(), budgetPesees);
         }
         prefetchMagasins(appContext, localDatabase);
         prefetchMagasinsStockage(appContext, localDatabase);
@@ -292,6 +293,13 @@ public class CachePrefetcher {
         }
     }
 
+    /** Au plus ce nombre de lectures de détail de session par ouverture de l'accueil
+     * (après la mise à jour, toutes les sessions SYNCED ont une version inconnue). */
+    private static final int PESEE_DETAILS_MAX_PAR_PASSAGE = 10;
+    /** Détail en échec pour une version donnée : pas de nouvel essai avant ce délai. */
+    private static final long PESEE_ESSAI_DELAI_MS = 30L * 60 * 1000;
+    private static final String CACHE_PESEE_ESSAI_PREFIX = "pesee_detail_echec_";
+
     /**
      * Sessions de pesée du projet (page 0, EN_COURS d'abord puis les terminées récentes) :
      * <ul>
@@ -300,8 +308,10 @@ public class CachePrefetcher {
      *       détail relu et fusionné tout de suite, avec notification des nouveaux
      *       événements web (voir PeseeServeurSync).</li>
      * </ul>
+     * {@code budget} : lectures de détail encore permises pour ce passage (partagé entre
+     * les projets). Un échec est mémorisé par version (pas de nouvel essai avant 30 min).
      */
-    public static void prefetchPesees(Context appContext, LocalDatabase localDatabase, String projetUniqueId) {
+    public static void prefetchPesees(Context appContext, LocalDatabase localDatabase, String projetUniqueId, int[] budget) {
         if (projetUniqueId == null) return;
         ApiClient.dataApi(appContext).listSessionsPesee(projetUniqueId, null, 0, 50)
                 .enqueue(new Callback<ApiEnvelope<SessionPeseeServeur.Page>>() {
@@ -309,18 +319,32 @@ public class CachePrefetcher {
             public void onResponse(Call<ApiEnvelope<SessionPeseeServeur.Page>> call, Response<ApiEnvelope<SessionPeseeServeur.Page>> response) {
                 if (!response.isSuccessful() || response.body() == null || response.body().getData() == null
                         || response.body().getData().data == null) return;
+                // Lignes locales lues et parsées UNE fois (thread principal).
+                java.util.Map<String, SaisieLocale> lignes = new java.util.HashMap<>();
+                java.util.Map<String, Long> versions = new java.util.HashMap<>();
+                for (SaisieLocale l : localDatabase.getSaisiesByType(com.mobile.diafarms.models.SaisieType.PESEE_SESSION)) {
+                    try {
+                        SessionPeseeSyncRequest req = gson.fromJson(l.getPayloadJson(), SessionPeseeSyncRequest.class);
+                        if (req == null || req.uniqueId == null) continue;
+                        lignes.put(req.uniqueId, l);
+                        versions.put(req.uniqueId, req.versionServeur);
+                    } catch (Exception ignored) {
+                        // ligne illisible : ignorée
+                    }
+                }
                 List<SessionPeseeServeur> enCoursAbsentes = new ArrayList<>();
                 for (SessionPeseeServeur s : response.body().getData().data) {
                     if (s == null || s.uniqueId == null) continue;
-                    SaisieLocale ligne = PeseeServeurSync.trouverLigne(localDatabase, s.uniqueId);
+                    SaisieLocale ligne = lignes.get(s.uniqueId);
                     if (ligne == null) {
-                        if (!s.isTerminee()) {
-                            enCoursAbsentes.add(s);
-                            prefetchDetailPesee(appContext, localDatabase, s.uniqueId, null);
+                        if (s.isTerminee()) continue;
+                        enCoursAbsentes.add(s);
+                        if (!detailEnCacheAJour(localDatabase, s)) {
+                            prefetchDetailPesee(appContext, localDatabase, s, null, budget);
                         }
                     } else if (SaisieLocale.STATUT_SYNCED.equals(ligne.getSyncStatus())
-                            && s.version != null && !s.version.equals(versionLocale(ligne))) {
-                        prefetchDetailPesee(appContext, localDatabase, s.uniqueId, ligne.getLocalId());
+                            && s.version != null && !s.version.equals(versions.get(s.uniqueId))) {
+                        prefetchDetailPesee(appContext, localDatabase, s, ligne.getLocalId(), budget);
                     }
                 }
                 localDatabase.putCache(CACHE_PESEE_SESSIONS_PREFIX + projetUniqueId, gson.toJson(enCoursAbsentes));
@@ -331,25 +355,44 @@ public class CachePrefetcher {
         });
     }
 
-    private static Long versionLocale(SaisieLocale ligne) {
+    private static boolean detailEnCacheAJour(LocalDatabase localDatabase, SessionPeseeServeur s) {
         try {
-            SessionPeseeSyncRequest req = gson.fromJson(ligne.getPayloadJson(), SessionPeseeSyncRequest.class);
-            return req != null ? req.versionServeur : null;
+            String json = localDatabase.getCache(CACHE_PESEE_DETAIL_PREFIX + s.uniqueId);
+            if (json == null) return false;
+            SessionPeseeServeur d = gson.fromJson(json, SessionPeseeServeur.class);
+            return d != null && d.version != null && d.version.equals(s.version);
         } catch (Exception e) {
-            return null;
+            return false;
         }
     }
 
-    /** Détail d'une session : mis en cache ; fusionné dans la ligne {@code localId} si elle
-     * existe et est toujours SYNCED (rien en attente d'envoi). */
-    private static void prefetchDetailPesee(Context appContext, LocalDatabase localDatabase, String uniqueId, String localId) {
+    /** Détail d'une session : mis en cache ({@code localId} null) ou fusionné dans la ligne
+     * {@code localId} si elle est toujours SYNCED (rien en attente d'envoi). */
+    private static void prefetchDetailPesee(Context appContext, LocalDatabase localDatabase, SessionPeseeServeur s,
+                                            String localId, int[] budget) {
+        String cleEssai = CACHE_PESEE_ESSAI_PREFIX + s.uniqueId;
+        String essai = localDatabase.getCache(cleEssai);
+        if (essai != null && essai.equals(String.valueOf(s.version))
+                && System.currentTimeMillis() - localDatabase.getCacheUpdatedAt(cleEssai) < PESEE_ESSAI_DELAI_MS) {
+            return; // échec récent pour cette même version
+        }
+        if (budget[0] <= 0) return;
+        budget[0]--;
+        String uniqueId = s.uniqueId;
         ApiClient.dataApi(appContext).getSessionPesee(uniqueId).enqueue(new Callback<ApiEnvelope<SessionPeseeServeur>>() {
             @Override
             public void onResponse(Call<ApiEnvelope<SessionPeseeServeur>> call, Response<ApiEnvelope<SessionPeseeServeur>> response) {
                 SessionPeseeServeur d = response.isSuccessful() && response.body() != null ? response.body().getData() : null;
-                if (d == null || d.uniqueId == null || d.pesees == null) return;
+                if (d == null || d.uniqueId == null || d.pesees == null) {
+                    localDatabase.putCache(cleEssai, String.valueOf(s.version));
+                    return;
+                }
+                localDatabase.deleteCache(cleEssai);
                 if (localId == null) {
-                    localDatabase.putCache(CACHE_PESEE_DETAIL_PREFIX + uniqueId, gson.toJson(d));
+                    // Importée entre-temps : inutile de garder le détail.
+                    if (PeseeServeurSync.trouverLigne(localDatabase, uniqueId) == null) {
+                        localDatabase.putCache(CACHE_PESEE_DETAIL_PREFIX + uniqueId, gson.toJson(d));
+                    }
                     return;
                 }
                 SaisieLocale ligne = localDatabase.getSaisieById(localId);
@@ -359,7 +402,9 @@ public class CachePrefetcher {
             }
 
             @Override
-            public void onFailure(Call<ApiEnvelope<SessionPeseeServeur>> call, Throwable t) { }
+            public void onFailure(Call<ApiEnvelope<SessionPeseeServeur>> call, Throwable t) {
+                localDatabase.putCache(cleEssai, String.valueOf(s.version));
+            }
         });
     }
 

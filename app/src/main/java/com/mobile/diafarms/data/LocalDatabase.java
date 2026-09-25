@@ -122,6 +122,10 @@ public class LocalDatabase extends SQLiteOpenHelper {
         db.insertWithOnConflict(TABLE_CACHE, null, values, SQLiteDatabase.CONFLICT_REPLACE);
     }
 
+    public void deleteCache(String key) {
+        getWritableDatabase().delete(TABLE_CACHE, COL_CACHE_KEY + "=?", new String[]{key});
+    }
+
     public String getCache(String key) {
         SQLiteDatabase db = getReadableDatabase();
         Cursor cursor = db.query(TABLE_CACHE, new String[]{COL_CACHE_VALUE},
