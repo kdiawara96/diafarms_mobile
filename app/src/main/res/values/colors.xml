@@ -5,6 +5,7 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
     <color name="white_translucent_70">#B3FFFFFF</color>
+    <color name="white_translucent_85">#D9FFFFFF</color>
     <color name="ic_launcher_background">#FFFFFF</color>
 
     <!-- Couleur principale Diafarms - Vert ferme/avicole -->
@@ -51,18 +52,20 @@
     <color name="launcher_cream">#FBF2E1</color>
     <color name="launcher_orange">#E8912B</color>
 
-    <!-- Fonds pastel des cartes d'action de l'accueil, assortis à leur icône (les 4
-         cartes vives Collecte, Alimentation, Entrée et Sortie d'argent restent inchangées). -->
-    <color name="card_sante_bg">#FDECEC</color>
-    <color name="card_entretien_bg">#E6F4EE</color>
-    <color name="card_mortalite_bg">#F6EAEA</color>
-    <color name="card_reforme_bg">#FEF1E0</color>
-    <color name="card_pesee_bg">#FDEBE9</color>
-    <color name="card_salaire_bg">#FBF1DC</color>
-    <color name="card_achat_aliment_bg">#F7F2DD</color>
-    <color name="card_vente_oeufs_bg">#F8F1E6</color>
-    <color name="card_vente_reforme_bg">#FEF1E0</color>
-    <color name="card_vente_fientes_bg">#F3EAE1</color>
-    <color name="card_client_bg">#E6F3FB</color>
-    <color name="card_commande_bg">#FBF5E6</color>
+    <!-- Fonds des cartes d'action de l'accueil : couleur dominante de leur icône, un peu
+         foncée pour un titre blanc lisible (contraste >= 3:1), icône sur pastille blanche
+         (bg_icon_halo). Les 4 cartes Collecte, Alimentation, Entrée et Sortie d'argent
+         gardent leurs couleurs d'origine. -->
+    <color name="card_sante_bg">#D32F2F</color>
+    <color name="card_entretien_bg">#2E7D32</color>
+    <color name="card_mortalite_bg">#8B1E1E</color>
+    <color name="card_reforme_bg">#D97706</color>
+    <color name="card_pesee_bg">#E0503F</color>
+    <color name="card_salaire_bg">#8B5A2B</color>
+    <color name="card_achat_aliment_bg">#B8860B</color>
+    <color name="card_vente_oeufs_bg">#A0522D</color>
+    <color name="card_vente_reforme_bg">#D97706</color>
+    <color name="card_vente_fientes_bg">#4E342E</color>
+    <color name="card_client_bg">#1E88C8</color>
+    <color name="card_commande_bg">#B08D57</color>
 </resources>
