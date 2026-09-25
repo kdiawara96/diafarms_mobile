@@ -538,7 +538,7 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="@color/gray_bg"
+                    app:cardBackgroundColor="@color/card_sante_bg"
                     app:cardElevation="1dp"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
@@ -582,7 +582,7 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="@color/gray_bg"
+                    app:cardBackgroundColor="@color/card_entretien_bg"
                     app:cardElevation="1dp"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
@@ -626,7 +626,7 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="@color/gray_bg"
+                    app:cardBackgroundColor="@color/card_mortalite_bg"
                     app:cardElevation="1dp"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
@@ -671,7 +671,7 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="@color/gray_bg"
+                    app:cardBackgroundColor="@color/card_reforme_bg"
                     app:cardElevation="1dp"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
@@ -715,7 +715,7 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="@color/gray_bg"
+                    app:cardBackgroundColor="@color/card_pesee_bg"
                     app:cardElevation="1dp"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
@@ -870,7 +870,7 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="@color/gray_bg"
+                    app:cardBackgroundColor="@color/card_salaire_bg"
                     app:cardElevation="1dp"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true"
@@ -918,7 +918,7 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="@color/gray_bg"
+                    app:cardBackgroundColor="@color/card_achat_aliment_bg"
                     app:cardElevation="1dp"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true"
@@ -987,7 +987,7 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="@color/gray_bg"
+                    app:cardBackgroundColor="@color/card_vente_oeufs_bg"
                     app:cardElevation="1dp"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
@@ -1031,7 +1031,7 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="@color/gray_bg"
+                    app:cardBackgroundColor="@color/card_vente_reforme_bg"
                     app:cardElevation="1dp"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
@@ -1078,7 +1078,7 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="@color/gray_bg"
+                    app:cardBackgroundColor="@color/card_vente_fientes_bg"
                     app:cardElevation="1dp"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
@@ -1126,7 +1126,7 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="@color/gray_bg"
+                    app:cardBackgroundColor="@color/card_client_bg"
                     app:cardElevation="1dp"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
@@ -1173,7 +1173,7 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="@color/gray_bg"
+                    app:cardBackgroundColor="@color/card_commande_bg"
                     app:cardElevation="1dp"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">

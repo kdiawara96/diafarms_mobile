@@ -50,4 +50,19 @@
     <!-- Écran d'accueil (LauncherScreen) — fond crème chaleureux, voir maquette de référence -->
     <color name="launcher_cream">#FBF2E1</color>
     <color name="launcher_orange">#E8912B</color>
+
+    <!-- Fonds pastel des cartes d'action de l'accueil, assortis à leur icône (les 4
+         cartes vives Collecte, Alimentation, Entrée et Sortie d'argent restent inchangées). -->
+    <color name="card_sante_bg">#FDECEC</color>
+    <color name="card_entretien_bg">#E6F4EE</color>
+    <color name="card_mortalite_bg">#F6EAEA</color>
+    <color name="card_reforme_bg">#FEF1E0</color>
+    <color name="card_pesee_bg">#FDEBE9</color>
+    <color name="card_salaire_bg">#FBF1DC</color>
+    <color name="card_achat_aliment_bg">#F7F2DD</color>
+    <color name="card_vente_oeufs_bg">#F8F1E6</color>
+    <color name="card_vente_reforme_bg">#FEF1E0</color>
+    <color name="card_vente_fientes_bg">#F3EAE1</color>
+    <color name="card_client_bg">#E6F3FB</color>
+    <color name="card_commande_bg">#FBF5E6</color>
 </resources>
