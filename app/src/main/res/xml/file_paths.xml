@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
-    <!-- Correspond à getExternalFilesDir(null), là où DebugLog écrit ses journaux. -->
+    <!-- Correspond à getExternalFilesDir(null), là où DebugLog écrit ses journaux ;
+         couvre aussi le sous-dossier updates/ des APK téléchargés (UpdateController). -->
     <external-files-path name="app_files" path="." />
 </paths>

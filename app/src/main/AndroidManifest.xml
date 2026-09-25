@@ -12,6 +12,10 @@
     <!-- Requise à partir d'Android 13 (API 33) pour poster une notification locale —
          voir AlertCheckWorker, demandée à l'exécution depuis HomeActivity. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Mise à jour directe de l'app (update/UpdateController) : ouvrir l'installeur
+         Android sur l'APK téléchargé. L'utilisateur doit en plus l'autoriser une fois
+         dans les réglages (API 26+, "Installer des applis inconnues"). -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
         android:allowBackup="true"

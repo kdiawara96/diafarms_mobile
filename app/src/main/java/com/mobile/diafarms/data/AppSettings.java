@@ -37,6 +37,26 @@ public class AppSettings {
         prefs.edit().remove(KEY_SERVER_URL).apply();
     }
 
+    /**
+     * Adresse du site web qui publie les mises à jour de l'APK. Déduite du serveur
+     * configuré quand il suit la convention "xxx.back.domaine" (le web étant alors
+     * "xxx.domaine"), sinon (serveur par défaut, IP de développement locale...) le site
+     * de production : une mise à jour doit toujours pouvoir être récupérée.
+     */
+    public String getWebUrl() {
+        if (isDefaultServerUrl()) return Constants.WEB_URL;
+        try {
+            android.net.Uri uri = android.net.Uri.parse(getServerUrl());
+            String host = uri.getHost();
+            String scheme = uri.getScheme();
+            if (host != null && scheme != null && host.contains(".back.")) {
+                return scheme + "://" + host.replace(".back.", ".") + "/";
+            }
+        } catch (Exception ignored) {
+        }
+        return Constants.WEB_URL;
+    }
+
     public boolean isDefaultServerUrl() {
         return !prefs.contains(KEY_SERVER_URL);
     }

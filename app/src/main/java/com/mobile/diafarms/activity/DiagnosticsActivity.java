@@ -21,9 +21,12 @@ import com.mobile.diafarms.R;
 import com.mobile.diafarms.data.AppSettings;
 import com.mobile.diafarms.data.LocalDatabase;
 import com.mobile.diafarms.data.SessionManager;
+import com.mobile.diafarms.data.SyncManager;
 import com.mobile.diafarms.models.User;
 import com.mobile.diafarms.network.ApiClient;
 import com.mobile.diafarms.network.dto.ApiEnvelope;
+import com.mobile.diafarms.update.UpdateChecker;
+import com.mobile.diafarms.update.UpdateController;
 import com.mobile.diafarms.util.DebugLog;
 
 import java.io.File;
@@ -50,6 +53,9 @@ public class DiagnosticsActivity extends AppCompatActivity {
     private TextView tvErrorLog;
     private TextView tvVersion;
     private MaterialButton btnTestConnectivite;
+    private MaterialButton btnVerifierMaj;
+    private TextView tvMajResultat;
+    private UpdateController updateController;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -100,8 +106,75 @@ public class DiagnosticsActivity extends AppCompatActivity {
                 + " (build " + BuildConfig.VERSION_CODE + ", "
                 + (BuildConfig.DEBUG ? "debug" : "release") + ")");
 
+        ((TextView) findViewById(R.id.tvVersionActuelle)).setText("Version installée : "
+                + BuildConfig.VERSION_NAME + " (build " + BuildConfig.VERSION_CODE + ")");
+        btnVerifierMaj = findViewById(R.id.btnVerifierMaj);
+        tvMajResultat = findViewById(R.id.tvMajResultat);
+        updateController = new UpdateController(this,
+                findViewById(R.id.tvMajStatutDiag),
+                findViewById(R.id.pbMajDiag),
+                findViewById(R.id.btnMettreAJourDiag),
+                this::synchroniserAvantMiseAJour);
+        btnVerifierMaj.setOnClickListener(v -> verifierMiseAJour());
+
         refreshPendingCount();
         refreshErrorLog();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        updateController.onResume();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        updateController.onPause();
+    }
+
+    /** Vérification manuelle : ignore le délai de 6 h de l'écran d'accueil et affiche
+     * le résultat, y compris "à jour" et les erreurs. */
+    private void verifierMiseAJour() {
+        btnVerifierMaj.setEnabled(false);
+        tvMajResultat.setVisibility(View.VISIBLE);
+        tvMajResultat.setTextColor(0xFF6B7280);
+        tvMajResultat.setText("Vérification en cours...");
+        UpdateChecker.checkManual(this, (info, erreur) -> {
+            if (isFinishing() || isDestroyed()) return;
+            btnVerifierMaj.setEnabled(true);
+            if (info == null) {
+                tvMajResultat.setTextColor(0xFFDC2626);
+                tvMajResultat.setText("Vérification impossible : " + erreur);
+            } else if (!info.estPlusRecente()) {
+                tvMajResultat.setTextColor(0xFF059669);
+                tvMajResultat.setText("Vous avez la dernière version (" + BuildConfig.VERSION_NAME + ").");
+            } else {
+                tvMajResultat.setTextColor(0xFF059669);
+                String notes = info.getNotes();
+                tvMajResultat.setText("Nouvelle version " + info.getVersionName() + " disponible"
+                        + (notes.isEmpty() ? "" : "\n" + notes));
+                updateController.bind(info);
+                updateController.onResume();
+            }
+        });
+    }
+
+    private void synchroniserAvantMiseAJour() {
+        int pending = localDatabase.countPending();
+        Toast.makeText(this, "Synchronisation de " + pending + " saisie(s)...", Toast.LENGTH_SHORT).show();
+        new SyncManager(this).syncAll(new SyncManager.SyncCallback() {
+            @Override
+            public void onComplete(int success, int failed) {
+                runOnUiThread(() -> {
+                    Toast.makeText(DiagnosticsActivity.this, failed == 0
+                            ? success + " saisie(s) synchronisée(s) avec succès"
+                            : success + " synchronisée(s), " + failed + " en échec (réessayez plus tard)",
+                            Toast.LENGTH_LONG).show();
+                    refreshPendingCount();
+                });
+            }
+        });
     }
 
     /** Enregistre l'URL saisie puis interroge /test : la seule façon fiable de savoir

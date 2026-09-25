@@ -40,6 +40,9 @@ import com.mobile.diafarms.network.dto.ProjetDetailResponse;
 import com.mobile.diafarms.network.dto.ProjetSelectResponse;
 import com.mobile.diafarms.network.dto.TransactionCreateRequest;
 import com.mobile.diafarms.ui.saisie.SaisieFormActivity;
+import com.mobile.diafarms.update.UpdateChecker;
+import com.mobile.diafarms.update.UpdateController;
+import com.mobile.diafarms.update.UpdateInfo;
 import com.mobile.diafarms.util.NetworkUtils;
 import com.mobile.diafarms.util.OccupationUtils;
 
@@ -148,6 +151,12 @@ public class HomeActivity extends AppCompatActivity {
     private TextView tvPendingCount;
     private Button btnSyncNow;
 
+    // Bandeau "Nouvelle version disponible"
+    private CardView cardMiseAJour;
+    private TextView tvMajTitre;
+    private TextView tvMajNotes;
+    private UpdateController updateController;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -191,6 +200,7 @@ public class HomeActivity extends AppCompatActivity {
         loadProjets();
         loadLastEntry();
         updateFinanceStats();
+        verifierMiseAJour();
 
         // Vérification périodique des alertes en arrière-plan (notifications locales,
         // voir AlertCheckWorker) — pas de vrai push, un contrôle toutes les 15-30 min.
@@ -267,6 +277,9 @@ public class HomeActivity extends AppCompatActivity {
         tvConnectionStatus = findViewById(R.id.tvConnectionStatus);
         tvPendingCount = findViewById(R.id.tvPendingCount);
         btnSyncNow = findViewById(R.id.btnSyncNow);
+        cardMiseAJour = findViewById(R.id.cardMiseAJour);
+        tvMajTitre = findViewById(R.id.tvMajTitre);
+        tvMajNotes = findViewById(R.id.tvMajNotes);
     }
 
     /** Un seul badge compact, jamais 3 en ligne : au-delà de 2 rôles cumulés, la liste
@@ -848,6 +861,7 @@ public class HomeActivity extends AppCompatActivity {
                     updateConnectionIndicator(true);
                     if (!wasOnline) {
                         refreshProjetsEtCache(() -> { });
+                        verifierMiseAJour();
                     }
                     wasOnline = true;
                 });
@@ -875,10 +889,48 @@ public class HomeActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onPause() {
+        super.onPause();
+        if (updateController != null) {
+            updateController.onPause();
+        }
+    }
+
+    @Override
     protected void onDestroy() {
         super.onDestroy();
         if (connectivityManager != null && networkCallback != null) {
             connectivityManager.unregisterNetworkCallback(networkCallback);
+        }
+    }
+
+    /** Silencieux hors ligne ou en cas d'erreur, et limité à une requête toutes les 6 h
+     * (voir UpdateChecker.checkAuto) : ne bloque jamais l'écran. */
+    private void verifierMiseAJour() {
+        UpdateChecker.checkAuto(this, (info, erreur) -> {
+            if (info == null || isFinishing() || isDestroyed()) return;
+            afficherMiseAJour(info);
+        });
+    }
+
+    private void afficherMiseAJour(UpdateInfo info) {
+        if (updateController == null) {
+            updateController = new UpdateController(this,
+                    findViewById(R.id.tvMajStatut),
+                    findViewById(R.id.pbMaj),
+                    findViewById(R.id.btnMettreAJour),
+                    this::forceSync);
+        }
+        tvMajTitre.setText("Nouvelle version " + info.getVersionName() + " disponible");
+        String notes = info.getNotes();
+        tvMajNotes.setText(notes);
+        tvMajNotes.setVisibility(notes.isEmpty() ? View.GONE : View.VISIBLE);
+        updateController.bind(info);
+        cardMiseAJour.setVisibility(View.VISIBLE);
+        // Réponse arrivée écran déjà affiché (sinon c'est onResume qui s'en charge) :
+        // le contrôleur doit le savoir pour suivre un téléchargement déjà en cours.
+        if (getLifecycle().getCurrentState().isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) {
+            updateController.onResume();
         }
     }
 
@@ -1054,6 +1106,9 @@ public class HomeActivity extends AppCompatActivity {
         setupSyncStatus();
         updateFinanceStats();
         loadLastEntry();
+        if (updateController != null) {
+            updateController.onResume();
+        }
 
         // Reprise après mise en arrière-plan (retour de connexion sur le terrain,
         // changement d'appli...) : on ne veut pas attendre un tap manuel sur "Sync"

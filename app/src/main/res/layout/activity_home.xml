@@ -313,6 +313,71 @@
             android:orientation="vertical"
             android:padding="16dp">
 
+            <!-- Nouvelle version de l'app publiée sur le site web (update/UpdateChecker).
+                 Masquée tant qu'aucune mise à jour n'est disponible. -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/cardMiseAJour"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="20dp"
+                android:visibility="gone"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp"
+                app:cardBackgroundColor="@color/green_soft_bg">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="14dp">
+
+                    <TextView
+                        android:id="@+id/tvMajTitre"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Nouvelle version disponible"
+                        android:textSize="14sp"
+                        android:textColor="@color/green_primary_dark"
+                        android:textStyle="bold"/>
+
+                    <TextView
+                        android:id="@+id/tvMajNotes"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:textSize="13sp"
+                        android:textColor="@color/gray_text_medium"
+                        android:maxLines="4"
+                        android:ellipsize="end"
+                        android:visibility="gone"/>
+
+                    <ProgressBar
+                        android:id="@+id/pbMaj"
+                        style="?android:attr/progressBarStyleHorizontal"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:visibility="gone"/>
+
+                    <TextView
+                        android:id="@+id/tvMajStatut"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:textSize="12sp"
+                        android:textColor="@color/gray_text_medium"
+                        android:visibility="gone"/>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnMettreAJour"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="Mettre à jour"
+                        app:backgroundTint="@color/green_primary"/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
             <!-- Alertes actives du projet (tap = voir la liste complète). Masquée s'il n'y en a pas. -->
             <androidx.cardview.widget.CardView
                 android:id="@+id/cardAlertes"
