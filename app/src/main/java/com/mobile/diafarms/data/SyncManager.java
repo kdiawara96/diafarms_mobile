@@ -3,7 +3,6 @@ package com.mobile.diafarms.data;
 import android.content.Context;
 
 import com.google.gson.Gson;
-import com.mobile.diafarms.activity.PeseeSessionActivity;
 import com.mobile.diafarms.models.SaisieLocale;
 import com.mobile.diafarms.models.SaisieType;
 import com.mobile.diafarms.network.ApiClient;
@@ -18,6 +17,7 @@ import com.mobile.diafarms.network.dto.CreatedEntityResponse;
 import com.mobile.diafarms.network.dto.MortaliteCreateRequest;
 import com.mobile.diafarms.network.dto.ReformeCreateRequest;
 import com.mobile.diafarms.network.dto.SalairePayerRequest;
+import com.mobile.diafarms.network.dto.SessionPeseeServeur;
 import com.mobile.diafarms.network.dto.SessionPeseeSyncRequest;
 import com.mobile.diafarms.network.dto.SoinsCreateRequest;
 import com.mobile.diafarms.network.dto.TransactionCreateRequest;
@@ -42,12 +42,14 @@ public class SyncManager {
         void onComplete(int success, int failed);
     }
 
+    private final Context appContext;
     private final LocalDatabase localDatabase;
     private final DataApi api;
     private final Gson gson = new Gson();
 
     public SyncManager(Context context) {
         Context appContext = context.getApplicationContext();
+        this.appContext = appContext;
         this.localDatabase = new LocalDatabase(appContext);
         this.api = ApiClient.dataApi(appContext);
     }
@@ -65,6 +67,11 @@ public class SyncManager {
 
         SaisieLocale saisie = list.get(index);
         callback.onProgress(index, list.size());
+
+        if (saisie.getType() == SaisieType.PESEE_SESSION) {
+            envoyerSessionPesee(list, index, success, failed, callback, saisie);
+            return;
+        }
 
         Callback<ApiEnvelope<CreatedEntityResponse>> retrofitCallback = new Callback<ApiEnvelope<CreatedEntityResponse>>() {
             @Override
@@ -100,48 +107,59 @@ public class SyncManager {
         }
     }
 
-    /** Une session de pesée peut être réécrite (nouvelle pesée, annulation, clôture)
-     * PENDANT son envoi : on ne marque alors pas le nouvel état comme synchronisé (ni en
-     * erreur) — la ligne reste LOCAL et repart au prochain envoi. Seulement pour ce type :
-     * les autres ne sont pas idempotents côté serveur, un renvoi y créerait un doublon. */
     private boolean markSynced(SaisieLocale saisie, String serverUniqueId) {
-        if (saisie.getType() == SaisieType.PESEE_SESSION) {
-            return marquerSessionPeseeEnvoyee(saisie, serverUniqueId);
-        }
         localDatabase.markSynced(saisie.getLocalId(), serverUniqueId);
         return true;
     }
 
     /**
-     * Envoi réussi d'une session de pesée : marque « envoyées » les pesées de l'instantané
-     * envoyé (elles ne sont alors plus modifiables sur le téléphone) et neutralise ce qui a
-     * été modifié/supprimé localement pendant l'envoi (voir
-     * SessionPeseeSyncRequest.apresEnvoiReussi). La ligne passe SYNCED seulement si l'état
-     * local obtenu est exactement celui que détient le serveur ; sinon elle reste LOCAL et
-     * le reste part au prochain envoi. Callbacks Retrofit et écran de pesée tournent tous
-     * deux sur le thread principal : lecture + écriture ci-dessous sans entrelacement.
+     * Session de pesée : envoi de l'instantané complet, puis fusion de l'état renvoyé par le
+     * serveur dans l'état local ACTUEL (voir SessionPeseeSyncRequest.fusionner et
+     * PeseeServeurSync.appliquer). La session a pu être réécrite pendant l'envoi : ce qui
+     * n'a pas été envoyé reste en attente (ligne LOCAL, repart au prochain envoi) ; ligne
+     * SYNCED seulement si l'état local est celui du serveur. Nouvelles modifications web
+     * et pesées refusées (session terminée sur le web) : notification.
      */
-    private boolean marquerSessionPeseeEnvoyee(SaisieLocale envoyee, String serverUniqueId) {
-        SaisieLocale actuelle = localDatabase.getSaisieById(envoyee.getLocalId());
-        if (actuelle == null) return false; // supprimée du téléphone entre-temps
+    private void envoyerSessionPesee(List<SaisieLocale> list, int index, int success, int failed,
+                                     SyncCallback callback, SaisieLocale saisie) {
         SessionPeseeSyncRequest envoye;
-        SessionPeseeSyncRequest courant;
         try {
-            envoye = gson.fromJson(envoyee.getPayloadJson(), SessionPeseeSyncRequest.class);
-            courant = gson.fromJson(actuelle.getPayloadJson(), SessionPeseeSyncRequest.class);
+            envoye = gson.fromJson(saisie.getPayloadJson(), SessionPeseeSyncRequest.class);
         } catch (Exception e) {
             envoye = null;
-            courant = null;
         }
-        if (envoye == null || courant == null) {
-            return localDatabase.markSyncedIfPayloadUnchanged(envoyee.getLocalId(), serverUniqueId, envoyee.getPayloadJson());
+        if (envoye == null) {
+            markError(saisie, "Session de pesée illisible sur ce téléphone");
+            syncNext(list, index + 1, success, failed + 1, callback);
+            return;
         }
-        SessionPeseeSyncRequest apres = SessionPeseeSyncRequest.apresEnvoiReussi(envoye, courant);
-        String apresJson = gson.toJson(apres);
-        boolean aJour = apresJson.equals(gson.toJson(SessionPeseeSyncRequest.apresEnvoiReussi(envoye, envoye)));
-        localDatabase.enregistrerApresEnvoi(envoyee.getLocalId(), serverUniqueId, apresJson,
-                PeseeSessionActivity.resume(apres), aJour);
-        return aJour;
+        final SessionPeseeSyncRequest instantane = envoye;
+        api.syncSessionPesee(envoye.pourEnvoi()).enqueue(new Callback<ApiEnvelope<SessionPeseeServeur>>() {
+            @Override
+            public void onResponse(Call<ApiEnvelope<SessionPeseeServeur>> call, Response<ApiEnvelope<SessionPeseeServeur>> response) {
+                SessionPeseeServeur data = response.isSuccessful() && response.body() != null
+                        ? response.body().getData() : null;
+                if (data != null && data.uniqueId != null) {
+                    // Réponse sans détail des pesées (inattendu) : repli sur « le serveur
+                    // détient ce qui a été envoyé ».
+                    SessionPeseeServeur serveur = data.pesees != null ? data : null;
+                    SessionPeseeSyncRequest.Fusion f = PeseeServeurSync.appliquer(appContext, localDatabase,
+                            saisie.getLocalId(), instantane, serveur, true);
+                    boolean synced = f != null && f.aJour;
+                    // Restée LOCAL (modifiée pendant l'envoi) : ni synchronisée ni en échec.
+                    syncNext(list, index + 1, synced ? success + 1 : success, failed, callback);
+                } else {
+                    markError(saisie, extractServerMessage(response));
+                    syncNext(list, index + 1, success, failed + 1, callback);
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiEnvelope<SessionPeseeServeur>> call, Throwable t) {
+                markError(saisie, "Réseau indisponible");
+                syncNext(list, index + 1, success, failed + 1, callback);
+            }
+        });
     }
 
     private void markError(SaisieLocale saisie, String message) {
@@ -155,16 +173,21 @@ public class SyncManager {
     /** Raison réelle du refus. Sur un 400 le corps est dans errorBody() (response.body()
      * est alors null) : le serveur y explique pourquoi (ex: "dépasserait l'effectif
      * vivant"), message qui n'était jamais affiché, seulement "Échec de l'envoi". */
-    private String extractServerMessage(Response<ApiEnvelope<CreatedEntityResponse>> response) {
+    private String extractServerMessage(Response<? extends ApiEnvelope<?>> response) {
         try {
             if (response.body() != null && response.body().getMessage() != null) {
                 return response.body().getMessage();
             }
             if (response.errorBody() != null) {
+                // Corps parfois hors enveloppe ApiResponse (400 par défaut de Spring pour un
+                // corps absent/illisible) : errors/message alors absents ou vides.
                 ApiEnvelope<?> envelope = gson.fromJson(response.errorBody().string(), ApiEnvelope.class);
                 if (envelope != null) {
-                    if (envelope.getErrors() != null && !envelope.getErrors().isEmpty()) return envelope.getErrors().get(0);
-                    if (envelope.getMessage() != null) return envelope.getMessage();
+                    if (envelope.getErrors() != null && !envelope.getErrors().isEmpty()) {
+                        String premier = envelope.getErrors().get(0);
+                        if (premier != null && !premier.trim().isEmpty()) return premier;
+                    }
+                    if (envelope.getMessage() != null && !envelope.getMessage().trim().isEmpty()) return envelope.getMessage();
                 }
             }
         } catch (Exception ignored) {
@@ -221,10 +244,6 @@ public class SyncManager {
                 break;
             case COMMANDE_CREATE:
                 api.createCommande(gson.fromJson(json, CommandeCreateRequest.class)).enqueue(callback);
-                break;
-            case PESEE_SESSION:
-                // Indicateurs locaux (envoyee, termineeEnvoyee) retirés du corps envoyé.
-                api.syncSessionPesee(gson.fromJson(json, SessionPeseeSyncRequest.class).pourEnvoi()).enqueue(callback);
                 break;
             case SALAIRE_PAYER:
                 api.payerSalaire(gson.fromJson(json, SalairePayerRequest.class)).enqueue(callback);

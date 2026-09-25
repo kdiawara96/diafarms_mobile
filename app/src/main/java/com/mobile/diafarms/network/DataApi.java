@@ -21,6 +21,7 @@ import com.mobile.diafarms.network.dto.ProjetSelectResponse;
 import com.mobile.diafarms.network.dto.ReformeCreateRequest;
 import com.mobile.diafarms.network.dto.SalairePayerRequest;
 import com.mobile.diafarms.network.dto.SalaireSelectResponse;
+import com.mobile.diafarms.network.dto.SessionPeseeServeur;
 import com.mobile.diafarms.network.dto.SessionPeseeSyncRequest;
 import com.mobile.diafarms.network.dto.SoinsCreateRequest;
 import com.mobile.diafarms.network.dto.EntretienCreateRequest;
@@ -37,6 +38,7 @@ import java.util.List;
 import retrofit2.Call;
 import retrofit2.http.Body;
 import retrofit2.http.GET;
+import retrofit2.http.Headers;
 import retrofit2.http.PUT;
 import retrofit2.http.POST;
 import retrofit2.http.Path;
@@ -179,9 +181,23 @@ public interface DataApi {
 
     // ============== SESSIONS DE PESÉE (Production) — envoi de l'état complet de la
     // session, idempotent côté serveur (voir SessionPeseeSyncRequest). La réponse est
-    // un SessionPeseeDTO : seul son uniqueId est lu ici. ==============
+    // l'état serveur complet (SessionPeseeServeur), fusionné dans l'état local.
+    // X-Pesee-Contrat: 2 : le serveur répond 200 + peseesRefusees (au lieu d'un 400)
+    // quand des pesées arrivent sur une session déjà terminée sur le web. ==============
+    @Headers("X-Pesee-Contrat: 2")
     @POST("pesees/sessions/sync")
-    Call<ApiEnvelope<CreatedEntityResponse>> syncSessionPesee(@Body SessionPeseeSyncRequest request);
+    Call<ApiEnvelope<SessionPeseeServeur>> syncSessionPesee(@Body SessionPeseeSyncRequest request);
+
+    /** Sessions d'un projet (page 0-based ; pesees/evenements vides dans la liste). */
+    @GET("pesees/sessions/list")
+    Call<ApiEnvelope<SessionPeseeServeur.Page>> listSessionsPesee(@Query("projetUniqueId") String projetUniqueId,
+                                                                 @Query("statut") String statut,
+                                                                 @Query("page") int page,
+                                                                 @Query("size") int size);
+
+    /** Détail complet d'une session (pesées annulées comprises + journal web). */
+    @GET("pesees/sessions/{uniqueId}")
+    Call<ApiEnvelope<SessionPeseeServeur>> getSessionPesee(@Path("uniqueId") String uniqueId);
 
     // ============== TRANSACTIONS (finance) ==============
     @POST("transactions/create")

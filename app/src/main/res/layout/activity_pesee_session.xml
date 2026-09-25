@@ -137,6 +137,32 @@
                     android:textStyle="bold"
                     android:visibility="gone" />
 
+                <!-- Journal des modifications faites sur le web (rempli par le code). -->
+                <LinearLayout
+                    android:id="@+id/layoutModifsWeb"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:background="@color/green_soft_bg"
+                    android:orientation="vertical"
+                    android:padding="12dp"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Modifications faites sur le web"
+                        android:textColor="@color/green_primary_dark"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+
+                    <LinearLayout
+                        android:id="@+id/containerModifsWeb"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical" />
+                </LinearLayout>
+
                 <!-- Session terminée mais clôture pas encore envoyée : on peut la rouvrir. -->
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnRouvrirSession"

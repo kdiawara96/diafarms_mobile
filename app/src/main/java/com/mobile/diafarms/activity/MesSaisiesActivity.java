@@ -232,6 +232,11 @@ public class MesSaisiesActivity extends AppCompatActivity {
                 boolean enErreur = SaisieLocale.STATUT_ERROR.equals(saisie.getSyncStatus());
                 deletable = enErreur
                         || (saisie.isEditable() && saisie.getServerUniqueId() == null && !isSessionTerminee(saisie));
+                int refusees = nombreRefusees(saisie);
+                if (refusees > 0) {
+                    tvSummary.setText(saisie.getDisplaySummary() + "\nSession terminée sur le web : "
+                            + refusees + " pesée(s) non enregistrée(s)");
+                }
                 if (enErreur) {
                     // Le badge de statut est petit : message du serveur répété, lisible, sous le résumé.
                     tvSummary.setText(saisie.getDisplaySummary() + "\nRefusée : "
@@ -248,6 +253,19 @@ public class MesSaisiesActivity extends AppCompatActivity {
             btnDelete.setOnClickListener(v -> confirmDelete(saisie));
 
             return view;
+        }
+
+        private int nombreRefusees(SaisieLocale saisie) {
+            try {
+                SessionPeseeSyncRequest req = gson.fromJson(saisie.getPayloadJson(), SessionPeseeSyncRequest.class);
+                int n = 0;
+                if (req != null && req.pesees != null) {
+                    for (SessionPeseeSyncRequest.Pesee p : req.pesees) if (p != null && p.isRefusee()) n++;
+                }
+                return n;
+            } catch (Exception e) {
+                return 0;
+            }
         }
 
         private boolean isSessionTerminee(SaisieLocale saisie) {

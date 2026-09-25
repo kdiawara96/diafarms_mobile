@@ -27,9 +27,14 @@ import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 import com.google.gson.Gson;
 import com.mobile.diafarms.R;
+import com.mobile.diafarms.data.CachePrefetcher;
 import com.mobile.diafarms.data.LocalDatabase;
+import com.mobile.diafarms.data.PeseeServeurSync;
 import com.mobile.diafarms.models.SaisieLocale;
 import com.mobile.diafarms.models.SaisieType;
+import com.mobile.diafarms.network.ApiClient;
+import com.mobile.diafarms.network.dto.ApiEnvelope;
+import com.mobile.diafarms.network.dto.SessionPeseeServeur;
 import com.mobile.diafarms.network.dto.SessionPeseeSyncRequest;
 
 import java.text.DecimalFormat;
@@ -41,6 +46,10 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 /**
  * Sessions de pesée d'un projet (celui sélectionné à l'accueil, jamais redemandé).
@@ -67,6 +76,7 @@ public class PeseeSessionActivity extends AppCompatActivity {
     private static final double POIDS_MAX_KG = 10000d;
 
     private static final SimpleDateFormat ISO_LOCAL = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US);
+    private static final SimpleDateFormat ISO_LOCAL_MINUTES = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm", Locale.US);
     private static final SimpleDateFormat AFFICHAGE_DATE_HEURE = new SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.FRANCE);
     private static final SimpleDateFormat AFFICHAGE_HEURE = new SimpleDateFormat("HH:mm", Locale.FRANCE);
 
@@ -101,6 +111,15 @@ public class PeseeSessionActivity extends AppCompatActivity {
     private LinearLayout containerPesees;
     private MaterialButton btnTerminer;
     private MaterialButton btnRouvrir;
+    private LinearLayout layoutModifsWeb;
+    private LinearLayout containerModifsWeb;
+    /** Sessions EN_COURS connues du serveur seulement (web, autre téléphone), affichées
+     * sous les sessions locales dans "Reprendre". */
+    private List<SessionPeseeServeur> sessionsServeur = new ArrayList<>();
+    /** Anti double tap sur l'ouverture d'une session du serveur. */
+    private boolean importEnCours;
+    /** true tant que l'activité est visible (callbacks réseau arrivés après la fermeture). */
+    private boolean actif;
     /** server_unique_id de la ligne non null : le serveur a déjà reçu la session. */
     private boolean sessionDejaRecue;
     /** Ligne locale SYNCED (repli pour les sessions antérieures à la 1.27). */
@@ -141,6 +160,8 @@ public class PeseeSessionActivity extends AppCompatActivity {
         containerPesees = findViewById(R.id.containerPesees);
         btnTerminer = findViewById(R.id.btnTerminerSession);
         btnRouvrir = findViewById(R.id.btnRouvrirSession);
+        layoutModifsWeb = findViewById(R.id.layoutModifsWeb);
+        containerModifsWeb = findViewById(R.id.containerModifsWeb);
 
         findViewById(R.id.btnBackPesee).setOnClickListener(v -> retour());
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
@@ -207,8 +228,15 @@ public class PeseeSessionActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        actif = true;
         // Une synchro (lancée depuis l'accueil) a pu marquer des pesées comme envoyées.
         if (session != null && recharger()) rafraichirSession();
+    }
+
+    @Override
+    protected void onDestroy() {
+        actif = false;
+        super.onDestroy();
     }
 
     @Override
@@ -238,14 +266,32 @@ public class PeseeSessionActivity extends AppCompatActivity {
         layoutSession.setVisibility(View.GONE);
         layoutEntree.setVisibility(View.VISIBLE);
 
+        // Hors ligne d'abord : sessions du téléphone + sessions du serveur préchargées
+        // (CachePrefetcher, avec leur détail : importables sans réseau). Puis, si le réseau
+        // répond, la liste fraîche du serveur remplace la liste préchargée.
+        sessionsServeur = sessionsServeurEnCache();
+        dessinerSessionsEnCours();
+        chargerSessionsServeur();
+    }
+
+    private void dessinerSessionsEnCours() {
         containerSessionsEnCours.removeAllViews();
         List<SaisieLocale> enCours = new ArrayList<>();
+        java.util.Set<String> uidsLocaux = new java.util.HashSet<>();
         for (SaisieLocale s : localDatabase.getSaisiesByType(SaisieType.PESEE_SESSION)) {
-            if (projetUniqueId == null || !projetUniqueId.equals(s.getProjetUniqueId())) continue;
             SessionPeseeSyncRequest req = lire(s);
+            if (req != null && req.uniqueId != null) uidsLocaux.add(req.uniqueId);
+            if (projetUniqueId == null || !projetUniqueId.equals(s.getProjetUniqueId())) continue;
             if (req != null && !req.isTerminee()) enCours.add(s);
         }
-        tvAucuneSession.setVisibility(enCours.isEmpty() ? View.VISIBLE : View.GONE);
+        List<SessionPeseeServeur> serveurSeul = new ArrayList<>();
+        for (SessionPeseeServeur s : sessionsServeur) {
+            if (s != null && s.uniqueId != null && !s.isTerminee() && !uidsLocaux.contains(s.uniqueId)
+                    && (projetUniqueId == null || projetUniqueId.equals(s.projetUniqueId))) {
+                serveurSeul.add(s);
+            }
+        }
+        tvAucuneSession.setVisibility(enCours.isEmpty() && serveurSeul.isEmpty() ? View.VISIBLE : View.GONE);
 
         for (SaisieLocale s : enCours) {
             SessionPeseeSyncRequest req = lire(s);
@@ -264,6 +310,159 @@ public class PeseeSessionActivity extends AppCompatActivity {
             btn.setOnClickListener(v -> ouvrirSession(localDatabase.getSaisieById(s.getLocalId())));
             containerSessionsEnCours.addView(btn, lp);
         }
+
+        for (SessionPeseeServeur s : serveurSeul) {
+            MaterialButton btn = new MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
+            btn.setAllCaps(false);
+            btn.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
+            btn.setTextSize(15);
+            btn.setCornerRadius(dp(12));
+            String origine = "WEB".equals(s.origine) ? "ouverte sur le web" : "ouverte sur un autre appareil";
+            String par = s.creeParNom != null ? " par " + s.creeParNom : "";
+            int sujets = s.nombreTotalSujets != null ? s.nombreTotalSujets : 0;
+            btn.setText("Reprendre - début " + formatDateAffichage(s.dateDebut) + "\n"
+                    + "Session " + origine + par + "\n"
+                    + sujets + " sujet(s), " + formatKg(s.poidsTotalKg != null ? s.poidsTotalKg : 0) + " kg, "
+                    + (s.nombrePesees != null ? s.nombrePesees : 0) + " pesée(s)");
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            lp.topMargin = dp(8);
+            btn.setMinHeight(dp(64));
+            btn.setOnClickListener(v -> ouvrirSessionServeur(s));
+            containerSessionsEnCours.addView(btn, lp);
+        }
+    }
+
+    /** Sessions du serveur préchargées dont le détail est aussi en cache (importables hors ligne). */
+    private List<SessionPeseeServeur> sessionsServeurEnCache() {
+        List<SessionPeseeServeur> res = new ArrayList<>();
+        if (projetUniqueId == null) return res;
+        try {
+            String json = localDatabase.getCache(CachePrefetcher.CACHE_PESEE_SESSIONS_PREFIX + projetUniqueId);
+            if (json == null) return res;
+            SessionPeseeServeur[] tab = gson.fromJson(json, SessionPeseeServeur[].class);
+            if (tab == null) return res;
+            for (SessionPeseeServeur s : tab) {
+                if (s != null && s.uniqueId != null
+                        && localDatabase.getCache(CachePrefetcher.CACHE_PESEE_DETAIL_PREFIX + s.uniqueId) != null) {
+                    res.add(s);
+                }
+            }
+        } catch (Exception ignored) {
+            // cache illisible : sessions du téléphone seulement
+        }
+        return res;
+    }
+
+    /** Liste fraîche des sessions EN_COURS du projet sur le serveur (sans bloquer l'écran ;
+     * échec ignoré : on garde les sessions du téléphone et le cache). */
+    private void chargerSessionsServeur() {
+        if (projetUniqueId == null) return;
+        ApiClient.dataApi(this).listSessionsPesee(projetUniqueId, SessionPeseeSyncRequest.STATUT_EN_COURS, 0, 50)
+                .enqueue(new Callback<ApiEnvelope<SessionPeseeServeur.Page>>() {
+            @Override
+            public void onResponse(Call<ApiEnvelope<SessionPeseeServeur.Page>> call, Response<ApiEnvelope<SessionPeseeServeur.Page>> response) {
+                if (!actif || session != null || isFinishing()) return;
+                SessionPeseeServeur.Page page = response.isSuccessful() && response.body() != null
+                        ? response.body().getData() : null;
+                if (page == null || page.data == null) return;
+                sessionsServeur = new ArrayList<>(page.data);
+                dessinerSessionsEnCours();
+            }
+
+            @Override
+            public void onFailure(Call<ApiEnvelope<SessionPeseeServeur.Page>> call, Throwable t) { }
+        });
+    }
+
+    /**
+     * Ouvre une session connue du serveur seulement : elle est importée comme une nouvelle
+     * ligne locale (SYNCED, pesées envoyées), puis fonctionne hors ligne comme les autres.
+     * Détail préchargé d'abord (immédiat, hors ligne) ; l'ouverture relit ensuite l'état
+     * frais du serveur. Sans cache : lecture réseau.
+     */
+    private void ouvrirSessionServeur(SessionPeseeServeur s) {
+        if (importEnCours || session != null) return;
+        SaisieLocale existante = PeseeServeurSync.trouverLigne(localDatabase, s.uniqueId);
+        if (existante != null) {
+            ouvrirSession(existante);
+            return;
+        }
+        SessionPeseeServeur enCache = null;
+        try {
+            String json = localDatabase.getCache(CachePrefetcher.CACHE_PESEE_DETAIL_PREFIX + s.uniqueId);
+            if (json != null) enCache = gson.fromJson(json, SessionPeseeServeur.class);
+        } catch (Exception ignored) {
+            enCache = null;
+        }
+        if (enCache != null && enCache.uniqueId != null && enCache.pesees != null) {
+            importerEtOuvrir(enCache);
+            return;
+        }
+        importEnCours = true;
+        Toast.makeText(this, "Récupération de la session...", Toast.LENGTH_SHORT).show();
+        ApiClient.dataApi(this).getSessionPesee(s.uniqueId).enqueue(new Callback<ApiEnvelope<SessionPeseeServeur>>() {
+            @Override
+            public void onResponse(Call<ApiEnvelope<SessionPeseeServeur>> call, Response<ApiEnvelope<SessionPeseeServeur>> response) {
+                importEnCours = false;
+                if (!actif || isFinishing()) return;
+                SessionPeseeServeur d = response.isSuccessful() && response.body() != null ? response.body().getData() : null;
+                if (d == null || d.uniqueId == null || d.pesees == null) {
+                    Toast.makeText(PeseeSessionActivity.this, "Session introuvable sur le serveur", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                if (session == null) importerEtOuvrir(d);
+            }
+
+            @Override
+            public void onFailure(Call<ApiEnvelope<SessionPeseeServeur>> call, Throwable t) {
+                importEnCours = false;
+                if (!actif || isFinishing()) return;
+                Toast.makeText(PeseeSessionActivity.this,
+                        "Connexion nécessaire pour ouvrir cette session la première fois", Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    private void importerEtOuvrir(SessionPeseeServeur d) {
+        String localId = PeseeServeurSync.importer(localDatabase, d, projetLabel);
+        ouvrirSession(localDatabase.getSaisieById(localId));
+    }
+
+    /**
+     * Session déjà connue du serveur et sans rien en attente (SYNCED) : relit son état
+     * serveur en arrière-plan pour montrer les modifications faites sur le web sans attendre
+     * une nouvelle pesée. Jamais bloquant, échec ignoré (hors ligne : état local).
+     */
+    private void rafraichirDepuisServeur(SaisieLocale saisie) {
+        if (saisie.getServerUniqueId() == null || !SaisieLocale.STATUT_SYNCED.equals(saisie.getSyncStatus())) return;
+        final String localId = saisie.getLocalId();
+        ApiClient.dataApi(this).getSessionPesee(saisie.getServerUniqueId())
+                .enqueue(new Callback<ApiEnvelope<SessionPeseeServeur>>() {
+            @Override
+            public void onResponse(Call<ApiEnvelope<SessionPeseeServeur>> call, Response<ApiEnvelope<SessionPeseeServeur>> response) {
+                SessionPeseeServeur d = response.isSuccessful() && response.body() != null ? response.body().getData() : null;
+                if (d == null || d.uniqueId == null || d.pesees == null) return;
+                SaisieLocale ligne = localDatabase.getSaisieById(localId);
+                // Une synchro ERROR n'est pas touchée (message de refus conservé).
+                if (ligne == null || SaisieLocale.STATUT_ERROR.equals(ligne.getSyncStatus())) return;
+                boolean visible = actif && !isFinishing() && localId.equals(sessionLocalId);
+                SessionPeseeSyncRequest.Fusion f = PeseeServeurSync.appliquer(getApplicationContext(),
+                        localDatabase, localId, null, d, !visible);
+                if (f == null || !visible) return;
+                if (recharger()) rafraichirSession();
+                if (!f.nouveauxEvenements.isEmpty()) {
+                    Toast.makeText(PeseeSessionActivity.this, "Session modifiée sur le web", Toast.LENGTH_LONG).show();
+                }
+                if (f.nouvellesRefusees > 0) {
+                    Toast.makeText(PeseeSessionActivity.this, "Session terminée sur le web : "
+                            + f.nouvellesRefusees + " pesée(s) non enregistrée(s)", Toast.LENGTH_LONG).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiEnvelope<SessionPeseeServeur>> call, Throwable t) { }
+        });
     }
 
     private void demanderNouvelleSession() {
@@ -345,6 +544,7 @@ public class PeseeSessionActivity extends AppCompatActivity {
         tilPoids.setError(null);
         rafraichirSession();
         if (!session.isTerminee()) etPoids.requestFocus();
+        rafraichirDepuisServeur(saisie);
     }
 
     /**
@@ -392,9 +592,16 @@ public class PeseeSessionActivity extends AppCompatActivity {
         tvSessionTerminee.setVisibility(terminee ? View.VISIBLE : View.GONE);
         // Clôture envoyée = session figée côté serveur. Sinon elle peut encore être rouverte.
         boolean clotureEnvoyee = session.isClotureEnvoyee(ligneSynchronisee);
-        tvSessionTerminee.setText(clotureEnvoyee
-                ? "Session envoyée : modification impossible."
-                : "Session terminée, pas encore envoyée : vous pouvez encore la rouvrir.");
+        int refusees = 0;
+        for (SessionPeseeSyncRequest.Pesee p : session.pesees) if (p.isRefusee()) refusees++;
+        String texteTerminee = clotureEnvoyee
+                ? "Session terminée et enregistrée sur le serveur : modification impossible."
+                : "Session terminée, pas encore envoyée : vous pouvez encore la rouvrir.";
+        if (refusees > 0) {
+            texteTerminee += "\nSession terminée sur le web : " + refusees + " pesée(s) non enregistrée(s).";
+        }
+        tvSessionTerminee.setText(texteTerminee);
+        dessinerModifsWeb();
         btnRouvrir.setVisibility(terminee && !clotureEnvoyee ? View.VISIBLE : View.GONE);
 
         tvTotalSujets.setText(String.valueOf(session.totalSujets()));
@@ -415,11 +622,46 @@ public class PeseeSessionActivity extends AppCompatActivity {
         }
     }
 
+    /** Bandeau "Modifications faites sur le web" : journal du serveur, le plus récent d'abord. */
+    private void dessinerModifsWeb() {
+        containerModifsWeb.removeAllViews();
+        List<SessionPeseeSyncRequest.EvenementWeb> journal = session.evenementsWeb;
+        if (journal == null || journal.isEmpty()) {
+            layoutModifsWeb.setVisibility(View.GONE);
+            return;
+        }
+        layoutModifsWeb.setVisibility(View.VISIBLE);
+        int max = 10;
+        int affiches = 0;
+        for (int i = journal.size() - 1; i >= 0 && affiches < max; i--, affiches++) {
+            SessionPeseeSyncRequest.EvenementWeb e = journal.get(i);
+            TextView tv = new TextView(this);
+            String meta = formatDateAffichage(e.date);
+            if (e.parNom != null && (e.description == null || !e.description.contains(e.parNom))) {
+                meta += " · " + e.parNom;
+            }
+            tv.setText((e.description != null ? e.description : "Modification") + "\n" + meta);
+            tv.setTextSize(14);
+            tv.setTextColor(ContextCompat.getColor(this, R.color.gray_text_dark));
+            tv.setPadding(0, dp(6), 0, 0);
+            containerModifsWeb.addView(tv);
+        }
+        if (journal.size() > max) {
+            TextView tv = new TextView(this);
+            tv.setText("et " + (journal.size() - max) + " modification(s) plus ancienne(s)");
+            tv.setTextSize(13);
+            tv.setTextColor(ContextCompat.getColor(this, R.color.gray_text_medium));
+            tv.setPadding(0, dp(6), 0, 0);
+            containerModifsWeb.addView(tv);
+        }
+    }
+
     private View ligneForPesee(SessionPeseeSyncRequest.Pesee p, int numero, boolean terminee) {
         CardView card = new CardView(this);
         card.setRadius(dp(12));
         card.setCardElevation(dp(1));
-        card.setCardBackgroundColor(ContextCompat.getColor(this, p.isAnnulee() ? R.color.gray_light : R.color.white));
+        boolean barree = p.isAnnulee() || p.isRefusee();
+        card.setCardBackgroundColor(ContextCompat.getColor(this, barree ? R.color.gray_light : R.color.white));
         LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         cardLp.topMargin = dp(8);
@@ -435,11 +677,17 @@ public class PeseeSessionActivity extends AppCompatActivity {
         String texte = "#" + numero + "  " + p.nombreSujets + " sujet(s) · " + formatKg(p.poidsKg != null ? p.poidsKg : 0) + " kg"
                 + "\n" + formatHeure(p.dateHeure);
         if (p.isAnnulee()) texte += " · annulée";
-        texte += envoyee ? " · envoyée ✓" : " · non envoyée";
+        if (p.isRefusee()) {
+            texte += " · refusée (session terminée sur le web)";
+        } else {
+            texte += envoyee ? " · envoyée ✓" : " · non envoyée";
+        }
+        if (p.isWeb()) texte += "\najoutée sur le web";
+        if (p.isModifiee()) texte += p.isWeb() ? ", modifiée sur le web" : "\nmodifiée sur le web";
         tv.setText(texte);
         tv.setTextSize(16);
-        tv.setTextColor(ContextCompat.getColor(this, p.isAnnulee() ? R.color.gray : R.color.gray_text_dark));
-        if (p.isAnnulee()) tv.setPaintFlags(tv.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG);
+        tv.setTextColor(ContextCompat.getColor(this, barree ? R.color.gray : R.color.gray_text_dark));
+        if (barree) tv.setPaintFlags(tv.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG);
         row.addView(tv, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
         if (!terminee && !envoyee) {
@@ -452,7 +700,7 @@ public class PeseeSessionActivity extends AppCompatActivity {
             btn.setOnClickListener(v -> demanderModification(p.uniqueId, numero));
             row.addView(btn);
             card.setOnClickListener(v -> demanderModification(p.uniqueId, numero));
-        } else if (!terminee && !p.isAnnulee()) {
+        } else if (!terminee && !p.isAnnulee() && !p.isRefusee()) {
             // Déjà envoyée : le serveur n'accepte plus que l'annulation.
             MaterialButton btn = new MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
             btn.setText("Annuler");
@@ -727,11 +975,11 @@ public class PeseeSessionActivity extends AppCompatActivity {
 
     // ===================== OUTILS =====================
 
-    /** Ex. "Pesée — 6 sujets, 13,0 kg, moy. 2,167 kg (en cours)". */
+    /** Ex. "Pesée : 6 sujets, 13,0 kg, moy. 2,167 kg (en cours)" (résumé de Mes saisies). */
     public static String resume(SessionPeseeSyncRequest s) {
         int sujets = s.totalSujets();
         String txt = "Pesée : " + sujets + (sujets > 1 ? " sujets, " : " sujet, ")
-                + String.format(Locale.FRANCE, "%.1f", s.poidsTotalKg()) + " kg";
+                + formatKg(s.poidsTotalKg()) + " kg";
         if (sujets > 0) txt += ", moy. " + formatMoyenne(s.poidsMoyenKg()) + " kg";
         return txt + (s.isTerminee() ? " (terminée)" : " (en cours)");
     }
@@ -750,19 +998,27 @@ public class PeseeSessionActivity extends AppCompatActivity {
 
     private static synchronized String formatDateAffichage(String iso) {
         if (iso == null) return "-";
-        try {
-            return AFFICHAGE_DATE_HEURE.format(ISO_LOCAL.parse(iso));
-        } catch (ParseException e) {
-            return iso;
-        }
+        Date d = parseIso(iso);
+        return d != null ? AFFICHAGE_DATE_HEURE.format(d) : iso;
     }
 
     private static synchronized String formatHeure(String iso) {
         if (iso == null) return "";
+        Date d = parseIso(iso);
+        return d != null ? AFFICHAGE_HEURE.format(d) : iso;
+    }
+
+    /** Dates du téléphone ("…T08:05:00") et du serveur (fractions de seconde possibles,
+     * secondes parfois absentes : "…T08:05"). */
+    private static Date parseIso(String iso) {
         try {
-            return AFFICHAGE_HEURE.format(ISO_LOCAL.parse(iso));
+            return ISO_LOCAL.parse(iso); // ignore ce qui suit les secondes
         } catch (ParseException e) {
-            return iso;
+            try {
+                return ISO_LOCAL_MINUTES.parse(iso);
+            } catch (ParseException e2) {
+                return null;
+            }
         }
     }
 

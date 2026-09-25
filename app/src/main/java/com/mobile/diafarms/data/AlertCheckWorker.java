@@ -50,7 +50,7 @@ import retrofit2.Response;
  */
 public class AlertCheckWorker extends Worker {
 
-    private static final String CHANNEL_ID = "cocorico_alertes";
+    static final String CHANNEL_ID = "cocorico_alertes";
     private static final String PREFS_NAME = "alert_check_prefs";
     private static final String KEY_SEEN = "seen_notification_keys";
     private static final String WORK_NAME = "alert-check";
@@ -147,7 +147,7 @@ public class AlertCheckWorker extends Worker {
                 .setContentIntent(pendingIntent);
     }
 
-    private void creerCanalSiBesoin(Context context) {
+    static void creerCanalSiBesoin(Context context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
         NotificationManager manager = context.getSystemService(NotificationManager.class);
         if (manager == null || manager.getNotificationChannel(CHANNEL_ID) != null) return;
