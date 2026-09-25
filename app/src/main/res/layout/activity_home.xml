@@ -2,6 +2,7 @@
 <androidx.coordinatorlayout.widget.CoordinatorLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:id="@+id/main_home_act"
     android:layout_height="match_parent"
@@ -538,8 +539,11 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="@color/card_sante_bg"
-                    app:cardElevation="3dp"
+                    app:cardBackgroundColor="@color/gray_bg"
+                    app:cardElevation="6dp"
+                    android:outlineSpotShadowColor="@color/shadow_sante"
+                    android:outlineAmbientShadowColor="@color/shadow_sante"
+                    tools:targetApi="28"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
 
@@ -551,10 +555,8 @@
                         android:padding="8dp">
 
                         <ImageView
-                            android:layout_width="44dp"
-                            android:layout_height="44dp"
-                            android:padding="7dp"
-                            android:background="@drawable/bg_icon_halo"
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
                             android:src="@drawable/ic_trousse_secours"/>
 
                         <TextView
@@ -562,7 +564,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="10dp"
                             android:text="Santé / Vétérinaire"
-                            android:textColor="@color/white"
+                            android:textColor="@color/gray_text_dark"
                             android:textSize="14sp"
                             android:textStyle="bold"
                             android:gravity="center"/>
@@ -571,7 +573,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Vaccins, médicaments"
-                            android:textColor="@color/white_translucent_85"
+                            android:textColor="@color/gray_text_soft"
                             android:textSize="11sp"
                             android:gravity="center"/>
                     </LinearLayout>
@@ -584,8 +586,11 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="@color/card_entretien_bg"
-                    app:cardElevation="3dp"
+                    app:cardBackgroundColor="@color/gray_bg"
+                    app:cardElevation="6dp"
+                    android:outlineSpotShadowColor="@color/shadow_entretien"
+                    android:outlineAmbientShadowColor="@color/shadow_entretien"
+                    tools:targetApi="28"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
 
@@ -597,10 +602,8 @@
                         android:padding="8dp">
 
                         <ImageView
-                            android:layout_width="44dp"
-                            android:layout_height="44dp"
-                            android:padding="7dp"
-                            android:background="@drawable/bg_icon_halo"
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
                             android:src="@drawable/ic_entretien"/>
 
                         <TextView
@@ -608,7 +611,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="10dp"
                             android:text="Entretien"
-                            android:textColor="@color/white"
+                            android:textColor="@color/gray_text_dark"
                             android:textSize="14sp"
                             android:textStyle="bold"
                             android:gravity="center"/>
@@ -617,7 +620,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Poulailler ou site"
-                            android:textColor="@color/white_translucent_85"
+                            android:textColor="@color/gray_text_soft"
                             android:textSize="11sp"
                             android:gravity="center"/>
                     </LinearLayout>
@@ -630,8 +633,11 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="@color/card_mortalite_bg"
-                    app:cardElevation="3dp"
+                    app:cardBackgroundColor="@color/gray_bg"
+                    app:cardElevation="6dp"
+                    android:outlineSpotShadowColor="@color/shadow_mortalite"
+                    android:outlineAmbientShadowColor="@color/shadow_mortalite"
+                    tools:targetApi="28"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
 
@@ -643,10 +649,8 @@
                         android:padding="8dp">
 
                         <ImageView
-                            android:layout_width="44dp"
-                            android:layout_height="44dp"
-                            android:padding="7dp"
-                            android:background="@drawable/bg_icon_halo"
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
                             android:src="@drawable/ic_warning_triangle"
                             app:tint="@color/red_error"/>
 
@@ -655,7 +659,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="10dp"
                             android:text="Mortalité"
-                            android:textColor="@color/white"
+                            android:textColor="@color/gray_text_dark"
                             android:textSize="14sp"
                             android:textStyle="bold"
                             android:gravity="center"/>
@@ -664,7 +668,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Décès à signaler"
-                            android:textColor="@color/white_translucent_85"
+                            android:textColor="@color/gray_text_soft"
                             android:textSize="11sp"
                             android:gravity="center"/>
                     </LinearLayout>
@@ -677,8 +681,11 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="@color/card_reforme_bg"
-                    app:cardElevation="3dp"
+                    app:cardBackgroundColor="@color/gray_bg"
+                    app:cardElevation="6dp"
+                    android:outlineSpotShadowColor="@color/shadow_reforme"
+                    android:outlineAmbientShadowColor="@color/shadow_reforme"
+                    tools:targetApi="28"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
 
@@ -690,10 +697,8 @@
                         android:padding="8dp">
 
                         <ImageView
-                            android:layout_width="44dp"
-                            android:layout_height="44dp"
-                            android:padding="7dp"
-                            android:background="@drawable/bg_icon_halo"
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
                             android:src="@drawable/reforme"/>
 
                         <TextView
@@ -701,7 +706,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="10dp"
                             android:text="Réforme"
-                            android:textColor="@color/white"
+                            android:textColor="@color/gray_text_dark"
                             android:textSize="14sp"
                             android:textStyle="bold"
                             android:gravity="center"/>
@@ -710,7 +715,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Sujets retirés du cheptel"
-                            android:textColor="@color/white_translucent_85"
+                            android:textColor="@color/gray_text_soft"
                             android:textSize="11sp"
                             android:gravity="center"/>
                     </LinearLayout>
@@ -723,8 +728,11 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="@color/card_pesee_bg"
-                    app:cardElevation="3dp"
+                    app:cardBackgroundColor="@color/gray_bg"
+                    app:cardElevation="6dp"
+                    android:outlineSpotShadowColor="@color/shadow_pesee"
+                    android:outlineAmbientShadowColor="@color/shadow_pesee"
+                    tools:targetApi="28"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
 
@@ -736,10 +744,8 @@
                         android:padding="8dp">
 
                         <ImageView
-                            android:layout_width="44dp"
-                            android:layout_height="44dp"
-                            android:padding="7dp"
-                            android:background="@drawable/bg_icon_halo"
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
                             android:src="@drawable/ic_pesee"/>
 
                         <TextView
@@ -747,7 +753,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="10dp"
                             android:text="Pesée"
-                            android:textColor="@color/white"
+                            android:textColor="@color/gray_text_dark"
                             android:textSize="14sp"
                             android:textStyle="bold"
                             android:gravity="center"/>
@@ -756,7 +762,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Poids moyen des sujets"
-                            android:textColor="@color/white_translucent_85"
+                            android:textColor="@color/gray_text_soft"
                             android:textSize="11sp"
                             android:gravity="center"/>
                     </LinearLayout>
@@ -880,8 +886,11 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="@color/card_salaire_bg"
-                    app:cardElevation="3dp"
+                    app:cardBackgroundColor="@color/gray_bg"
+                    app:cardElevation="6dp"
+                    android:outlineSpotShadowColor="@color/shadow_salaire"
+                    android:outlineAmbientShadowColor="@color/shadow_salaire"
+                    tools:targetApi="28"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true"
                     android:visibility="gone">
@@ -894,19 +903,17 @@
                         android:padding="8dp">
 
                         <TextView
-                            android:layout_width="44dp"
-                            android:layout_height="44dp"
-                            android:background="@drawable/bg_icon_halo"
-                            android:gravity="center"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
                             android:text="💰"
-                            android:textSize="22sp"/>
+                            android:textSize="28sp"/>
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="10dp"
                             android:text="Payer un salaire"
-                            android:textColor="@color/white"
+                            android:textColor="@color/gray_text_dark"
                             android:textSize="14sp"
                             android:textStyle="bold"
                             android:gravity="center"/>
@@ -915,7 +922,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Grille déjà définie"
-                            android:textColor="@color/white_translucent_85"
+                            android:textColor="@color/gray_text_soft"
                             android:textSize="11sp"
                             android:gravity="center"/>
                     </LinearLayout>
@@ -930,8 +937,11 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="@color/card_achat_aliment_bg"
-                    app:cardElevation="3dp"
+                    app:cardBackgroundColor="@color/gray_bg"
+                    app:cardElevation="6dp"
+                    android:outlineSpotShadowColor="@color/shadow_achat_aliment"
+                    android:outlineAmbientShadowColor="@color/shadow_achat_aliment"
+                    tools:targetApi="28"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true"
                     android:visibility="gone">
@@ -944,19 +954,17 @@
                         android:padding="8dp">
 
                         <TextView
-                            android:layout_width="44dp"
-                            android:layout_height="44dp"
-                            android:background="@drawable/bg_icon_halo"
-                            android:gravity="center"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
                             android:text="🌾"
-                            android:textSize="22sp"/>
+                            android:textSize="28sp"/>
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="10dp"
                             android:text="Achat d'aliment"
-                            android:textColor="@color/white"
+                            android:textColor="@color/gray_text_dark"
                             android:textSize="14sp"
                             android:textStyle="bold"
                             android:gravity="center"/>
@@ -965,7 +973,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Stock + dépense"
-                            android:textColor="@color/white_translucent_85"
+                            android:textColor="@color/gray_text_soft"
                             android:textSize="11sp"
                             android:gravity="center"/>
                     </LinearLayout>
@@ -1001,8 +1009,11 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="@color/card_vente_oeufs_bg"
-                    app:cardElevation="3dp"
+                    app:cardBackgroundColor="@color/gray_bg"
+                    app:cardElevation="6dp"
+                    android:outlineSpotShadowColor="@color/shadow_vente_oeufs"
+                    android:outlineAmbientShadowColor="@color/shadow_vente_oeufs"
+                    tools:targetApi="28"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
 
@@ -1014,10 +1025,8 @@
                         android:padding="8dp">
 
                         <ImageView
-                            android:layout_width="44dp"
-                            android:layout_height="44dp"
-                            android:padding="7dp"
-                            android:background="@drawable/bg_icon_halo"
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
                             android:src="@drawable/oeufs"/>
 
                         <TextView
@@ -1025,7 +1034,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="10dp"
                             android:text="Vente d'œufs"
-                            android:textColor="@color/white"
+                            android:textColor="@color/gray_text_dark"
                             android:textSize="14sp"
                             android:textStyle="bold"
                             android:gravity="center"/>
@@ -1034,7 +1043,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Plafonnée par le stock (ferme)"
-                            android:textColor="@color/white_translucent_85"
+                            android:textColor="@color/gray_text_soft"
                             android:textSize="11sp"
                             android:gravity="center"/>
                     </LinearLayout>
@@ -1047,8 +1056,11 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="@color/card_vente_reforme_bg"
-                    app:cardElevation="3dp"
+                    app:cardBackgroundColor="@color/gray_bg"
+                    app:cardElevation="6dp"
+                    android:outlineSpotShadowColor="@color/shadow_reforme"
+                    android:outlineAmbientShadowColor="@color/shadow_reforme"
+                    tools:targetApi="28"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
 
@@ -1060,10 +1072,8 @@
                         android:padding="8dp">
 
                         <ImageView
-                            android:layout_width="44dp"
-                            android:layout_height="44dp"
-                            android:padding="7dp"
-                            android:background="@drawable/bg_icon_halo"
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
                             android:src="@drawable/reforme"/>
 
                         <TextView
@@ -1071,7 +1081,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="10dp"
                             android:text="Vente réforme"
-                            android:textColor="@color/white"
+                            android:textColor="@color/gray_text_dark"
                             android:textSize="14sp"
                             android:textStyle="bold"
                             android:gravity="center"/>
@@ -1080,7 +1090,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Plafonnée par le stock (ferme)"
-                            android:textColor="@color/white_translucent_85"
+                            android:textColor="@color/gray_text_soft"
                             android:textSize="11sp"
                             android:gravity="center"/>
                     </LinearLayout>
@@ -1096,8 +1106,11 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="@color/card_vente_fientes_bg"
-                    app:cardElevation="3dp"
+                    app:cardBackgroundColor="@color/gray_bg"
+                    app:cardElevation="6dp"
+                    android:outlineSpotShadowColor="@color/shadow_vente_fientes"
+                    android:outlineAmbientShadowColor="@color/shadow_vente_fientes"
+                    tools:targetApi="28"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
 
@@ -1109,19 +1122,17 @@
                         android:padding="8dp">
 
                         <TextView
-                            android:layout_width="44dp"
-                            android:layout_height="44dp"
-                            android:background="@drawable/bg_icon_halo"
-                            android:gravity="center"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
                             android:text="💩"
-                            android:textSize="22sp"/>
+                            android:textSize="28sp"/>
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="10dp"
                             android:text="Vente de fientes"
-                            android:textColor="@color/white"
+                            android:textColor="@color/gray_text_dark"
                             android:textSize="14sp"
                             android:textStyle="bold"
                             android:gravity="center"/>
@@ -1130,7 +1141,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Transaction manuelle"
-                            android:textColor="@color/white_translucent_85"
+                            android:textColor="@color/gray_text_soft"
                             android:textSize="11sp"
                             android:gravity="center"/>
                     </LinearLayout>
@@ -1146,8 +1157,11 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="@color/card_client_bg"
-                    app:cardElevation="3dp"
+                    app:cardBackgroundColor="@color/gray_bg"
+                    app:cardElevation="6dp"
+                    android:outlineSpotShadowColor="@color/shadow_client"
+                    android:outlineAmbientShadowColor="@color/shadow_client"
+                    tools:targetApi="28"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
 
@@ -1159,10 +1173,8 @@
                         android:padding="8dp">
 
                         <ImageView
-                            android:layout_width="44dp"
-                            android:layout_height="44dp"
-                            android:padding="7dp"
-                            android:background="@drawable/bg_icon_halo"
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
                             android:src="@drawable/ic_client"
                             android:contentDescription="@null"/>
 
@@ -1171,7 +1183,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="10dp"
                             android:text="Nouveau client"
-                            android:textColor="@color/white"
+                            android:textColor="@color/gray_text_dark"
                             android:textSize="14sp"
                             android:textStyle="bold"
                             android:gravity="center"/>
@@ -1180,7 +1192,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Disponible après synchro"
-                            android:textColor="@color/white_translucent_85"
+                            android:textColor="@color/gray_text_soft"
                             android:textSize="11sp"
                             android:gravity="center"/>
                     </LinearLayout>
@@ -1195,8 +1207,11 @@
                     android:layout_columnWeight="1"
                     android:layout_margin="6dp"
                     app:cardCornerRadius="16dp"
-                    app:cardBackgroundColor="@color/card_commande_bg"
-                    app:cardElevation="3dp"
+                    app:cardBackgroundColor="@color/gray_bg"
+                    app:cardElevation="6dp"
+                    android:outlineSpotShadowColor="@color/shadow_commande"
+                    android:outlineAmbientShadowColor="@color/shadow_commande"
+                    tools:targetApi="28"
                     android:foreground="?attr/selectableItemBackground"
                     android:clickable="true">
 
@@ -1208,19 +1223,17 @@
                         android:padding="8dp">
 
                         <TextView
-                            android:layout_width="44dp"
-                            android:layout_height="44dp"
-                            android:background="@drawable/bg_icon_halo"
-                            android:gravity="center"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
                             android:text="📋"
-                            android:textSize="22sp"/>
+                            android:textSize="28sp"/>
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="10dp"
                             android:text="Nouvelle commande"
-                            android:textColor="@color/white"
+                            android:textColor="@color/gray_text_dark"
                             android:textSize="14sp"
                             android:textStyle="bold"
                             android:gravity="center"/>
@@ -1229,7 +1242,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Client obligatoire"
-                            android:textColor="@color/white_translucent_85"
+                            android:textColor="@color/gray_text_soft"
                             android:textSize="11sp"
                             android:gravity="center"/>
                     </LinearLayout>
