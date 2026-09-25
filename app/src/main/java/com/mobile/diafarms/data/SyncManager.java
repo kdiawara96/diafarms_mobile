@@ -3,6 +3,7 @@ package com.mobile.diafarms.data;
 import android.content.Context;
 
 import com.google.gson.Gson;
+import com.mobile.diafarms.activity.PeseeSessionActivity;
 import com.mobile.diafarms.models.SaisieLocale;
 import com.mobile.diafarms.models.SaisieType;
 import com.mobile.diafarms.network.ApiClient;
@@ -105,10 +106,42 @@ public class SyncManager {
      * les autres ne sont pas idempotents côté serveur, un renvoi y créerait un doublon. */
     private boolean markSynced(SaisieLocale saisie, String serverUniqueId) {
         if (saisie.getType() == SaisieType.PESEE_SESSION) {
-            return localDatabase.markSyncedIfPayloadUnchanged(saisie.getLocalId(), serverUniqueId, saisie.getPayloadJson());
+            return marquerSessionPeseeEnvoyee(saisie, serverUniqueId);
         }
         localDatabase.markSynced(saisie.getLocalId(), serverUniqueId);
         return true;
+    }
+
+    /**
+     * Envoi réussi d'une session de pesée : marque « envoyées » les pesées de l'instantané
+     * envoyé (elles ne sont alors plus modifiables sur le téléphone) et neutralise ce qui a
+     * été modifié/supprimé localement pendant l'envoi (voir
+     * SessionPeseeSyncRequest.apresEnvoiReussi). La ligne passe SYNCED seulement si l'état
+     * local obtenu est exactement celui que détient le serveur ; sinon elle reste LOCAL et
+     * le reste part au prochain envoi. Callbacks Retrofit et écran de pesée tournent tous
+     * deux sur le thread principal : lecture + écriture ci-dessous sans entrelacement.
+     */
+    private boolean marquerSessionPeseeEnvoyee(SaisieLocale envoyee, String serverUniqueId) {
+        SaisieLocale actuelle = localDatabase.getSaisieById(envoyee.getLocalId());
+        if (actuelle == null) return false; // supprimée du téléphone entre-temps
+        SessionPeseeSyncRequest envoye;
+        SessionPeseeSyncRequest courant;
+        try {
+            envoye = gson.fromJson(envoyee.getPayloadJson(), SessionPeseeSyncRequest.class);
+            courant = gson.fromJson(actuelle.getPayloadJson(), SessionPeseeSyncRequest.class);
+        } catch (Exception e) {
+            envoye = null;
+            courant = null;
+        }
+        if (envoye == null || courant == null) {
+            return localDatabase.markSyncedIfPayloadUnchanged(envoyee.getLocalId(), serverUniqueId, envoyee.getPayloadJson());
+        }
+        SessionPeseeSyncRequest apres = SessionPeseeSyncRequest.apresEnvoiReussi(envoye, courant);
+        String apresJson = gson.toJson(apres);
+        boolean aJour = apresJson.equals(gson.toJson(SessionPeseeSyncRequest.apresEnvoiReussi(envoye, envoye)));
+        localDatabase.enregistrerApresEnvoi(envoyee.getLocalId(), serverUniqueId, apresJson,
+                PeseeSessionActivity.resume(apres), aJour);
+        return aJour;
     }
 
     private void markError(SaisieLocale saisie, String message) {
@@ -190,7 +223,8 @@ public class SyncManager {
                 api.createCommande(gson.fromJson(json, CommandeCreateRequest.class)).enqueue(callback);
                 break;
             case PESEE_SESSION:
-                api.syncSessionPesee(gson.fromJson(json, SessionPeseeSyncRequest.class)).enqueue(callback);
+                // Indicateurs locaux (envoyee, termineeEnvoyee) retirés du corps envoyé.
+                api.syncSessionPesee(gson.fromJson(json, SessionPeseeSyncRequest.class).pourEnvoi()).enqueue(callback);
                 break;
             case SALAIRE_PAYER:
                 api.payerSalaire(gson.fromJson(json, SalairePayerRequest.class)).enqueue(callback);

@@ -255,6 +255,21 @@ public class LocalDatabase extends SQLiteOpenHelper {
                 new String[]{localId, sentPayloadJson}) > 0;
     }
 
+    /** Après un envoi réussi d'une session de pesée : nouvel état local (indicateurs
+     * « envoyée » posés, voir SyncManager.marquerSessionPeseeEnvoyee), server_unique_id,
+     * et statut SYNCED si cet état est celui du serveur, LOCAL sinon (reste à envoyer). */
+    public void enregistrerApresEnvoi(String localId, String serverUniqueId, String payloadJson,
+                                      String displaySummary, boolean synchronisee) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COL_PAYLOAD_JSON, payloadJson);
+        values.put(COL_DISPLAY_SUMMARY, displaySummary);
+        values.put(COL_SERVER_UNIQUE_ID, serverUniqueId);
+        values.put(COL_SYNC_STATUS, synchronisee ? SaisieLocale.STATUT_SYNCED : SaisieLocale.STATUT_LOCAL);
+        values.putNull(COL_ERROR_MESSAGE);
+        db.update(TABLE_SAISIES, values, COL_LOCAL_ID + "=?", new String[]{localId});
+    }
+
     /** Comme markError, mais sans effet si le contenu a changé depuis l'envoi (voir markSyncedIfPayloadUnchanged). */
     public void markErrorIfPayloadUnchanged(String localId, String errorMessage, String sentPayloadJson) {
         SQLiteDatabase db = this.getWritableDatabase();

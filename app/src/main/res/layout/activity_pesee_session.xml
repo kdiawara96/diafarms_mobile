@@ -137,6 +137,18 @@
                     android:textStyle="bold"
                     android:visibility="gone" />
 
+                <!-- Session terminée mais clôture pas encore envoyée : on peut la rouvrir. -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnRouvrirSession"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:layout_marginTop="8dp"
+                    android:text="Rouvrir la session"
+                    android:textSize="15sp"
+                    app:cornerRadius="16dp"
+                    android:visibility="gone" />
+
                 <!-- Totaux en direct -->
                 <androidx.cardview.widget.CardView
                     android:layout_width="match_parent"

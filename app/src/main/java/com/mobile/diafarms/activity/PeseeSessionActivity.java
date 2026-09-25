@@ -100,6 +100,11 @@ public class PeseeSessionActivity extends AppCompatActivity {
     private TextView tvAucunePesee;
     private LinearLayout containerPesees;
     private MaterialButton btnTerminer;
+    private MaterialButton btnRouvrir;
+    /** server_unique_id de la ligne non null : le serveur a déjà reçu la session. */
+    private boolean sessionDejaRecue;
+    /** Ligne locale SYNCED (repli pour les sessions antérieures à la 1.27). */
+    private boolean ligneSynchronisee;
     // Anti double tap sur "Nouvelle session" : un seul dialogue, une seule création.
     private boolean dialogueNouvelleSessionOuvert;
 
@@ -135,6 +140,7 @@ public class PeseeSessionActivity extends AppCompatActivity {
         tvAucunePesee = findViewById(R.id.tvAucunePesee);
         containerPesees = findViewById(R.id.containerPesees);
         btnTerminer = findViewById(R.id.btnTerminerSession);
+        btnRouvrir = findViewById(R.id.btnRouvrirSession);
 
         findViewById(R.id.btnBackPesee).setOnClickListener(v -> retour());
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
@@ -147,6 +153,7 @@ public class PeseeSessionActivity extends AppCompatActivity {
         findViewById(R.id.btnNouvelleSession).setOnClickListener(v -> demanderNouvelleSession());
         findViewById(R.id.btnAjouterPesee).setOnClickListener(v -> ajouterPesee());
         btnTerminer.setOnClickListener(v -> demanderTerminer());
+        btnRouvrir.setOnClickListener(v -> demanderRouvrir());
         etPoids.setOnEditorActionListener((v, actionId, event) -> {
             if (actionId == EditorInfo.IME_ACTION_DONE) {
                 ajouterPesee();
@@ -195,6 +202,13 @@ public class PeseeSessionActivity extends AppCompatActivity {
             afficherProjet();
             afficherAccueil();
         }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Une synchro (lancée depuis l'accueil) a pu marquer des pesées comme envoyées.
+        if (session != null && recharger()) rafraichirSession();
     }
 
     @Override
@@ -319,6 +333,8 @@ public class PeseeSessionActivity extends AppCompatActivity {
         if (req.pesees == null) req.pesees = new ArrayList<>();
         sessionLocalId = saisie.getLocalId();
         session = req;
+        sessionDejaRecue = saisie.getServerUniqueId() != null;
+        ligneSynchronisee = SaisieLocale.STATUT_SYNCED.equals(saisie.getSyncStatus());
 
         layoutEntree.setVisibility(View.GONE);
         layoutSession.setVisibility(View.VISIBLE);
@@ -329,6 +345,37 @@ public class PeseeSessionActivity extends AppCompatActivity {
         tilPoids.setError(null);
         rafraichirSession();
         if (!session.isTerminee()) etPoids.requestFocus();
+    }
+
+    /**
+     * Relit la session en base avant chaque modification : une synchro a pu la changer
+     * depuis l'affichage (pesées marquées envoyées, voir SyncManager). Retourne false (et
+     * quitte la session) si elle n'existe plus.
+     */
+    private boolean recharger() {
+        SaisieLocale saisie = sessionLocalId != null ? localDatabase.getSaisieById(sessionLocalId) : null;
+        SessionPeseeSyncRequest req = saisie != null ? lire(saisie) : null;
+        if (req == null) {
+            Toast.makeText(this, "Session de pesée introuvable", Toast.LENGTH_SHORT).show();
+            if (ouvertSurSession) finish(); else afficherAccueil();
+            return false;
+        }
+        if (req.pesees == null) req.pesees = new ArrayList<>();
+        session = req;
+        sessionDejaRecue = saisie.getServerUniqueId() != null;
+        ligneSynchronisee = SaisieLocale.STATUT_SYNCED.equals(saisie.getSyncStatus());
+        return true;
+    }
+
+    private SessionPeseeSyncRequest.Pesee trouverPesee(String uniqueId) {
+        for (SessionPeseeSyncRequest.Pesee p : session.pesees) {
+            if (p != null && uniqueId != null && uniqueId.equals(p.uniqueId)) return p;
+        }
+        return null;
+    }
+
+    private boolean estEnvoyee(SessionPeseeSyncRequest.Pesee p) {
+        return SessionPeseeSyncRequest.estEnvoyee(p, sessionDejaRecue);
     }
 
     private int nombreParDefaut() {
@@ -343,6 +390,12 @@ public class PeseeSessionActivity extends AppCompatActivity {
         if (terminee) info += "\nFin : " + formatDateAffichage(session.dateFin);
         tvSessionInfo.setText(info);
         tvSessionTerminee.setVisibility(terminee ? View.VISIBLE : View.GONE);
+        // Clôture envoyée = session figée côté serveur. Sinon elle peut encore être rouverte.
+        boolean clotureEnvoyee = session.isClotureEnvoyee(ligneSynchronisee);
+        tvSessionTerminee.setText(clotureEnvoyee
+                ? "Session envoyée : modification impossible."
+                : "Session terminée, pas encore envoyée : vous pouvez encore la rouvrir.");
+        btnRouvrir.setVisibility(terminee && !clotureEnvoyee ? View.VISIBLE : View.GONE);
 
         tvTotalSujets.setText(String.valueOf(session.totalSujets()));
         tvPoidsTotal.setText(formatKg(session.poidsTotalKg()));
@@ -377,17 +430,30 @@ public class PeseeSessionActivity extends AppCompatActivity {
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPadding(dp(14), dp(10), dp(8), dp(10));
 
+        boolean envoyee = estEnvoyee(p);
         TextView tv = new TextView(this);
         String texte = "#" + numero + "  " + p.nombreSujets + " sujet(s) · " + formatKg(p.poidsKg != null ? p.poidsKg : 0) + " kg"
                 + "\n" + formatHeure(p.dateHeure);
         if (p.isAnnulee()) texte += " · annulée";
+        texte += envoyee ? " · envoyée ✓" : " · non envoyée";
         tv.setText(texte);
         tv.setTextSize(16);
         tv.setTextColor(ContextCompat.getColor(this, p.isAnnulee() ? R.color.gray : R.color.gray_text_dark));
         if (p.isAnnulee()) tv.setPaintFlags(tv.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG);
         row.addView(tv, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
-        if (!terminee && !p.isAnnulee()) {
+        if (!terminee && !envoyee) {
+            // Pas encore envoyée : modifiable / supprimable librement sur le téléphone.
+            MaterialButton btn = new MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
+            btn.setText("Modifier");
+            btn.setAllCaps(false);
+            btn.setCornerRadius(dp(10));
+            btn.setContentDescription("Modifier la pesée");
+            btn.setOnClickListener(v -> demanderModification(p.uniqueId, numero));
+            row.addView(btn);
+            card.setOnClickListener(v -> demanderModification(p.uniqueId, numero));
+        } else if (!terminee && !p.isAnnulee()) {
+            // Déjà envoyée : le serveur n'accepte plus que l'annulation.
             MaterialButton btn = new MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
             btn.setText("Annuler");
             btn.setAllCaps(false);
@@ -407,7 +473,7 @@ public class PeseeSessionActivity extends AppCompatActivity {
     }
 
     private void ajouterPesee() {
-        if (session == null) return;
+        if (session == null || !recharger()) return;
         if (session.isTerminee()) {
             Toast.makeText(this, "Session terminée : plus aucune pesée ne peut être ajoutée", Toast.LENGTH_SHORT).show();
             return;
@@ -415,24 +481,9 @@ public class PeseeSessionActivity extends AppCompatActivity {
         tilNombre.setError(null);
         tilPoids.setError(null);
 
-        Integer nombre = parseEntier(etNombre.getText() != null ? etNombre.getText().toString() : "");
-        Double poids = parseDecimal(etPoids.getText() != null ? etPoids.getText().toString() : "");
-        boolean ok = true;
-        if (nombre == null || nombre < 1 || nombre > NOMBRE_MAX) {
-            tilNombre.setError("Entre 1 et " + NOMBRE_MAX);
-            ok = false;
-        }
-        // Arrondi d'abord (3 décimales, comme le serveur), puis contrôle : "0,0004"
-        // donnerait sinon une pesée à 0 kg, refusée au moment de l'envoi.
-        Double poidsArrondi = poids != null ? Math.round(poids * 1000d) / 1000d : null;
-        if (poidsArrondi == null || poidsArrondi <= 0) {
-            tilPoids.setError("Poids supérieur à 0");
-            ok = false;
-        } else if (poidsArrondi > POIDS_MAX_KG) {
-            tilPoids.setError("Au plus " + (int) POIDS_MAX_KG + " kg par pesée");
-            ok = false;
-        }
-        if (!ok) return;
+        Integer nombre = validerNombre(tilNombre, etNombre);
+        Double poidsArrondi = validerPoids(tilPoids, etPoids);
+        if (nombre == null || poidsArrondi == null) return;
 
         SessionPeseeSyncRequest.Pesee p = new SessionPeseeSyncRequest.Pesee();
         p.uniqueId = UUID.randomUUID().toString();
@@ -440,6 +491,7 @@ public class PeseeSessionActivity extends AppCompatActivity {
         p.poidsKg = poidsArrondi;
         p.dateHeure = maintenantIso();
         p.annulee = false;
+        p.envoyee = false; // explicite : null = pesée d'avant la 1.27 (voir estEnvoyee)
         session.pesees.add(p);
         enregistrer();
 
@@ -448,6 +500,136 @@ public class PeseeSessionActivity extends AppCompatActivity {
         etPoids.requestFocus();
         rafraichirSession();
         Toast.makeText(this, "Pesée ajoutée", Toast.LENGTH_SHORT).show();
+    }
+
+    /** Nombre de sujets saisi, ou null (erreur affichée sur {@code til}) s'il est invalide. */
+    private Integer validerNombre(TextInputLayout til, TextInputEditText et) {
+        Integer nombre = parseEntier(et.getText() != null ? et.getText().toString() : "");
+        if (nombre == null || nombre < 1 || nombre > NOMBRE_MAX) {
+            til.setError("Entre 1 et " + NOMBRE_MAX);
+            return null;
+        }
+        til.setError(null);
+        return nombre;
+    }
+
+    /** Poids arrondi à 3 décimales, ou null (erreur affichée sur {@code til}). Arrondi
+     * d'abord (comme le serveur), puis contrôle : "0,0004" donnerait sinon une pesée à
+     * 0 kg, refusée au moment de l'envoi. */
+    private Double validerPoids(TextInputLayout til, TextInputEditText et) {
+        Double poids = parseDecimal(et.getText() != null ? et.getText().toString() : "");
+        Double poidsArrondi = poids != null ? Math.round(poids * 1000d) / 1000d : null;
+        if (poidsArrondi == null || poidsArrondi <= 0) {
+            til.setError("Poids supérieur à 0");
+            return null;
+        }
+        if (poidsArrondi > POIDS_MAX_KG) {
+            til.setError("Au plus " + (int) POIDS_MAX_KG + " kg par pesée");
+            return null;
+        }
+        til.setError(null);
+        return poidsArrondi;
+    }
+
+    /**
+     * Pesée pas encore envoyée : modification (nombre, poids) ou suppression réelle. Une
+     * fois envoyée, le serveur ignorerait ces changements : on refuse alors (la synchro a
+     * pu passer pendant que le dialogue était ouvert, d'où le rechargement).
+     */
+    private void demanderModification(String uniqueId, int numero) {
+        if (session == null || !recharger()) return;
+        SessionPeseeSyncRequest.Pesee p = trouverPesee(uniqueId);
+        if (p == null || session.isTerminee() || estEnvoyee(p)) {
+            rafraichirSession();
+            return;
+        }
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        form.setPadding(dp(20), dp(8), dp(20), 0);
+
+        TextInputLayout tilN = new TextInputLayout(this, null, com.google.android.material.R.attr.textInputOutlinedStyle);
+        tilN.setHint("Nombre de sujets");
+        TextInputEditText etN = new TextInputEditText(tilN.getContext());
+        etN.setInputType(InputType.TYPE_CLASS_NUMBER);
+        etN.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(5)});
+        etN.setText(p.nombreSujets != null ? String.valueOf(p.nombreSujets) : "");
+        etN.setTextSize(20);
+        tilN.addView(etN);
+        form.addView(tilN);
+
+        TextInputLayout tilP = new TextInputLayout(this, null, com.google.android.material.R.attr.textInputOutlinedStyle);
+        tilP.setHint("Poids (kg)");
+        TextInputEditText etP = new TextInputEditText(tilP.getContext());
+        // Virgule acceptée comme le point (comme android:digits du champ principal).
+        etP.setKeyListener(android.text.method.DigitsKeyListener.getInstance("0123456789.,"));
+        etP.setRawInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        etP.setText(p.poidsKg != null ? formatKg(p.poidsKg) : "");
+        etP.setTextSize(20);
+        tilP.addView(etP);
+        LinearLayout.LayoutParams lpP = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lpP.topMargin = dp(8);
+        form.addView(tilP, lpP);
+
+        androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(this)
+                .setTitle("Modifier la pesée #" + numero)
+                .setView(form)
+                .setPositiveButton("Enregistrer", null)
+                .setNeutralButton("Supprimer", null)
+                .setNegativeButton("Fermer", null)
+                .create();
+        dialog.setOnShowListener(d -> {
+            dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                Integer nombre = validerNombre(tilN, etN);
+                Double poids = validerPoids(tilP, etP);
+                if (nombre == null || poids == null) return;
+                dialog.dismiss();
+                SessionPeseeSyncRequest.Pesee cible = peseeModifiable(uniqueId);
+                if (cible == null) return;
+                cible.nombreSujets = nombre;
+                cible.poidsKg = poids;
+                enregistrer();
+                rafraichirSession();
+                Toast.makeText(this, "Pesée modifiée", Toast.LENGTH_SHORT).show();
+            });
+            android.widget.Button btnSupprimer = dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_NEUTRAL);
+            btnSupprimer.setTextColor(ContextCompat.getColor(this, R.color.red_error));
+            btnSupprimer.setOnClickListener(v -> {
+                dialog.dismiss();
+                demanderSuppression(uniqueId, numero);
+            });
+        });
+        dialog.show();
+    }
+
+    private void demanderSuppression(String uniqueId, int numero) {
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("Supprimer cette pesée ?")
+                .setMessage("La pesée #" + numero + " n'a pas encore été envoyée : elle sera retirée de la session.")
+                .setPositiveButton("Supprimer", (d, w) -> {
+                    SessionPeseeSyncRequest.Pesee cible = peseeModifiable(uniqueId);
+                    if (cible == null) return;
+                    session.pesees.remove(cible);
+                    enregistrer();
+                    rafraichirSession();
+                    Toast.makeText(this, "Pesée supprimée", Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton("Garder", null)
+                .show();
+    }
+
+    /** Recharge la session et retourne la pesée si elle est encore modifiable (session en
+     * cours, pesée non envoyée) ; sinon explique pourquoi et retourne null. */
+    private SessionPeseeSyncRequest.Pesee peseeModifiable(String uniqueId) {
+        if (session == null || !recharger()) return null;
+        SessionPeseeSyncRequest.Pesee p = trouverPesee(uniqueId);
+        if (p == null || session.isTerminee() || estEnvoyee(p)) {
+            Toast.makeText(this, "Cette pesée vient d'être envoyée : elle ne peut plus être modifiée, seulement annulée.",
+                    Toast.LENGTH_LONG).show();
+            rafraichirSession();
+            return null;
+        }
+        return p;
     }
 
     private void demanderAnnulation(SessionPeseeSyncRequest.Pesee p, int numero) {
@@ -459,8 +641,12 @@ public class PeseeSessionActivity extends AppCompatActivity {
                         + "Elle restera visible dans l'historique mais ne comptera plus dans les totaux. "
                         + "Cette annulation est définitive.")
                 .setPositiveButton("Annuler la pesée", (d, w) -> {
-                    p.annulee = true;
-                    enregistrer();
+                    if (!recharger()) return;
+                    SessionPeseeSyncRequest.Pesee cible = trouverPesee(p.uniqueId);
+                    if (cible != null && !session.isTerminee()) {
+                        cible.annulee = true;
+                        enregistrer();
+                    }
                     rafraichirSession();
                 })
                 .setNegativeButton("Garder", null)
@@ -482,13 +668,20 @@ public class PeseeSessionActivity extends AppCompatActivity {
                 + "\nNombre de pesées : " + actives.size()
                 + "\nDate de début : " + formatDateAffichage(session.dateDebut)
                 + "\nDernière pesée : " + formatDateAffichage(derniere)
-                + "\n\nUne fois terminée, la session ne pourra plus être modifiée.";
+                + "\n\nTant qu'elle n'est pas envoyée, vous pourrez la rouvrir. "
+                + "Une fois envoyée, elle ne pourra plus être modifiée.";
         new MaterialAlertDialogBuilder(this)
                 .setTitle("Terminer la session ?")
                 .setMessage(recap)
                 .setPositiveButton("Terminer", (d, w) -> {
+                    if (!recharger()) return;
+                    if (session.isTerminee() || session.peseesActives().isEmpty()) {
+                        rafraichirSession();
+                        return;
+                    }
                     session.statut = SessionPeseeSyncRequest.STATUT_TERMINEE;
                     session.dateFin = maintenantIso();
+                    session.termineeEnvoyee = false; // passe à true après un envoi réussi
                     enregistrer();
                     rafraichirSession();
                     Toast.makeText(this, "Session terminée, à synchroniser depuis l'accueil", Toast.LENGTH_LONG).show();
@@ -497,10 +690,39 @@ public class PeseeSessionActivity extends AppCompatActivity {
                 .show();
     }
 
+    /** Session terminée mais clôture pas encore envoyée : retour à EN_COURS (dateFin
+     * effacée), de nouveau modifiable. Impossible une fois la clôture reçue par le serveur. */
+    private void demanderRouvrir() {
+        if (session == null || !session.isTerminee()) return;
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("Rouvrir la session ?")
+                .setMessage("La session repassera en cours : vous pourrez ajouter, modifier ou annuler des pesées, "
+                        + "puis la terminer à nouveau.")
+                .setPositiveButton("Rouvrir", (d, w) -> {
+                    if (!recharger()) return;
+                    if (!session.isTerminee() || session.isClotureEnvoyee(ligneSynchronisee)) {
+                        Toast.makeText(this, "Session envoyée : modification impossible", Toast.LENGTH_LONG).show();
+                        rafraichirSession();
+                        return;
+                    }
+                    session.statut = SessionPeseeSyncRequest.STATUT_EN_COURS;
+                    session.dateFin = null;
+                    session.termineeEnvoyee = false;
+                    enregistrer();
+                    etNombre.setText(String.valueOf(nombreParDefaut()));
+                    etPoids.setText("");
+                    rafraichirSession();
+                    Toast.makeText(this, "Session rouverte", Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton("Annuler", null)
+                .show();
+    }
+
     /** Écrit l'état complet de la session en base locale (repasse la ligne en LOCAL). Comme
      * les autres écrans de saisie, l'envoi se fait ensuite depuis l'accueil (SyncManager). */
     private void enregistrer() {
         localDatabase.updateSaisie(sessionLocalId, projetUniqueId, projetLabel, gson.toJson(session), resume(session));
+        ligneSynchronisee = false; // updateSaisie repasse la ligne en LOCAL
     }
 
     // ===================== OUTILS =====================

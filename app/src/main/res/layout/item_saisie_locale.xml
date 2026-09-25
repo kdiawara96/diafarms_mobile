@@ -62,7 +62,7 @@
                 android:textColor="@color/primary"
                 android:textSize="15sp"
                 android:textStyle="bold"
-                android:maxLines="1"
+                android:maxLines="2"
                 android:ellipsize="end"
                 tools:text="Collecte d'œufs" />
 
