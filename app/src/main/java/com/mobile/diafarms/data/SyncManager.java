@@ -48,8 +48,16 @@ public class SyncManager {
         public int envoyees;
         public int refusees;
         public int aRenvoyer;
+        // 422 « clé déjà utilisée » : première version déjà enregistrée sur le serveur.
+        public int dejaEnregistrees;
         public String authMessage;
+        // Compte de démonstration : rien n'est envoyé (le serveur refuserait tout, 403).
+        public boolean consultationSeule;
     }
+
+    public static final String MESSAGE_CONSULTATION_SEULE = "Compte de démonstration : les saisies ne peuvent pas être envoyées";
+    // errors[0] de la réponse 422 du serveur quand la clé a déjà servi (IdempotenceFilter).
+    private static final String ERREUR_CLE_DEJA_UTILISEE = "Clé déjà utilisée pour une autre saisie";
 
     public interface SyncCallback {
         default void onProgress(int done, int total) {}
@@ -85,6 +93,14 @@ public class SyncManager {
         compteEnvoi = SessionManager.activeUserId(appContext);
         file = compteEnvoi != null ? localDatabase.getPendingSaisies() : new java.util.ArrayList<>();
         appelant = callback;
+        com.mobile.diafarms.models.User u = new SessionManager(appContext).getCurrentUser();
+        if (u != null && u.isConsultationSeule()) {
+            // Compte de démonstration : on n'essaie même pas (chaque envoi serait refusé).
+            bilan.consultationSeule = true;
+            bilan.aRenvoyer = file.size();
+            terminer();
+            return;
+        }
         syncNext(0);
     }
 
@@ -179,6 +195,14 @@ public class SyncManager {
             }
             return;
         }
+        if (code == 403 && message != null && message.toLowerCase(java.util.Locale.FRENCH).contains("consultation seule")) {
+            // Compte de démonstration (ConsultationSeuleFilter) : on le mémorise pour masquer
+            // les boutons et ne plus rien envoyer, sans demander de reconnexion.
+            new SessionManager(appContext).mettreAJourProfil(compteEnvoi, null, true);
+            bilan.consultationSeule = true;
+            arreter(index);
+            return;
+        }
         if (code == 401 || code == 403) {
             bilan.authMessage = code == 401 || message == null
                     ? "Votre session n'est plus acceptée par le serveur. Scannez de nouveau votre QR code pour envoyer vos saisies : elles restent enregistrées sur ce téléphone."
@@ -186,11 +210,13 @@ public class SyncManager {
             arreter(index);
             return;
         }
-        if (code == 422 && saisie.getType() != SaisieType.PESEE_SESSION) {
+        if (code == 422 && saisie.getType() != SaisieType.PESEE_SESSION
+                && message != null && message.trim().equals(ERREUR_CLE_DEJA_UTILISEE)) {
             // Clé déjà utilisée pour un autre contenu : la première version est enregistrée
             // sur le serveur. Ne plus la renvoyer (voir SaisieLocale.STATUT_DEJA_ENREGISTREE).
+            // Tout autre 422 est un refus ordinaire (ERREUR avec son message, ci-dessous).
             localDatabase.marquerDejaEnregistree(saisie.getLocalId(), SaisieLocale.MESSAGE_DEJA_ENREGISTREE);
-            bilan.refusees++;
+            bilan.dejaEnregistrees++;
             syncNext(index + 1);
             return;
         }

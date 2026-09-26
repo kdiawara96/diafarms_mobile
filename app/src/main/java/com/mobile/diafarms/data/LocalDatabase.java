@@ -9,13 +9,12 @@ import android.database.sqlite.SQLiteOpenHelper;
 
 import com.mobile.diafarms.models.SaisieLocale;
 import com.mobile.diafarms.models.SaisieType;
-import com.mobile.diafarms.models.User;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-public class LocalDatabase extends SQLiteOpenHelper {
+public class LocalDatabase {
     private static final String DATABASE_NAME = "diafarms.db";
     // v6 : fusion Soins/Vaccination côté UI — SaisieType.VACCINATION supprimé (un seul
     // bouton/écran "Soins" désormais, voir HomeActivity/SaisieFormActivity). Une
@@ -74,28 +73,72 @@ public class LocalDatabase extends SQLiteOpenHelper {
     private static final String COL_OWNER_FARM_ID = "owner_farm_id";
     private static final String COL_CLE_ENVOI = "cle_envoi";
     private static final String COL_HTTP_CODE = "http_code";
+    // Envois tentés sans réponse claire (réseau, 5xx, 409) et date du premier : au-delà
+    // d'un seuil, la saisie "à renvoyer" peut être supprimée (voir SaisieLocale.isBloqueeLongtemps).
+    private static final String COL_NB_ESSAIS = "nb_essais";
+    private static final String COL_PREMIER_ECHEC = "premier_echec";
+
+    /** Un seul SQLiteOpenHelper pour toute l'appli : les instances de LocalDatabase (une
+     * par écran, et figee()) ne sont que des vues liées à un compte sur la même base. */
+    private static final class Helper extends SQLiteOpenHelper {
+        private final Context appContext;
+
+        Helper(Context appContext) {
+            super(appContext, DATABASE_NAME, null, DATABASE_VERSION);
+            this.appContext = appContext;
+        }
+
+        @Override
+        public void onCreate(SQLiteDatabase db) {
+            creerTables(db);
+        }
+
+        @Override
+        public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+            mettreANiveau(appContext, db, oldVersion);
+        }
+    }
+
+    private static Helper sHelper;
+
+    private static synchronized Helper helper(Context appContext) {
+        if (sHelper == null) sHelper = new Helper(appContext);
+        return sHelper;
+    }
 
     private final Context appContext;
-    // Compte figé (voir figee()) : null = toujours le compte actif au moment de l'appel.
+    private final Helper helper;
+    // Compte et ferme figés (voir figee()) : sinon toujours le compte actif au moment de l'appel.
     private final String compteFige;
+    private final String fermeFigee;
     private final boolean estFigee;
 
     public LocalDatabase(Context context) {
-        this(context, null, false);
+        this(context.getApplicationContext(), null, null, false);
     }
 
-    private LocalDatabase(Context context, String compteFige, boolean estFigee) {
-        super(context, DATABASE_NAME, null, DATABASE_VERSION);
-        this.appContext = context.getApplicationContext();
+    private LocalDatabase(Context appContext, String compteFige, String fermeFigee, boolean estFigee) {
+        this.appContext = appContext;
+        this.helper = helper(appContext);
         this.compteFige = compteFige;
+        this.fermeFigee = fermeFigee;
         this.estFigee = estFigee;
     }
 
-    /** Même base, mais liée au compte actif AU MOMENT de l'appel, même s'il change
-     * ensuite : pour les réponses réseau qui arrivent tard (préchargement), afin qu'elles
-     * soient rangées dans le cache du compte qui les a demandées. */
+    private SQLiteDatabase getWritableDatabase() {
+        return helper.getWritableDatabase();
+    }
+
+    private SQLiteDatabase getReadableDatabase() {
+        return helper.getReadableDatabase();
+    }
+
+    /** Même base, mais liée au compte actif AU MOMENT de l'appel (et à sa ferme), même
+     * s'il change ensuite : pour les réponses réseau qui arrivent tard (préchargement),
+     * afin qu'elles soient rangées dans le cache du compte qui les a demandées. */
     public LocalDatabase figee() {
-        return new LocalDatabase(appContext, compteCourant(), true);
+        String compte = compteCourant();
+        return new LocalDatabase(appContext, compte, fermeCourante(compte), true);
     }
 
     /** Compte dont cette instance lit/écrit les saisies et le cache. */
@@ -109,8 +152,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
         return (compte != null ? "u:" + compte : "aucun") + "|" + key;
     }
 
-    @Override
-    public void onCreate(SQLiteDatabase db) {
+    private static void creerTables(SQLiteDatabase db) {
         String createAccounts = "CREATE TABLE " + TABLE_ACCOUNTS + "("
                 + COL_IDENTIFIANT + " TEXT PRIMARY KEY,"
                 + COL_LAST_USED + " INTEGER"
@@ -130,7 +172,9 @@ public class LocalDatabase extends SQLiteOpenHelper {
                 + COL_OWNER_USER_ID + " TEXT,"
                 + COL_OWNER_FARM_ID + " TEXT,"
                 + COL_CLE_ENVOI + " TEXT,"
-                + COL_HTTP_CODE + " INTEGER"
+                + COL_HTTP_CODE + " INTEGER,"
+                + COL_NB_ESSAIS + " INTEGER,"
+                + COL_PREMIER_ECHEC + " INTEGER"
                 + ")";
 
         String createCache = "CREATE TABLE " + TABLE_CACHE + "("
@@ -144,10 +188,9 @@ public class LocalDatabase extends SQLiteOpenHelper {
         db.execSQL(createCache);
     }
 
-    @Override
-    public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+    private static void mettreANiveau(Context appContext, SQLiteDatabase db, int oldVersion) {
         if (oldVersion >= 6) {
-            migrerVersV7(db);
+            migrerVersV7(appContext, db);
             return;
         }
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_ACCOUNTS);
@@ -155,7 +198,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_CACHE);
         db.execSQL("DROP TABLE IF EXISTS enregistrements");
         db.execSQL("DROP TABLE IF EXISTS transactions");
-        onCreate(db);
+        creerTables(db);
     }
 
     /** 6 -> 7, sans perdre de saisie. Les saisies existantes n'avaient pas de compte :
@@ -165,11 +208,13 @@ public class LocalDatabase extends SQLiteOpenHelper {
      * HomeActivity, adopterSaisiesSansCompte). Le cache (données serveur) du seul compte
      * est rangé à son nom ; avec plusieurs comptes on ne sait pas à qui il appartient,
      * il est effacé et sera rechargé à la prochaine connexion. */
-    private void migrerVersV7(SQLiteDatabase db) {
+    private static void migrerVersV7(Context appContext, SQLiteDatabase db) {
         db.execSQL("ALTER TABLE " + TABLE_SAISIES + " ADD COLUMN " + COL_OWNER_USER_ID + " TEXT");
         db.execSQL("ALTER TABLE " + TABLE_SAISIES + " ADD COLUMN " + COL_OWNER_FARM_ID + " TEXT");
         db.execSQL("ALTER TABLE " + TABLE_SAISIES + " ADD COLUMN " + COL_CLE_ENVOI + " TEXT");
         db.execSQL("ALTER TABLE " + TABLE_SAISIES + " ADD COLUMN " + COL_HTTP_CODE + " INTEGER");
+        db.execSQL("ALTER TABLE " + TABLE_SAISIES + " ADD COLUMN " + COL_NB_ESSAIS + " INTEGER");
+        db.execSQL("ALTER TABLE " + TABLE_SAISIES + " ADD COLUMN " + COL_PREMIER_ECHEC + " INTEGER");
         // local_id est déjà un UUID fixe par saisie : il sert de clé stable aux saisies existantes.
         db.execSQL("UPDATE " + TABLE_SAISIES + " SET " + COL_CLE_ENVOI + " = " + COL_LOCAL_ID
                 + " WHERE " + COL_CLE_ENVOI + " IS NULL");
@@ -294,25 +339,32 @@ public class LocalDatabase extends SQLiteOpenHelper {
      * Appelée pour une saisie LOCAL/ERROR modifiée, et aussi pour une session de pesée
      * déjà SYNCED qui reçoit une nouvelle pesée/annulation/clôture (elle repart alors
      * au prochain envoi). server_unique_id n'est pas touché. */
-    public void updateSaisie(String localId, String projetUniqueId, String projetLabel,
+    /** Refusée (false) pour une saisie qui n'est plus modifiable : déjà envoyée, déjà
+     * enregistrée, ou envoi en attente de confirmation (voir SaisieLocale.peutEtreModifiee).
+     * Les sessions de pesée, réécrites au fil de l'eau et idempotentes, passent toujours. */
+    public boolean updateSaisie(String localId, String projetUniqueId, String projetLabel,
                               String payloadJson, String displaySummary) {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
+        SaisieLocale avant = getSaisieById(localId);
+        if (avant == null) return false;
+        if (avant.getType() != SaisieType.PESEE_SESSION && !avant.peutEtreModifiee()) return false;
         // Corrigée après un refus définitif (4xx) : c'est une nouvelle demande pour le
         // serveur, elle reçoit une nouvelle clé (l'ancienne donnerait 422). Dans tous les
         // autres cas la clé est gardée (renvoi de la même saisie).
-        SaisieLocale avant = getSaisieById(localId);
         if (avant != null && SaisieLocale.STATUT_ERROR.equals(avant.getSyncStatus()) && estRefusDefinitif(avant.getHttpCode())) {
             values.put(COL_CLE_ENVOI, UUID.randomUUID().toString());
         }
         values.putNull(COL_HTTP_CODE);
+        values.putNull(COL_NB_ESSAIS);
+        values.putNull(COL_PREMIER_ECHEC);
         values.put(COL_PROJET_UNIQUE_ID, projetUniqueId);
         values.put(COL_PROJET_LABEL, projetLabel);
         values.put(COL_PAYLOAD_JSON, payloadJson);
         values.put(COL_DISPLAY_SUMMARY, displaySummary);
         values.put(COL_SYNC_STATUS, SaisieLocale.STATUT_LOCAL);
         values.putNull(COL_ERROR_MESSAGE);
-        db.update(TABLE_SAISIES, values, COL_LOCAL_ID + "=?", new String[]{localId});
+        return db.update(TABLE_SAISIES, values, COL_LOCAL_ID + "=?", new String[]{localId}) > 0;
     }
 
     /** Refus 4xx définitif : ni authentification (401/403), ni « réessayez » (408/409/429). */
@@ -324,11 +376,19 @@ public class LocalDatabase extends SQLiteOpenHelper {
     /** Échec temporaire (réseau, 5xx, 409) : la saisie reste EN ATTENTE, même clé, avec une
      * note affichée dans « Mes saisies ». */
     public void marquerARenvoyer(String localId, String note, int httpCode) {
-        ContentValues values = new ContentValues();
-        values.put(COL_SYNC_STATUS, SaisieLocale.STATUT_LOCAL);
-        values.put(COL_ERROR_MESSAGE, note);
-        values.put(COL_HTTP_CODE, httpCode);
-        getWritableDatabase().update(TABLE_SAISIES, values, COL_LOCAL_ID + "=?", new String[]{localId});
+        getWritableDatabase().execSQL("UPDATE " + TABLE_SAISIES + " SET "
+                        + COL_SYNC_STATUS + "=?, " + COL_ERROR_MESSAGE + "=?, " + COL_HTTP_CODE + "=?, "
+                        + COL_NB_ESSAIS + "=COALESCE(" + COL_NB_ESSAIS + ",0)+1, "
+                        + COL_PREMIER_ECHEC + "=COALESCE(" + COL_PREMIER_ECHEC + ",?) WHERE "
+                        + COL_LOCAL_ID + "=? AND " + COL_SYNC_STATUS + "<>?",
+                new Object[]{SaisieLocale.STATUT_LOCAL, note, httpCode, System.currentTimeMillis(), localId,
+                        SaisieLocale.STATUT_SYNCED});
+    }
+
+    /** Saisies du compte courant déjà enregistrées sur le serveur avec une autre version (422). */
+    public int countDejaEnregistrees() {
+        return compter(COL_SYNC_STATUS + "=? AND " + filtreCompte(),
+                new String[]{SaisieLocale.STATUT_DEJA_ENREGISTREE, argCompte()});
     }
 
     /** 422 « clé déjà utilisée » : sortie de la file d'envoi, message gardé pour l'affichage. */
@@ -337,7 +397,8 @@ public class LocalDatabase extends SQLiteOpenHelper {
         values.put(COL_SYNC_STATUS, SaisieLocale.STATUT_DEJA_ENREGISTREE);
         values.put(COL_ERROR_MESSAGE, message);
         values.put(COL_HTTP_CODE, 422);
-        getWritableDatabase().update(TABLE_SAISIES, values, COL_LOCAL_ID + "=?", new String[]{localId});
+        getWritableDatabase().update(TABLE_SAISIES, values, COL_LOCAL_ID + "=? AND " + COL_SYNC_STATUS + "<>?",
+                new String[]{localId, SaisieLocale.STATUT_SYNCED});
     }
 
     public void deleteSaisie(String localId) {
@@ -415,7 +476,8 @@ public class LocalDatabase extends SQLiteOpenHelper {
         values.put(COL_SYNC_STATUS, SaisieLocale.STATUT_ERROR);
         values.put(COL_ERROR_MESSAGE, errorMessage);
         if (httpCode != null) values.put(COL_HTTP_CODE, httpCode); else values.putNull(COL_HTTP_CODE);
-        db.update(TABLE_SAISIES, values, COL_LOCAL_ID + "=?", new String[]{localId});
+        db.update(TABLE_SAISIES, values, COL_LOCAL_ID + "=? AND " + COL_SYNC_STATUS + "<>?",
+                new String[]{localId, SaisieLocale.STATUT_SYNCED});
     }
 
     public SaisieLocale getSaisieById(String localId) {
@@ -492,14 +554,38 @@ public class LocalDatabase extends SQLiteOpenHelper {
                 new String[]{SaisieLocale.STATUT_LOCAL, SaisieLocale.STATUT_ERROR});
     }
 
-    /** L'utilisateur actif reconnaît les saisies "compte inconnu" comme les siennes. */
-    public void adopterSaisiesSansCompte() {
+    /** Saisies en attente "compte inconnu", réparties selon leur projet : celles d'un projet
+     * du compte courant (sa ferme), celles d'un autre projet (probablement une autre ferme
+     * ou un autre compte), et celles sans projet (impossible à dire). Ni le compte ni la
+     * ferme d'origine n'étaient enregistrés avant la 1.31 : le projet est le seul indice. */
+    public int[] repartirSansCompte(java.util.Set<String> projetsDuCompte) {
+        int[] r = new int[3];
+        for (SaisieLocale s : querySaisies(COL_SYNC_STATUS + " IN (?,?) AND " + COL_OWNER_USER_ID + " IS NULL",
+                new String[]{SaisieLocale.STATUT_LOCAL, SaisieLocale.STATUT_ERROR})) {
+            String p = s.getProjetUniqueId();
+            if (p == null || p.isEmpty()) r[2]++;
+            else if (projetsDuCompte.contains(p)) r[0]++;
+            else r[1]++;
+        }
+        return r;
+    }
+
+    /** L'utilisateur actif reconnaît les saisies "compte inconnu" comme les siennes : seules
+     * celles d'un de ses projets et celles sans projet ; celles d'un projet qu'il ne connaît
+     * pas (autre ferme ou autre compte) restent inconnues. */
+    public void adopterSaisiesSansCompte(java.util.Set<String> projetsDuCompte) {
         String compte = compteCourant();
         if (compte == null) return;
-        ContentValues values = new ContentValues();
-        values.put(COL_OWNER_USER_ID, compte);
-        values.put(COL_OWNER_FARM_ID, fermeCourante(compte));
-        getWritableDatabase().update(TABLE_SAISIES, values, COL_OWNER_USER_ID + " IS NULL", null);
+        String ferme = fermeCourante(compte);
+        for (SaisieLocale s : querySaisies(COL_OWNER_USER_ID + " IS NULL", null)) {
+            String p = s.getProjetUniqueId();
+            if (p != null && !p.isEmpty() && !projetsDuCompte.contains(p)) continue;
+            ContentValues values = new ContentValues();
+            values.put(COL_OWNER_USER_ID, compte);
+            values.put(COL_OWNER_FARM_ID, ferme);
+            getWritableDatabase().update(TABLE_SAISIES, values, COL_LOCAL_ID + "=? AND " + COL_OWNER_USER_ID + " IS NULL",
+                    new String[]{s.getLocalId()});
+        }
     }
 
     private int compter(String selection, String[] args) {
@@ -509,16 +595,12 @@ public class LocalDatabase extends SQLiteOpenHelper {
         return n;
     }
 
-    /** Ferme connue du compte donné, seulement si c'est le compte actif (sinon inconnue). */
+    /** Ferme connue du compte donné : figée avec l'instance, sinon celle du compte actif
+     * gardée en mémoire par SessionManager (aucune lecture des préférences chiffrées ici). */
     private String fermeCourante(String compte) {
         if (compte == null) return null;
-        try {
-            SessionManager sm = new SessionManager(appContext);
-            User u = sm.getCurrentUser();
-            return u != null && compte.equals(u.getId()) ? u.getFarmUniqueId() : null;
-        } catch (Exception e) {
-            return null;
-        }
+        if (estFigee && compte.equals(compteFige)) return fermeFigee;
+        return compte.equals(SessionManager.activeUserId(appContext)) ? SessionManager.activeFarmId(appContext) : null;
     }
 
     /**
@@ -582,6 +664,10 @@ public class LocalDatabase extends SQLiteOpenHelper {
         s.setCleEnvoi(c.getString(c.getColumnIndexOrThrow(COL_CLE_ENVOI)));
         int iCode = c.getColumnIndexOrThrow(COL_HTTP_CODE);
         s.setHttpCode(c.isNull(iCode) ? null : c.getInt(iCode));
+        int iEssais = c.getColumnIndexOrThrow(COL_NB_ESSAIS);
+        s.setNbEssais(c.isNull(iEssais) ? 0 : c.getInt(iEssais));
+        int iPremier = c.getColumnIndexOrThrow(COL_PREMIER_ECHEC);
+        s.setPremierEchec(c.isNull(iPremier) ? 0L : c.getLong(iPremier));
         return s;
     }
 }

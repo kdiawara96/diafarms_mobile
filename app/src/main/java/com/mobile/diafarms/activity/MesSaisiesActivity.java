@@ -157,6 +157,33 @@ public class MesSaisiesActivity extends AppCompatActivity {
                     .show();
             return;
         }
+        if (saisie.isBloqueeLongtemps()) {
+            new MaterialAlertDialogBuilder(this)
+                    .setTitle("Supprimer cette saisie ?")
+                    .setMessage("Cette saisie a peut-être déjà été enregistrée : vérifiez sur l'application web avant de la supprimer.\n\n"
+                            + "Si elle n'y est pas, elle sera perdue. Cette action est définitive.")
+                    .setPositiveButton("Supprimer définitivement", (dialog, which) -> {
+                        localDatabase.deleteSaisie(saisie.getLocalId());
+                        Toast.makeText(this, "Saisie supprimée", Toast.LENGTH_SHORT).show();
+                        refreshList();
+                    })
+                    .setNegativeButton("Garder", null)
+                    .show();
+            return;
+        }
+        if (SaisieLocale.STATUT_DEJA_ENREGISTREE.equals(saisie.getSyncStatus())) {
+            new MaterialAlertDialogBuilder(this)
+                    .setTitle("Retirer de ce téléphone ?")
+                    .setMessage("Une version de cette saisie est déjà enregistrée sur le serveur : elle n'y sera pas supprimée. "
+                            + "Seule la copie de ce téléphone disparaît.")
+                    .setPositiveButton("Retirer", (dialog, which) -> {
+                        localDatabase.deleteSaisie(saisie.getLocalId());
+                        refreshList();
+                    })
+                    .setNegativeButton("Annuler", null)
+                    .show();
+            return;
+        }
         new MaterialAlertDialogBuilder(this)
                 .setTitle("Supprimer cette saisie")
                 .setMessage("Cette saisie locale sera définitivement supprimée. Continuer ?")
@@ -228,7 +255,9 @@ public class MesSaisiesActivity extends AppCompatActivity {
                 default:
                     // Note d'un essai d'envoi qui n'a pas abouti (réseau, serveur) : la saisie
                     // repartira telle quelle au prochain envoi, rien à corriger.
-                    tvStatus.setText(saisie.isEnAttenteConfirmation() ? SaisieLocale.MESSAGE_ATTENTE_CONFIRMATION
+                    tvStatus.setText(saisie.isBloqueeLongtemps()
+                            ? "Envoi toujours sans confirmation après " + saisie.getNbEssais() + " essai(s) : vérifiez sur l'application web"
+                            : saisie.isEnAttenteConfirmation() ? SaisieLocale.MESSAGE_ATTENTE_CONFIRMATION
                             : saisie.getErrorMessage() != null ? saisie.getErrorMessage() : "En attente de synchronisation");
                     tvStatus.setTextColor(Color.WHITE);
                     tvStatus.setBackgroundColor(0xFFEF6C00);
@@ -237,7 +266,11 @@ public class MesSaisiesActivity extends AppCompatActivity {
             // Pas de modification ni de suppression tant qu'un envoi déjà tenté n'est pas
             // confirmé (le serveur l'a peut-être) : voir SaisieLocale.peutEtreModifiee.
             boolean editable = saisie.peutEtreModifiee();
-            boolean deletable = editable;
+            // Suppression aussi : d'une saisie bloquée depuis longtemps en "à renvoyer"
+            // (avertissement fort), et d'une saisie déjà enregistrée sur le serveur (seule la
+            // copie de ce téléphone disparaît).
+            boolean deletable = editable || saisie.isBloqueeLongtemps()
+                    || SaisieLocale.STATUT_DEJA_ENREGISTREE.equals(saisie.getSyncStatus());
             if (saisie.getType() == SaisieType.PESEE_SESSION) {
                 // Toujours consultable (ouvre l'écran de la session). Suppression : session
                 // jamais envoyée et encore en cours, ou refusée par le serveur (ERROR) —

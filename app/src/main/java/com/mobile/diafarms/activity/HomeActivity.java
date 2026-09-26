@@ -155,6 +155,7 @@ public class HomeActivity extends AppCompatActivity {
     private Button btnSyncNow;
     private TextView tvSaisiesAutresComptes;
     private TextView tvConsultationSeule;
+    private TextView tvDejaEnregistrees;
 
     // Bandeau "Nouvelle version disponible"
     private CardView cardMiseAJour;
@@ -207,7 +208,7 @@ public class HomeActivity extends AppCompatActivity {
         loadLastEntry();
         updateFinanceStats();
         verifierMiseAJour();
-        proposerAdoptionSaisiesSansCompte();
+        proposerAdoptionSaisiesSansCompte(false);
         CachePrefetcher.prefetchProfil(this, this::surProfilMisAJour);
 
         // Vérification périodique des alertes en arrière-plan (notifications locales,
@@ -290,6 +291,8 @@ public class HomeActivity extends AppCompatActivity {
         btnSyncNow = findViewById(R.id.btnSyncNow);
         tvSaisiesAutresComptes = findViewById(R.id.tvSaisiesAutresComptes);
         tvConsultationSeule = findViewById(R.id.tvConsultationSeule);
+        tvDejaEnregistrees = findViewById(R.id.tvDejaEnregistrees);
+        tvDejaEnregistrees.setOnClickListener(v -> startActivity(new Intent(this, MesSaisiesActivity.class)));
         cardMiseAJour = findViewById(R.id.cardMiseAJour);
         tvMajTitre = findViewById(R.id.tvMajTitre);
         tvMajNotes = findViewById(R.id.tvMajNotes);
@@ -540,6 +543,7 @@ public class HomeActivity extends AppCompatActivity {
                     // ligne sur le terrain (voir CachePrefetcher).
                     CachePrefetcher.prefetchProjectsDetails(HomeActivity.this, localDatabase, projetsList);
                     setupProjetSelector();
+                    proposerAdoptionSaisiesSansCompte(true); // projets connus : répartition possible
                 } else if (!hadCache) {
                     showAucunProjetDisponible();
                 }
@@ -1019,19 +1023,40 @@ public class HomeActivity extends AppCompatActivity {
     /** Saisies antérieures à la 1.31 dont le compte n'a pas pu être déterminé (plusieurs
      * comptes sur l'appareil au moment de la mise à jour, voir LocalDatabase.migrerVersV7) :
      * elles ne partent avec AUCUN jeton tant qu'un utilisateur ne les a pas reconnues. */
-    private void proposerAdoptionSaisiesSansCompte() {
+    private void proposerAdoptionSaisiesSansCompte(boolean listeServeurRecue) {
         int n = localDatabase.countPendingSansCompte();
         if (n == 0 || adoptionDemandee) return;
+        // Projets du compte pas encore connus (cache vide après la migration) : on attend la
+        // liste du serveur (voir loadProjets) pour ne pas écarter à tort ses propres saisies.
+        if (projetsList.isEmpty() && !listeServeurRecue) return;
         adoptionDemandee = true;
+        // Ni le compte ni la ferme d'origine n'étaient enregistrés avant la 1.31 : le projet
+        // de la saisie est le seul indice. Une saisie d'un projet que ce compte ne connaît
+        // pas (autre ferme ou autre compte) n'est jamais reprise.
+        java.util.Set<String> mesProjets = new java.util.HashSet<>();
+        for (ProjetSelectResponse p : projetsList) mesProjets.add(p.getUniqueId());
+        int[] r = localDatabase.repartirSansCompte(mesProjets);
+        int reprenables = r[0] + r[2];
+        StringBuilder m = new StringBuilder(n + " saisie(s) en attente ont été enregistrées sur ce téléphone avant la mise à jour, "
+                + "sans indication du compte qui les a faites (ni compte ni ferme d'origine connus) :");
+        if (r[0] > 0) m.append("\n- ").append(r[0]).append(" sur un de vos projets");
+        if (r[2] > 0) m.append("\n- ").append(r[2]).append(" sans projet (ventes, dépenses, clients...)");
+        if (r[1] > 0) m.append("\n- ").append(r[1]).append(" sur un projet que votre compte ne connaît pas : elles ne seront pas reprises");
+        if (reprenables == 0) {
+            m.append("\n\nElles attendront que leur auteur se connecte sur ce téléphone.");
+            new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                    .setTitle("Saisies sans compte").setMessage(m.toString()).setPositiveButton("Compris", null).show();
+            return;
+        }
+        m.append("\n\nLes ").append(reprenables).append(" première(s) ont-elles été saisies avec votre compte (")
+                .append(currentUser.getNom()).append(") ? Si oui, elles seront envoyées avec votre compte. "
+                        + "Sinon, elles attendront que leur auteur se connecte sur ce téléphone.");
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle("Saisies sans compte")
-                .setMessage(n + " saisie(s) en attente ont été enregistrées sur ce téléphone avant la mise à jour, "
-                        + "sans indication du compte qui les a faites.\n\nLes avez-vous saisies avec votre compte ("
-                        + currentUser.getNom() + ") ? Si oui, elles seront envoyées avec votre compte. "
-                        + "Sinon, elles attendront que leur auteur se connecte sur ce téléphone.")
+                .setMessage(m.toString())
                 .setCancelable(false)
                 .setPositiveButton("Oui, ce sont les miennes", (d, w) -> {
-                    localDatabase.adopterSaisiesSansCompte();
+                    localDatabase.adopterSaisiesSansCompte(mesProjets);
                     setupSyncStatus();
                     loadLastEntry();
                 })
@@ -1040,6 +1065,10 @@ public class HomeActivity extends AppCompatActivity {
     }
 
     private void setupSyncStatus() {
+        int deja = localDatabase.countDejaEnregistrees();
+        tvDejaEnregistrees.setVisibility(deja > 0 ? View.VISIBLE : View.GONE);
+        tvDejaEnregistrees.setText(deja + " saisie(s) déjà enregistrée(s) sur le serveur dans une autre version : "
+                + "vérifiez ou corrigez depuis l'application web (détail dans Mes saisies)");
         int autres = localDatabase.countPendingAutresComptes();
         tvSaisiesAutresComptes.setVisibility(autres > 0 ? View.VISIBLE : View.GONE);
         tvSaisiesAutresComptes.setText(autres + " saisie(s) d'un autre compte en attente : "
@@ -1137,8 +1166,13 @@ public class HomeActivity extends AppCompatActivity {
                     StringBuilder message = new StringBuilder(b.envoyees + " saisie(s) envoyée(s)");
                     if (b.aRenvoyer > 0) message.append(", ").append(b.aRenvoyer).append(" à renvoyer plus tard");
                     if (b.refusees > 0) message.append(", ").append(b.refusees).append(" refusée(s) : à corriger dans Mes saisies");
-                    Toast.makeText(HomeActivity.this, message.toString(), Toast.LENGTH_LONG).show();
-                    if (b.authMessage != null && !isFinishing()) {
+                    if (b.dejaEnregistrees > 0) message.append(", ").append(b.dejaEnregistrees)
+                            .append(" déjà enregistrée(s) sur le serveur : à vérifier sur l'application web");
+                    Toast.makeText(HomeActivity.this,
+                            b.consultationSeule ? SyncManager.MESSAGE_CONSULTATION_SEULE : message.toString(),
+                            Toast.LENGTH_LONG).show();
+                    if (b.consultationSeule) surProfilMisAJour();
+                    if (b.authMessage != null && !b.consultationSeule && !isFinishing()) {
                         new com.google.android.material.dialog.MaterialAlertDialogBuilder(HomeActivity.this)
                                 .setTitle("Reconnexion nécessaire")
                                 .setMessage(b.authMessage)

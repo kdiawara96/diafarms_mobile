@@ -41,6 +41,13 @@ public class SaisieLocale {
     private String cleEnvoi;
     // Code HTTP du dernier échec d'envoi (0 = réseau, null = inconnu / avant la 1.31).
     private Integer httpCode;
+    // Envois tentés sans réponse claire, et date (epoch ms) du premier : voir isBloqueeLongtemps.
+    private int nbEssais;
+    private long premierEchec;
+
+    /** Seuils au-delà desquels une saisie "à renvoyer" est considérée comme bloquée. */
+    public static final int ESSAIS_MAX = 5;
+    public static final long DUREE_MAX_MS = 3L * 24 * 60 * 60 * 1000;
 
     public String getLocalId() { return localId; }
     public void setLocalId(String localId) { this.localId = localId; }
@@ -89,6 +96,9 @@ public class SaisieLocale {
      * indisponible, session expirée). Un refus métier (400) ou un accès refusé (403) ne
      * compte pas : la saisie doit d'abord être corrigée. */
     public boolean seraRenvoyee() {
+        // Bloquée depuis longtemps : sort des contrôles de stock et de plafond hors ligne
+        // (elle continue d'être renvoyée à chaque synchronisation).
+        if (isBloqueeLongtemps()) return false;
         if (STATUT_LOCAL.equals(syncStatus)) return true;
         if (!STATUT_ERROR.equals(syncStatus) || httpCode == null) return false;
         int c = httpCode;
@@ -103,6 +113,20 @@ public class SaisieLocale {
         if (!STATUT_LOCAL.equals(syncStatus) || httpCode == null || type == SaisieType.PESEE_SESSION) return false;
         int c = httpCode;
         return c == 0 || c == 408 || c == 409 || c == 429 || c >= 500;
+    }
+
+    public int getNbEssais() { return nbEssais; }
+    public void setNbEssais(int nbEssais) { this.nbEssais = nbEssais; }
+
+    public long getPremierEchec() { return premierEchec; }
+    public void setPremierEchec(long premierEchec) { this.premierEchec = premierEchec; }
+
+    /** "À renvoyer" depuis 5 essais ou 3 jours : peut être supprimée (avec un avertissement
+     * fort, le serveur l'a peut-être déjà) et ne compte plus dans les contrôles hors ligne. */
+    public boolean isBloqueeLongtemps() {
+        if (!isEnAttenteConfirmation()) return false;
+        return nbEssais >= ESSAIS_MAX
+                || (premierEchec > 0 && System.currentTimeMillis() - premierEchec >= DUREE_MAX_MS);
     }
 
     /** Modifiable / supprimable par l'utilisateur : jamais envoyée, ou refusée

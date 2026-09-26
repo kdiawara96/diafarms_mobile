@@ -367,6 +367,10 @@ public class SaisieFormActivity extends AppCompatActivity {
     private final List<CommandeResponse> commandesClientPaiement = new ArrayList<>();
     private String pendingCommandePaiement;
     private static final String LABEL_SANS_COMMANDE = "Aucune (paiement libre)";
+    // Modification d'un encaissement dont la commande n'est plus dans le cache (livrée,
+    // close...) : on garde sa commande d'origine plutôt que d'en faire un paiement libre.
+    private static final String LABEL_COMMANDE_HORS_CACHE = "Commande d'origine (commande non disponible hors ligne)";
+    private String commandeHorsCachePaiement;
 
     // Transaction
     private View groupTransaction;
@@ -1033,18 +1037,31 @@ public class SaisieFormActivity extends AppCompatActivity {
             }
         }
         String avant = spinnerCommandePaiement.getText().toString();
-        spinnerCommandePaiement.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, labels));
+        // Un autre client choisi : la commande d'origine (hors cache) n'a plus de sens.
+        if (parUtilisateur) commandeHorsCachePaiement = null;
         String choix = LABEL_SANS_COMMANDE;
         if (!parUtilisateur && labels.contains(avant)) choix = avant;
-        if (pendingCommandePaiement != null) {
+        if (pendingCommandePaiement != null && clientUid != null) {
+            boolean trouvee = false;
             for (CommandeResponse c : commandesClientPaiement) {
                 if (pendingCommandePaiement.equals(c.uniqueId)) {
                     choix = libelleCommande(c);
-                    pendingCommandePaiement = null;
+                    trouvee = true;
                     break;
                 }
             }
+            if (!trouvee) {
+                commandeHorsCachePaiement = pendingCommandePaiement;
+            }
+            pendingCommandePaiement = null;
         }
+        if (commandeHorsCachePaiement != null) {
+            labels.add(LABEL_COMMANDE_HORS_CACHE);
+            if (!parUtilisateur && (LABEL_SANS_COMMANDE.equals(choix) || LABEL_COMMANDE_HORS_CACHE.equals(avant))) {
+                choix = LABEL_COMMANDE_HORS_CACHE;
+            }
+        }
+        spinnerCommandePaiement.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, labels));
         spinnerCommandePaiement.setText(choix, false);
         afficherSoldeClient(clientUid);
         if (clientUid != null) {
@@ -1069,6 +1086,7 @@ public class SaisieFormActivity extends AppCompatActivity {
 
     private String getSelectedCommandePaiement() {
         String selected = spinnerCommandePaiement.getText().toString();
+        if (LABEL_COMMANDE_HORS_CACHE.equals(selected)) return commandeHorsCachePaiement;
         for (CommandeResponse c : commandesClientPaiement) {
             if (libelleCommande(c).equals(selected)) return c.uniqueId;
         }
@@ -3538,7 +3556,18 @@ public class SaisieFormActivity extends AppCompatActivity {
         }
 
         if (editingLocalId != null) {
-            localDatabase.updateSaisie(editingLocalId, projetColonne, projetLabelColonne, payloadJson, summary);
+            // Revérifié ici : un envoi a pu être tenté pendant que le formulaire était ouvert.
+            SaisieLocale actuelle = localDatabase.getSaisieById(editingLocalId);
+            boolean refusee = actuelle == null || !actuelle.peutEtreModifiee()
+                    || !localDatabase.updateSaisie(editingLocalId, projetColonne, projetLabelColonne, payloadJson, summary);
+            if (refusee) {
+                toast(actuelle != null && SaisieLocale.STATUT_DEJA_ENREGISTREE.equals(actuelle.getSyncStatus())
+                        ? SaisieLocale.MESSAGE_DEJA_ENREGISTREE
+                        : actuelle != null && SaisieLocale.STATUT_SYNCED.equals(actuelle.getSyncStatus())
+                        ? "Cette saisie vient d'être envoyée : elle ne peut plus être modifiée ici"
+                        : SaisieLocale.MESSAGE_ATTENTE_CONFIRMATION);
+                return;
+            }
             toast("Saisie modifiée");
         } else {
             localDatabase.insertSaisie(type, projetColonne, projetLabelColonne, payloadJson, summary);

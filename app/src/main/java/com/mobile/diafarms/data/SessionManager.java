@@ -59,6 +59,8 @@ public class SessionManager {
     // chaque fois. Mis à jour à chaque changement de compte actif (voir setActiveAccountId).
     private static volatile String sActiveUserId;
     private static volatile boolean sActiveUserIdCharge;
+    // Ferme du compte actif, gardée en mémoire avec lui (voir LocalDatabase.fermeCourante).
+    private static volatile String sActiveFarmId;
 
     public SessionManager(Context context) {
         this.context = context.getApplicationContext();
@@ -66,8 +68,16 @@ public class SessionManager {
         gson = new Gson();
         if (!sActiveUserIdCharge) {
             sActiveUserId = safeGetString(KEY_ACTIVE_ACCOUNT_ID, null);
+            User u = getCurrentUser();
+            sActiveFarmId = u != null ? u.getFarmUniqueId() : null;
             sActiveUserIdCharge = true;
         }
+    }
+
+    /** Ferme du compte actif si connue, sans relire les préférences chiffrées. */
+    public static String activeFarmId(Context context) {
+        if (!sActiveUserIdCharge) new SessionManager(context);
+        return sActiveFarmId;
     }
 
     /** Identifiant (User.getId) du compte actif de l'appareil, null si aucun. Le compte
@@ -109,6 +119,7 @@ public class SessionManager {
         resetMasterKeyIfNeeded();
         pref = buildEncryptedPrefs(context);
         sActiveUserId = null;
+        sActiveFarmId = null;
         sActiveUserIdCharge = true;
     }
 
@@ -213,6 +224,8 @@ public class SessionManager {
     private void setActiveAccountId(String userId) {
         safeEdit(editor -> editor.putString(KEY_ACTIVE_ACCOUNT_ID, userId));
         sActiveUserId = userId;
+        Account a = findAccount(getAccounts(), userId);
+        sActiveFarmId = a != null && a.user != null ? a.user.getFarmUniqueId() : null;
         sActiveUserIdCharge = true;
     }
 
@@ -244,6 +257,7 @@ public class SessionManager {
         if (farmUniqueId != null) a.user.setFarmUniqueId(farmUniqueId);
         if (consultationSeule != null) a.user.setConsultationSeule(consultationSeule);
         saveAccounts(accounts);
+        if (userId.equals(sActiveUserId) && a.user.getFarmUniqueId() != null) sActiveFarmId = a.user.getFarmUniqueId();
     }
 
     private Account getActiveAccount() {
@@ -386,6 +400,8 @@ public class SessionManager {
             editor.putBoolean(KEY_IS_LOGGED_IN, false);
         });
         sActiveUserId = nextActiveId;
+        Account suivant = findAccount(accounts, nextActiveId);
+        sActiveFarmId = suivant != null && suivant.user != null ? suivant.user.getFarmUniqueId() : null;
         sActiveUserIdCharge = true;
     }
 
