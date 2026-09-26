@@ -27,6 +27,9 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.mobile.diafarms.R;
 import com.mobile.diafarms.data.CachePrefetcher;
+import com.mobile.diafarms.data.CommandesHorsLigne;
+import com.mobile.diafarms.network.dto.CommandeResponse;
+import com.mobile.diafarms.network.dto.LivraisonCommandeRequest;
 import com.mobile.diafarms.data.DernierePeseeEstimation;
 import com.mobile.diafarms.network.dto.DernierPoidsMoyenResponse;
 import com.mobile.diafarms.data.LocalDatabase;
@@ -83,6 +86,8 @@ public class SaisieFormActivity extends AppCompatActivity {
     public static final String EXTRA_PROJET_ID = "PROJET_ID";
     public static final String EXTRA_PROJET_LABEL = "PROJET_LABEL";
     public static final String EXTRA_LOCAL_ID = "LOCAL_ID"; // présent seulement en édition
+    // Livraison / encaissement lancés depuis l'écran Commandes : commande concernée.
+    public static final String EXTRA_COMMANDE_ID = "COMMANDE_ID";
 
     // "Vente" n'a de sens que pour une Entrée, "Achat"/"Salaire"/... que pour une
     // Sortie — deux listes séparées plutôt qu'une liste unique proposant des
@@ -339,6 +344,18 @@ public class SaisieFormActivity extends AppCompatActivity {
     private String pendingEmployeSalaireSelection;
     private static final String[] MOIS_LABELS = {"Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"};
 
+    // Livraison d'une commande (LIVRAISON_COMMANDE) : commande lue dans le cache des
+    // commandes ouvertes (voir CommandesHorsLigne), jamais choisie dans ce formulaire.
+    private CommandeResponse commandeLivree;
+    private View groupLivraison, groupUniteLivraison, groupKiloLivraison;
+    private TextView tvLivraisonCommande, tvStockLivraison, tvMontantLivraison;
+    private RadioGroup radioGroupUniteLivraison;
+    private TextInputLayout tilQuantiteLivraison, tilModePaiementLivraison;
+    private TextInputEditText etQuantiteLivraison, etPoidsLivraison, etPrixKgLivraison, etMontantRecuLivraison;
+    private AutoCompleteTextView spinnerModePaiementLivraison;
+    // Stock du magasin de la commande (œufs bons ou sujets réformés), dernière donnée connue.
+    private Integer stockLivraisonDisponible;
+
     // Transaction
     private View groupTransaction;
     private AutoCompleteTextView spinnerCategorie;
@@ -378,6 +395,11 @@ public class SaisieFormActivity extends AppCompatActivity {
         editingLocalId = getIntent().getStringExtra(EXTRA_LOCAL_ID);
 
         localDatabase = new LocalDatabase(this).figee();
+
+        if (type == SaisieType.LIVRAISON_COMMANDE && !chargerCommandeLivree()) {
+            finish();
+            return;
+        }
 
         bindViews();
         applyTypeVisibility();
@@ -421,6 +443,9 @@ public class SaisieFormActivity extends AppCompatActivity {
         }
         if (type == SaisieType.SALAIRE_PAYER) {
             loadSalaires();
+        }
+        if (type == SaisieType.LIVRAISON_COMMANDE) {
+            setupLivraison();
         }
 
         if (editingLocalId != null) {
@@ -685,6 +710,21 @@ public class SaisieFormActivity extends AppCompatActivity {
         };
         etQuantiteSalaire.addTextChangedListener(quantiteSalaireWatcher);
 
+        groupLivraison = findViewById(R.id.groupLivraison);
+        groupUniteLivraison = findViewById(R.id.groupUniteLivraison);
+        groupKiloLivraison = findViewById(R.id.groupKiloLivraison);
+        tvLivraisonCommande = findViewById(R.id.tvLivraisonCommande);
+        tvStockLivraison = findViewById(R.id.tvStockLivraison);
+        tvMontantLivraison = findViewById(R.id.tvMontantLivraison);
+        radioGroupUniteLivraison = findViewById(R.id.radioGroupUniteLivraison);
+        tilQuantiteLivraison = findViewById(R.id.tilQuantiteLivraison);
+        tilModePaiementLivraison = findViewById(R.id.tilModePaiementLivraison);
+        etQuantiteLivraison = findViewById(R.id.etQuantiteLivraison);
+        etPoidsLivraison = findViewById(R.id.etPoidsLivraison);
+        etPrixKgLivraison = findViewById(R.id.etPrixKgLivraison);
+        etMontantRecuLivraison = findViewById(R.id.etMontantRecuLivraison);
+        spinnerModePaiementLivraison = findViewById(R.id.spinnerModePaiementLivraison);
+
         groupTransaction = findViewById(R.id.groupTransaction);
         spinnerCategorie = findViewById(R.id.spinnerCategorie);
         etMontant = findViewById(R.id.etMontant);
@@ -884,6 +924,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         groupClient.setVisibility(type == SaisieType.CLIENT_CREATE ? View.VISIBLE : View.GONE);
         groupCommande.setVisibility(type == SaisieType.COMMANDE_CREATE ? View.VISIBLE : View.GONE);
         groupSalaire.setVisibility(type == SaisieType.SALAIRE_PAYER ? View.VISIBLE : View.GONE);
+        groupLivraison.setVisibility(type == SaisieType.LIVRAISON_COMMANDE ? View.VISIBLE : View.GONE);
         groupTransaction.setVisibility(
                 (type == SaisieType.TRANSACTION_ENTREE || type == SaisieType.TRANSACTION_SORTIE || type == SaisieType.VENTE_FIENTES)
                         ? View.VISIBLE : View.GONE);
@@ -902,7 +943,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         // occupés par le projet sélectionné, non pertinent ici.
         boolean sansBatiment = type == SaisieType.CLIENT_CREATE || type == SaisieType.COMMANDE_CREATE || type == SaisieType.SALAIRE_PAYER
                 || type == SaisieType.VENTE_OEUFS || type == SaisieType.VENTE_REFORME || type == SaisieType.VENTE_FIENTES
-                || type == SaisieType.ENTRETIEN
+                || type == SaisieType.ENTRETIEN || type == SaisieType.LIVRAISON_COMMANDE
                 // Le poulailler d'une dépense se choisit dans "Rattachement (facultatif)" ; le champ du haut ne servait à rien pour une transaction.
                 || type == SaisieType.TRANSACTION_ENTREE || type == SaisieType.TRANSACTION_SORTIE;
         groupBatimentTop.setVisibility(sansBatiment ? View.GONE : View.VISIBLE);
@@ -913,8 +954,135 @@ public class SaisieFormActivity extends AppCompatActivity {
         // n'avait tout simplement pas ce champ. Seuls Client/Salaire restent sans
         // aucune notion de date/heure de saisie.
         groupDateHeureTop.setVisibility(
-                (type == SaisieType.CLIENT_CREATE || type == SaisieType.SALAIRE_PAYER)
+                (type == SaisieType.CLIENT_CREATE || type == SaisieType.SALAIRE_PAYER
+                        // Livraison datée par le serveur au jour de l'envoi (pas de date dans /livrer).
+                        || type == SaisieType.LIVRAISON_COMMANDE)
                         ? View.GONE : View.VISIBLE);
+        if (type == SaisieType.LIVRAISON_COMMANDE && commandeLivree != null) {
+            tvProjetForm.setText(commandeLivree.clientNom);
+        }
+    }
+
+    // ===================== LIVRAISON D'UNE COMMANDE =====================
+
+    /** Commande à livrer : depuis l'écran Commandes (EXTRA_COMMANDE_ID) ou, en
+     * modification, depuis la saisie elle-même. Toujours lue dans le cache local (marche
+     * hors ligne). false si elle n'y est plus (livrée ou close entre-temps). */
+    private boolean chargerCommandeLivree() {
+        String uid = getIntent().getStringExtra(EXTRA_COMMANDE_ID);
+        if (uid == null && editingLocalId != null) {
+            SaisieLocale existante = localDatabase.getSaisieById(editingLocalId);
+            if (existante != null) {
+                LivraisonCommandeRequest r = gson.fromJson(existante.getPayloadJson(), LivraisonCommandeRequest.class);
+                if (r != null) uid = r.commandeUniqueId;
+            }
+        }
+        commandeLivree = CommandesHorsLigne.trouver(localDatabase, uid);
+        if (commandeLivree == null) {
+            toast("Commande introuvable sur ce téléphone (livrée ou close ?). Actualisez la liste des commandes.");
+            return false;
+        }
+        return true;
+    }
+
+    private void setupLivraison() {
+        CommandeResponse c = commandeLivree;
+        boolean oeufs = c.estOeufs();
+        boolean kilo = c.estAuKilo();
+        groupUniteLivraison.setVisibility(oeufs ? View.VISIBLE : View.GONE);
+        groupKiloLivraison.setVisibility(kilo ? View.VISIBLE : View.GONE);
+        if (kilo && c.prixKgEstime != null) etPrixKgLivraison.setText(formatSaisie(c.prixKgEstime));
+        spinnerModePaiementLivraison.setAdapter(new ArrayAdapter<>(this,
+                android.R.layout.simple_dropdown_item_1line, MODE_PAIEMENT_LABELS));
+        spinnerModePaiementLivraison.setText(MODE_PAIEMENT_LABELS[0], false);
+        appliquerLibellesLivraison();
+
+        StringBuilder info = new StringBuilder();
+        info.append("Commande de ").append(c.clientNom).append(" : ");
+        info.append(oeufs ? "œufs" : (kilo ? "réforme au kilo" : "réforme par tête"));
+        if (c.magasinNom != null) info.append(", magasin ").append(c.magasinNom);
+        int reste = resteLivrable();
+        info.append("\nReste à livrer : ").append(formatQuantiteLivraison(Math.max(0, reste)));
+        if (c.acompteReserve != null && c.acompteReserve > 0) {
+            info.append(String.format(Locale.FRANCE, "\nAcompte réservé : %,.0f F (règle d'abord cette livraison)", c.acompteReserve));
+        }
+        tvLivraisonCommande.setText(info.toString());
+
+        TextWatcher w = new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable s) {
+                recalculerMontantLivraison();
+                refreshCoherence();
+            }
+        };
+        etQuantiteLivraison.addTextChangedListener(w);
+        etPoidsLivraison.addTextChangedListener(w);
+        etPrixKgLivraison.addTextChangedListener(w);
+        etMontantRecuLivraison.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable s) {
+                Double m = parseDoubleOrNull(etMontantRecuLivraison.getText());
+                tilModePaiementLivraison.setVisibility(m != null && m > 0 ? View.VISIBLE : View.GONE);
+            }
+        });
+        radioGroupUniteLivraison.setOnCheckedChangeListener((g, id) -> {
+            appliquerLibellesLivraison();
+            recalculerMontantLivraison();
+            refreshCoherence();
+        });
+        recalculerMontantLivraison();
+        if (c.magasinUniqueId != null) loadStockForMagasin(c.magasinUniqueId);
+        else displayStockMagasin(null, false);
+    }
+
+    private boolean isLivraisonEnAlveoles() {
+        return commandeLivree != null && commandeLivree.estOeufs()
+                && radioGroupUniteLivraison.getCheckedRadioButtonId() == R.id.radioUniteLivraisonAlveole;
+    }
+
+    private void appliquerLibellesLivraison() {
+        if (commandeLivree.estOeufs()) {
+            tilQuantiteLivraison.setHint(isLivraisonEnAlveoles() ? "Nombre d'alvéoles livrées *" : "Nombre d'œufs livrés *");
+        } else {
+            tilQuantiteLivraison.setHint("Nombre de sujets livrés *");
+        }
+    }
+
+    /** Quantité saisie, toujours en œufs (jamais en alvéoles) ou en sujets. */
+    private int quantiteLivraison() {
+        int saisie = parseIntSafe(etQuantiteLivraison.getText());
+        return isLivraisonEnAlveoles() ? AlveoleUtils.alveolesToOeufs(saisie) : saisie;
+    }
+
+    /** Reste à livrer vu d'ici : reste serveur moins les autres livraisons en attente. */
+    private int resteLivrable() {
+        return commandeLivree.resteServeur()
+                - CommandesHorsLigne.quantiteEnAttente(localDatabase, commandeLivree.uniqueId, editingLocalId);
+    }
+
+    private String formatQuantiteLivraison(int n) {
+        return commandeLivree.estOeufs() ? AlveoleUtils.formatOeufsAvecAlveoles(n) : n + (n > 1 ? " sujets" : " sujet");
+    }
+
+    /** Montant de cette livraison, calculé comme le serveur (CommandeServiceImpl.livrer). */
+    private Double montantLivraison() {
+        if (commandeLivree.estAuKilo()) {
+            Double poids = parseDoubleOrNull(etPoidsLivraison.getText());
+            Double prixKg = parseDoubleOrNull(etPrixKgLivraison.getText());
+            if (prixKg == null) prixKg = commandeLivree.prixKgEstime;
+            return poids != null && poids > 0 && prixKg != null && prixKg > 0 ? (double) Math.round(poids * prixKg) : null;
+        }
+        Double pu = commandeLivree.prixUnitaireLivraison();
+        int q = quantiteLivraison();
+        return pu != null && q > 0 ? (double) Math.round(pu * q) : null;
+    }
+
+    private void recalculerMontantLivraison() {
+        Double m = montantLivraison();
+        tvMontantLivraison.setText(m != null ? String.format(Locale.FRANCE, "Montant de cette livraison : %,.0f F", m) : "");
+        tvMontantLivraison.setVisibility(m != null ? View.VISIBLE : View.GONE);
     }
 
     /**
@@ -2137,6 +2305,18 @@ public class SaisieFormActivity extends AppCompatActivity {
             } else {
                 tvStockOeufsInfo.setText(fromCache ? "Stock non disponible (hors ligne)" : "Stock non disponible");
             }
+        } else if (type == SaisieType.LIVRAISON_COMMANDE) {
+            boolean oeufs = commandeLivree.estOeufs();
+            stockLivraisonDisponible = stock != null ? (oeufs ? stock.getOeufsDisponible() : stock.getReformeDisponible()) : null;
+            if (stockLivraisonDisponible != null) {
+                int dispo = stockLivraisonDisponible - (oeufs
+                        ? ventesOeufsEnAttente(commandeLivree.magasinUniqueId, false)
+                        : ventesReformeEnAttente(commandeLivree.magasinUniqueId));
+                tvStockLivraison.setText("Disponible dans le magasin : " + formatQuantiteLivraison(Math.max(0, dispo))
+                        + (fromCache ? " (dernière donnée connue, hors ligne)" : ""));
+            } else {
+                tvStockLivraison.setText(fromCache ? "Stock du magasin non disponible (hors ligne)" : "Stock du magasin non disponible");
+            }
         } else if (type == SaisieType.VENTE_REFORME) {
             stockReformeDisponible = stock != null ? stock.getReformeDisponible() : null;
             if (stockReformeDisponible != null) {
@@ -2321,6 +2501,8 @@ public class SaisieFormActivity extends AppCompatActivity {
             boolean rCasse = r != null && "CASSE".equalsIgnoreCase(r.typeOeuf);
             if (r != null && magasin != null && magasin.equals(r.magasinUniqueId) && rCasse == casse && r.quantiteOeufs != null) total += r.quantiteOeufs;
         }
+        // Les livraisons de commande en attente puisent aussi dans ce magasin (œufs bons).
+        if (!casse) total += CommandesHorsLigne.quantiteEnAttenteMagasin(localDatabase, magasin, true, editingLocalId);
         return total;
     }
 
@@ -2330,6 +2512,7 @@ public class SaisieFormActivity extends AppCompatActivity {
             VenteReformeCreateRequest r = gson.fromJson(s.getPayloadJson(), VenteReformeCreateRequest.class);
             if (r != null && magasin != null && magasin.equals(r.magasinUniqueId) && r.nombreSujets != null) total += r.nombreSujets;
         }
+        total += CommandesHorsLigne.quantiteEnAttenteMagasin(localDatabase, magasin, false, editingLocalId);
         return total;
     }
 
@@ -2450,12 +2633,37 @@ public class SaisieFormActivity extends AppCompatActivity {
                 }
                 break;
             }
+            case LIVRAISON_COMMANDE: {
+                int q = quantiteLivraison();
+                if (q <= 0 || commandeLivree == null) break;
+                int reste = resteLivrable();
+                if (q > reste) {
+                    message = String.format(Locale.FRANCE,
+                            "Impossible : %s saisis, alors qu'il ne reste que %s à livrer sur cette commande%s.",
+                            formatQuantiteLivraison(q), formatQuantiteLivraison(Math.max(0, reste)),
+                            reste < commandeLivree.resteServeur() ? " (livraisons en attente d'envoi comprises)" : "");
+                    fautifs = new TextInputEditText[]{etQuantiteLivraison};
+                } else if (stockLivraisonDisponible != null) {
+                    boolean oeufs = commandeLivree.estOeufs();
+                    int stock = stockLivraisonDisponible - (oeufs
+                            ? ventesOeufsEnAttente(commandeLivree.magasinUniqueId, false)
+                            : ventesReformeEnAttente(commandeLivree.magasinUniqueId));
+                    if (q > stock) {
+                        message = String.format(Locale.FRANCE,
+                                "Impossible : %s saisis, alors que le stock du magasin de la commande n'est que de %s (ventes et livraisons en attente déduites).",
+                                formatQuantiteLivraison(q), formatQuantiteLivraison(Math.max(0, stock)));
+                        fautifs = new TextInputEditText[]{etQuantiteLivraison};
+                    }
+                }
+                break;
+            }
             default:
                 break;
         }
 
         TextInputEditText[] tous = {etAlveolesCollectees, etOeufsCollectes, etOeufsCasses, etOeufsNonUtilisables,
-                etNombreMorts, etNombreSujetsReforme, etQuantiteKgConso, etQuantiteOeufsVente, etNombreSujetsVente};
+                etNombreMorts, etNombreSujetsReforme, etQuantiteKgConso, etQuantiteOeufsVente, etNombreSujetsVente,
+                etQuantiteLivraison};
         for (TextInputEditText et : tous) marquerChamp(et, false);
         for (TextInputEditText et : fautifs) marquerChamp(et, true);
 
@@ -2991,6 +3199,64 @@ public class SaisieFormActivity extends AppCompatActivity {
                                 quantite, estReforme ? "sujet(s)" : "œuf(s)", clientNomCommande, montantEstime);
                 break;
             }
+            case LIVRAISON_COMMANDE: {
+                CommandeResponse c = commandeLivree;
+                int q = quantiteLivraison();
+                if (q <= 0) {
+                    toast(c.estOeufs() ? (isLivraisonEnAlveoles() ? "Veuillez saisir le nombre d'alvéoles livrées" : "Veuillez saisir le nombre d'œufs livrés")
+                            : "Veuillez saisir le nombre de sujets livrés");
+                    return;
+                }
+                if (q > resteLivrable()) {
+                    toast("Quantité supérieure au reste à livrer (" + formatQuantiteLivraison(Math.max(0, resteLivrable())) + ")");
+                    return;
+                }
+                LivraisonCommandeRequest req = new LivraisonCommandeRequest();
+                req.commandeUniqueId = c.uniqueId;
+                req.quantite = q;
+                req.type = c.type;
+                req.magasinUniqueId = c.magasinUniqueId;
+                req.clientUniqueId = c.clientUniqueId;
+                req.clientNom = c.clientNom;
+                if (c.estAuKilo()) {
+                    Double poids = parseDoubleOrNull(etPoidsLivraison.getText());
+                    if (poids == null || poids <= 0) {
+                        toast("Veuillez saisir le poids total pesé (kg)");
+                        return;
+                    }
+                    Double prixKg = parseDoubleOrNull(etPrixKgLivraison.getText());
+                    if (prixKg != null && prixKg <= 0) {
+                        toast("Le prix du kg doit être positif");
+                        return;
+                    }
+                    if (prixKg == null && (c.prixKgEstime == null || c.prixKgEstime <= 0)) {
+                        toast("Veuillez saisir le prix du kg");
+                        return;
+                    }
+                    req.poidsTotalKg = Math.round(poids * 1000.0) / 1000.0;
+                    req.prixKg = prixKg;
+                }
+                Double recu = parseDoubleOrNull(etMontantRecuLivraison.getText());
+                if (recu != null && recu < 0) {
+                    toast("Le montant reçu ne peut pas être négatif");
+                    return;
+                }
+                if (recu != null && recu > 0) {
+                    req.montantRecu = recu;
+                    req.mode = getSelectedModePaiement(spinnerModePaiementLivraison);
+                    if (req.mode == null) {
+                        toast("Veuillez choisir le mode de paiement");
+                        return;
+                    }
+                }
+                requestObject = req;
+                StringBuilder resume = new StringBuilder("Livraison à ").append(c.clientNom).append(" : ")
+                        .append(formatQuantiteLivraison(q));
+                if (req.poidsTotalKg != null) resume.append(", ").append(formatNombre(req.poidsTotalKg, 3)).append(" kg");
+                if (req.montantRecu != null) resume.append(String.format(Locale.FRANCE, " (%,.0f F reçus)", req.montantRecu));
+                summary = resume.toString();
+                break;
+            }
             case SALAIRE_PAYER: {
                 if (salaires.isEmpty()) {
                     toast("Aucune grille salariale synchronisée. Définissez un salaire depuis le web, ou synchronisez");
@@ -3056,7 +3322,8 @@ public class SaisieFormActivity extends AppCompatActivity {
         // comme liée à ce projet, et l'édition la rattacherait par erreur).
         String projetColonne = projetUniqueId;
         String projetLabelColonne = projetLabel;
-        if (requestObject instanceof TransactionCreateRequest && Boolean.TRUE.equals(((TransactionCreateRequest) requestObject).commun)) {
+        if (requestObject instanceof LivraisonCommandeRequest
+                || (requestObject instanceof TransactionCreateRequest && Boolean.TRUE.equals(((TransactionCreateRequest) requestObject).commun))) {
             projetColonne = null;
             projetLabelColonne = null;
         }
@@ -3224,6 +3491,16 @@ public class SaisieFormActivity extends AppCompatActivity {
                 if (req.dateLivraisonPrevue != null) etDateLivraisonCommande.setText(req.dateLivraisonPrevue);
                 selectMagasinByUniqueId(req.magasinUniqueId);
                 selectClientByUniqueId(req.clientUniqueId);
+                break;
+            }
+            case LIVRAISON_COMMANDE: {
+                LivraisonCommandeRequest req = gson.fromJson(json, LivraisonCommandeRequest.class);
+                // Toujours rouverte en œufs (unité Œuf), comme une vente d'œufs.
+                if (req.quantite != null) etQuantiteLivraison.setText(String.valueOf(req.quantite));
+                if (req.poidsTotalKg != null) etPoidsLivraison.setText(formatSaisie(req.poidsTotalKg));
+                if (req.prixKg != null) etPrixKgLivraison.setText(formatSaisie(req.prixKg));
+                if (req.montantRecu != null) etMontantRecuLivraison.setText(formatSaisie(req.montantRecu));
+                selectModePaiementByValue(spinnerModePaiementLivraison, req.mode);
                 break;
             }
             case SALAIRE_PAYER: {

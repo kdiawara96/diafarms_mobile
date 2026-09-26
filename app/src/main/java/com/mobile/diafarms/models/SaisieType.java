@@ -57,6 +57,11 @@ public enum SaisieType {
     // Toujours un client (obligatoire, contrairement à une vente) — voir
     // diafarms_back Commande.client et CommandeCreateRequest.
     COMMANDE_CREATE("Nouvelle commande", Categorie.FINANCE),
+    // Livraison (totale ou partielle) d'une commande ouverte, choisie dans l'écran
+    // Commandes (CommandesActivity) : POST /commandes/{uid}/livrer. Crée côté serveur la
+    // vente liée à la commande, réglée d'abord par l'acompte réservé. Plafonnée hors ligne
+    // par le reste à livrer et le stock du magasin de la commande.
+    LIVRAISON_COMMANDE("Livraison de commande", Categorie.FINANCE),
     // Rôle Comptable uniquement : payer un salaire déjà défini (grille synchronisée
     // via CachePrefetcher, voir SalaireSelectResponse) — pas de création/modification
     // de la grille elle-même sur mobile, ça reste une action web (voir DefinirSalaireDialog).

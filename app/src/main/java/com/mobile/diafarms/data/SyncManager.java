@@ -14,6 +14,7 @@ import com.mobile.diafarms.network.dto.CollecteOeufsCreateRequest;
 import com.mobile.diafarms.network.dto.CommandeCreateRequest;
 import com.mobile.diafarms.network.dto.ConsommationAlimentCreateRequest;
 import com.mobile.diafarms.network.dto.CreatedEntityResponse;
+import com.mobile.diafarms.network.dto.LivraisonCommandeRequest;
 import com.mobile.diafarms.network.dto.MortaliteCreateRequest;
 import com.mobile.diafarms.network.dto.ReformeCreateRequest;
 import com.mobile.diafarms.network.dto.SalairePayerRequest;
@@ -328,6 +329,17 @@ public class SyncManager {
             case COMMANDE_CREATE:
                 api.createCommande(cle, gson.fromJson(json, CommandeCreateRequest.class)).enqueue(callback);
                 break;
+            case LIVRAISON_COMMANDE: {
+                LivraisonCommandeRequest l = gson.fromJson(json, LivraisonCommandeRequest.class);
+                boolean kilo = l.poidsTotalKg != null;
+                // Poids/prix au kilo seulement pour une commande au kilo (sinon 400 serveur) ;
+                // aucun montant reçu = paramètre absent (pas de paiement créé).
+                api.livrerCommande(cle, l.commandeUniqueId, l.quantite,
+                        l.montantRecu != null && l.montantRecu > 0 ? l.montantRecu : null,
+                        l.montantRecu != null && l.montantRecu > 0 ? l.mode : null,
+                        kilo ? l.poidsTotalKg : null, kilo ? l.prixKg : null).enqueue(callback);
+                break;
+            }
             case SALAIRE_PAYER:
                 api.payerSalaire(cle, gson.fromJson(json, SalairePayerRequest.class)).enqueue(callback);
                 break;

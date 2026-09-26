@@ -139,6 +139,7 @@ public class HomeActivity extends AppCompatActivity {
     private CardView btnVenteFientes;
     private CardView btnNouveauClient;
     private CardView btnNouvelleCommande;
+    private CardView btnCommandes;
     private CardView btnPayerSalaire;
     private CardView btnAchatAliment;
     private CardView cardStatsFinance;
@@ -271,6 +272,7 @@ public class HomeActivity extends AppCompatActivity {
         btnVenteFientes = findViewById(R.id.btnVenteFientes);
         btnNouveauClient = findViewById(R.id.btnNouveauClient);
         btnNouvelleCommande = findViewById(R.id.btnNouvelleCommande);
+        btnCommandes = findViewById(R.id.btnCommandes);
         btnPayerSalaire = findViewById(R.id.btnPayerSalaire);
         btnAchatAliment = findViewById(R.id.btnAchatAliment);
         cardStatsFinance = findViewById(R.id.cardStatsFinance);
@@ -373,8 +375,20 @@ public class HomeActivity extends AppCompatActivity {
         // sections l'une sous l'autre, jamais mélangées dans la même grille).
         tvSectionComptable.setVisibility(isComptable ? View.VISIBLE : View.GONE);
         gridComptable.setVisibility(isComptable ? View.VISIBLE : View.GONE);
-        tvSectionVente.setVisibility(isVente ? View.VISIBLE : View.GONE);
-        gridVente.setVisibility(isVente ? View.VISIBLE : View.GONE);
+        // RESPONSABLE/ADMIN n'ont pas de section Vente à eux, mais gèrent les commandes
+        // (voir CommandeServiceImpl.ensureCanManage) : même grille, sans les cartes de vente.
+        boolean gereCommandesSansReglage = currentUser.isResponsable() || currentUser.isAdmin();
+        boolean sectionVente = isVente || gereCommandesSansReglage;
+        tvSectionVente.setVisibility(sectionVente ? View.VISIBLE : View.GONE);
+        gridVente.setVisibility(sectionVente ? View.VISIBLE : View.GONE);
+        btnCommandes.setVisibility(gereCommandesSansReglage ? View.VISIBLE : View.GONE);
+        if (!isVente) {
+            btnVenteOeufs.setVisibility(View.GONE);
+            btnVenteReforme.setVisibility(View.GONE);
+            btnVenteFientes.setVisibility(View.GONE);
+            btnNouveauClient.setVisibility(View.GONE);
+            btnNouvelleCommande.setVisibility(View.GONE);
+        }
         // Entrées/sorties du jour — concept propre au COMPTABLE, pas au VENTE (voir
         // updateFinanceStats).
         cardStatsFinance.setVisibility(isComptable ? View.VISIBLE : View.GONE);
@@ -455,6 +469,9 @@ public class HomeActivity extends AppCompatActivity {
             btnVenteFientes.setVisibility(s.isVenteMobileEnabled() ? View.VISIBLE : View.GONE);
             btnNouveauClient.setVisibility(s.isVenteMobileEnabled() ? View.VISIBLE : View.GONE);
             btnNouvelleCommande.setVisibility(s.isVenteMobileEnabled() ? View.VISIBLE : View.GONE);
+            if (!currentUser.isResponsable() && !currentUser.isAdmin()) {
+                btnCommandes.setVisibility(s.isVenteMobileEnabled() ? View.VISIBLE : View.GONE);
+            }
         }
     }
 
@@ -800,6 +817,7 @@ public class HomeActivity extends AppCompatActivity {
         btnVenteFientes.setOnClickListener(v -> openSaisie(SaisieType.VENTE_FIENTES));
         btnNouveauClient.setOnClickListener(v -> openSaisie(SaisieType.CLIENT_CREATE));
         btnNouvelleCommande.setOnClickListener(v -> openSaisie(SaisieType.COMMANDE_CREATE));
+        btnCommandes.setOnClickListener(v -> startActivity(new Intent(this, CommandesActivity.class)));
         btnPayerSalaire.setOnClickListener(v -> openSaisie(SaisieType.SALAIRE_PAYER));
         btnAchatAliment.setOnClickListener(v -> openSaisie(SaisieType.ALIMENTATION_ACHAT));
 

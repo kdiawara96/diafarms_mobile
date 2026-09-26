@@ -6,6 +6,8 @@ import com.mobile.diafarms.network.dto.ClientCreateRequest;
 import com.mobile.diafarms.network.dto.ClientSelectResponse;
 import com.mobile.diafarms.network.dto.CollecteOeufsCreateRequest;
 import com.mobile.diafarms.network.dto.CommandeCreateRequest;
+import com.mobile.diafarms.network.dto.CommandeResponse;
+import com.mobile.diafarms.network.dto.PageResponse;
 import com.mobile.diafarms.network.dto.ConsommationAlimentCreateRequest;
 import com.mobile.diafarms.network.dto.CreatedEntityResponse;
 import com.mobile.diafarms.network.dto.AlimentationCreateRequest;
@@ -168,6 +170,24 @@ public interface DataApi {
     // ============== COMMANDE (VENTE : ce qu'un client demande avant la vente) ==============
     @POST("commandes/create")
     Call<ApiEnvelope<CreatedEntityResponse>> createCommande(@Header("Idempotency-Key") String idempotencyKey, @Body CommandeCreateRequest request);
+
+    // Commandes d'un statut donné (EN_ATTENTE, CONFIRMEE, EN_LIVRAISON...) — voir
+    // CachePrefetcher.prefetchCommandes, qui ne garde que les commandes ouvertes.
+    @GET("commandes/list")
+    Call<ApiEnvelope<PageResponse<CommandeResponse>>> getCommandes(@Query("page") int page,
+                                                                   @Query("size") int size,
+                                                                   @Query("statut") String statut);
+
+    // Livraison partielle ou totale (voir CommandeController.livrer) : paramètres d'URL,
+    // pas de corps. quantite en œufs ou en sujets ; au kilo, poidsTotalKg obligatoire.
+    @POST("commandes/{uniqueId}/livrer")
+    Call<ApiEnvelope<CreatedEntityResponse>> livrerCommande(@Header("Idempotency-Key") String idempotencyKey,
+                                                            @Path("uniqueId") String commandeUniqueId,
+                                                            @Query("quantite") Integer quantite,
+                                                            @Query("montantRecu") Double montantRecu,
+                                                            @Query("mode") String mode,
+                                                            @Query("poidsTotalKg") Double poidsTotalKg,
+                                                            @Query("prixKg") Double prixKg);
 
     // ============== SALAIRES (COMPTABLE : paiement uniquement, pas de gestion de la
     // grille — voir SalaireServiceImpl.payer côté back, au plus un paiement par période) ==============

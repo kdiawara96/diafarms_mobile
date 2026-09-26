@@ -91,6 +91,10 @@
             android:screenOrientation="portrait"
             android:exported="false" />
         <activity
+            android:name=".activity.CommandesActivity"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
             android:name=".activity.PeseeSessionActivity"
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize"

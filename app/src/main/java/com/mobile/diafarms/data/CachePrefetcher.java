@@ -6,6 +6,7 @@ import androidx.annotation.NonNull;
 
 import com.google.gson.Gson;
 import com.mobile.diafarms.models.SaisieLocale;
+import com.mobile.diafarms.models.User;
 import com.mobile.diafarms.network.ApiClient;
 import com.mobile.diafarms.network.dto.ApiEnvelope;
 import com.mobile.diafarms.network.dto.BatimentSelectResponse;
@@ -87,6 +88,12 @@ public class CachePrefetcher {
     // estimation datée du poids d'une vente/commande de réformes au kilo hors ligne,
     // complétée par les sessions locales (voir DernierePeseeEstimation).
     public static final String CACHE_DERNIER_POIDS_MOYEN_PREFIX = "dernier_poids_moyen_";
+
+    // Commandes OUVERTES de la ferme (en attente, confirmées, en cours de livraison) avec
+    // leur état d'argent (acompte reçu/réservé...) : écran Commandes et livraison hors ligne
+    // (voir CommandesHorsLigne, CommandesActivity).
+    public static final String CACHE_COMMANDES_OUVERTES = "commandes_ouvertes";
+    private static final String[] STATUTS_COMMANDE_OUVERTE = {"EN_ATTENTE", "CONFIRMEE", "EN_LIVRAISON"};
 
     private static final String TAG = "CachePrefetcher";
     private static final Gson gson = new Gson();
@@ -269,6 +276,50 @@ public class CachePrefetcher {
         prefetchRattachements(appContext, localDatabase);
         prefetchClients(appContext, localDatabase);
         prefetchSalaires(appContext, localDatabase);
+        User u = new SessionManager(appContext).getCurrentUser();
+        if (u != null && u.peutEncaisser()) {
+            rafraichirCommandes(appContext, localDatabase, null);
+        }
+    }
+
+    /** Recharge les commandes ouvertes (un appel par statut ouvert, 200 au plus chacun) et
+     * ne remplace le cache que si les trois réponses sont arrivées : une liste partielle
+     * ferait croire qu'une commande a disparu. fin(true) si le cache a été mis à jour. */
+    public static void rafraichirCommandes(Context context, LocalDatabase localDatabaseAppelant,
+                                           java.util.function.Consumer<Boolean> fin) {
+        Context appContext = context.getApplicationContext();
+        LocalDatabase localDatabase = localDatabaseAppelant.figee();
+        List<com.mobile.diafarms.network.dto.CommandeResponse> toutes = new ArrayList<>();
+        int[] restantes = {STATUTS_COMMANDE_OUVERTE.length};
+        boolean[] echec = {false};
+        for (String statut : STATUTS_COMMANDE_OUVERTE) {
+            ApiClient.dataApi(appContext).getCommandes(0, 200, statut).enqueue(
+                    new Callback<ApiEnvelope<com.mobile.diafarms.network.dto.PageResponse<com.mobile.diafarms.network.dto.CommandeResponse>>>() {
+                        @Override
+                        public void onResponse(Call<ApiEnvelope<com.mobile.diafarms.network.dto.PageResponse<com.mobile.diafarms.network.dto.CommandeResponse>>> call,
+                                               Response<ApiEnvelope<com.mobile.diafarms.network.dto.PageResponse<com.mobile.diafarms.network.dto.CommandeResponse>>> response) {
+                            com.mobile.diafarms.network.dto.PageResponse<com.mobile.diafarms.network.dto.CommandeResponse> page =
+                                    response.isSuccessful() && response.body() != null ? response.body().getData() : null;
+                            if (page == null || page.data == null) echec[0] = true;
+                            else toutes.addAll(page.data);
+                            terminerUn();
+                        }
+
+                        @Override
+                        public void onFailure(Call<ApiEnvelope<com.mobile.diafarms.network.dto.PageResponse<com.mobile.diafarms.network.dto.CommandeResponse>>> call, Throwable t) {
+                            echec[0] = true;
+                            terminerUn();
+                        }
+
+                        private void terminerUn() {
+                            if (--restantes[0] > 0) return;
+                            if (!echec[0]) {
+                                localDatabase.putCache(CACHE_COMMANDES_OUVERTES, gson.toJson(toutes));
+                            }
+                            if (fin != null) fin.accept(!echec[0]);
+                        }
+                    });
+        }
     }
 
     /** Profil du compte que le QR ne donne pas : ferme (/farms/me) et drapeau "consultation
