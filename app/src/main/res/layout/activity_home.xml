@@ -1056,6 +1056,56 @@
                             android:gravity="center"/>
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
+
+                <!-- Encaissement client pour un COMPTABLE sans rôle VENTE (sinon la carte de la section Vente suffit). -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/btnEncaissementCompta"
+                    android:layout_width="0dp"
+                    android:layout_height="120dp"
+                    android:layout_columnWeight="1"
+                    android:layout_margin="6dp"
+                    app:cardCornerRadius="16dp"
+                    app:cardBackgroundColor="@color/gray_bg"
+                    app:cardElevation="6dp"
+                    android:outlineSpotShadowColor="@color/shadow_salaire"
+                    android:outlineAmbientShadowColor="@color/shadow_salaire"
+                    tools:targetApi="28"
+                    android:foreground="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:visibility="gone">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="8dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="💵"
+                            android:textSize="28sp"/>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:text="Encaissement client"
+                            android:textColor="@color/gray_text_dark"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:gravity="center"/>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Paiement, dette, avance"
+                            android:textColor="@color/gray_text_soft"
+                            android:textSize="11sp"
+                            android:gravity="center"/>
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
             </GridLayout>
 
             <!-- Section Vente (CONDITIONNELLE, indépendante de Comptable ci-dessus). -->
@@ -1124,6 +1174,56 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="À livrer"
+                            android:textColor="@color/gray_text_soft"
+                            android:textSize="11sp"
+                            android:gravity="center"/>
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <!-- Encaissement client (VENTE, RESPONSABLE, ADMIN) : voir SaisieType.PAIEMENT_CLIENT. -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/btnEncaissement"
+                    android:layout_width="0dp"
+                    android:layout_height="120dp"
+                    android:layout_columnWeight="1"
+                    android:layout_margin="6dp"
+                    app:cardCornerRadius="16dp"
+                    app:cardBackgroundColor="@color/gray_bg"
+                    app:cardElevation="6dp"
+                    android:outlineSpotShadowColor="@color/shadow_salaire"
+                    android:outlineAmbientShadowColor="@color/shadow_salaire"
+                    tools:targetApi="28"
+                    android:foreground="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:visibility="gone">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="8dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="💵"
+                            android:textSize="28sp"/>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:text="Encaissement client"
+                            android:textColor="@color/gray_text_dark"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:gravity="center"/>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Paiement, dette, avance"
                             android:textColor="@color/gray_text_soft"
                             android:textSize="11sp"
                             android:gravity="center"/>

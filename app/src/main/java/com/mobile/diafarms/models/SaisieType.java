@@ -62,6 +62,10 @@ public enum SaisieType {
     // vente liée à la commande, réglée d'abord par l'acompte réservé. Plafonnée hors ligne
     // par le reste à livrer et le stock du magasin de la commande.
     LIVRAISON_COMMANDE("Livraison de commande", Categorie.FINANCE),
+    // Argent reçu d'un client (dette, avance, acompte), facultativement réservé à une de
+    // ses commandes : POST /paiements-client/create ou /commandes/{uid}/paiement. Rôles
+    // VENTE, COMPTABLE, RESPONSABLE, ADMIN (PaiementClientService.ensureCanEncaisser).
+    PAIEMENT_CLIENT("Encaissement client", Categorie.FINANCE),
     // Rôle Comptable uniquement : payer un salaire déjà défini (grille synchronisée
     // via CachePrefetcher, voir SalaireSelectResponse) — pas de création/modification
     // de la grille elle-même sur mobile, ça reste une action web (voir DefinirSalaireDialog).

@@ -7,6 +7,8 @@ import com.mobile.diafarms.network.dto.ClientSelectResponse;
 import com.mobile.diafarms.network.dto.CollecteOeufsCreateRequest;
 import com.mobile.diafarms.network.dto.CommandeCreateRequest;
 import com.mobile.diafarms.network.dto.CommandeResponse;
+import com.mobile.diafarms.network.dto.CompteClientResponse;
+import com.mobile.diafarms.network.dto.PaiementClientRequest;
 import com.mobile.diafarms.network.dto.PageResponse;
 import com.mobile.diafarms.network.dto.ConsommationAlimentCreateRequest;
 import com.mobile.diafarms.network.dto.CreatedEntityResponse;
@@ -188,6 +190,22 @@ public interface DataApi {
                                                             @Query("mode") String mode,
                                                             @Query("poidsTotalKg") Double poidsTotalKg,
                                                             @Query("prixKg") Double prixKg);
+
+    // ============== PAIEMENTS CLIENT (encaissement) ==============
+    @POST("paiements-client/create")
+    Call<ApiEnvelope<CreatedEntityResponse>> createPaiementClient(@Header("Idempotency-Key") String idempotencyKey,
+                                                                  @Body PaiementClientRequest request);
+
+    // Paiement réservé à une commande : client et commande déduits de l'URL.
+    @POST("commandes/{uniqueId}/paiement")
+    Call<ApiEnvelope<CreatedEntityResponse>> createPaiementCommande(@Header("Idempotency-Key") String idempotencyKey,
+                                                                    @Path("uniqueId") String commandeUniqueId,
+                                                                    @Body PaiementClientRequest request);
+
+    // Compte d'un client (reste à payer, avance libre / réservée) : seule la partie "compte"
+    // est lue, l'historique est ignoré.
+    @GET("clients/{uniqueId}/compte")
+    Call<ApiEnvelope<CompteClientResponse>> getCompteClient(@Path("uniqueId") String clientUniqueId);
 
     // ============== SALAIRES (COMPTABLE : paiement uniquement, pas de gestion de la
     // grille — voir SalaireServiceImpl.payer côté back, au plus un paiement par période) ==============

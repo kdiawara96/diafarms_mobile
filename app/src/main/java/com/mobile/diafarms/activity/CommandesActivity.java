@@ -191,8 +191,10 @@ public class CommandesActivity extends AppCompatActivity {
         b.show();
     }
 
-    /** Point d'extension pour l'encaissement sur la commande (voir PAIEMENT_CLIENT). */
+    /** Encaisser un paiement réservé à cette commande (client et commande présélectionnés). */
     private void ajouterActionEncaisser(MaterialAlertDialogBuilder b, CommandeResponse c, boolean demo) {
+        if (demo || !currentUser.peutEncaisser()) return;
+        b.setNeutralButton("Encaisser", (d, w) -> ouvrirSaisie(SaisieType.PAIEMENT_CLIENT, c));
     }
 
     private void ouvrirSaisie(SaisieType type, CommandeResponse c) {

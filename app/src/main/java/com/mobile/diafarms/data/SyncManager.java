@@ -15,6 +15,7 @@ import com.mobile.diafarms.network.dto.CommandeCreateRequest;
 import com.mobile.diafarms.network.dto.ConsommationAlimentCreateRequest;
 import com.mobile.diafarms.network.dto.CreatedEntityResponse;
 import com.mobile.diafarms.network.dto.LivraisonCommandeRequest;
+import com.mobile.diafarms.network.dto.PaiementClientRequest;
 import com.mobile.diafarms.network.dto.MortaliteCreateRequest;
 import com.mobile.diafarms.network.dto.ReformeCreateRequest;
 import com.mobile.diafarms.network.dto.SalairePayerRequest;
@@ -338,6 +339,15 @@ public class SyncManager {
                         l.montantRecu != null && l.montantRecu > 0 ? l.montantRecu : null,
                         l.montantRecu != null && l.montantRecu > 0 ? l.mode : null,
                         kilo ? l.poidsTotalKg : null, kilo ? l.prixKg : null).enqueue(callback);
+                break;
+            }
+            case PAIEMENT_CLIENT: {
+                PaiementClientRequest p = gson.fromJson(json, PaiementClientRequest.class);
+                if (p.commandeUniqueId != null) {
+                    api.createPaiementCommande(cle, p.commandeUniqueId, p).enqueue(callback);
+                } else {
+                    api.createPaiementClient(cle, p).enqueue(callback);
+                }
                 break;
             }
             case SALAIRE_PAYER:

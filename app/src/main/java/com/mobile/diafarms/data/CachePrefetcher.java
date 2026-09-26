@@ -93,6 +93,10 @@ public class CachePrefetcher {
     // leur état d'argent (acompte reçu/réservé...) : écran Commandes et livraison hors ligne
     // (voir CommandesHorsLigne, CommandesActivity).
     public static final String CACHE_COMMANDES_OUVERTES = "commandes_ouvertes";
+    // Compte de chaque client (reste à payer, avance libre / réservée), partie "compte" de
+    // GET /clients/{uid}/compte : affiché hors ligne dans "Encaissement client".
+    public static final String CACHE_COMPTE_CLIENT_PREFIX = "compte_client_";
+    private static final int COMPTES_CLIENTS_MAX = 150;
     private static final String[] STATUTS_COMMANDE_OUVERTE = {"EN_ATTENTE", "CONFIRMEE", "EN_LIVRAISON"};
 
     private static final String TAG = "CachePrefetcher";
@@ -235,6 +239,13 @@ public class CachePrefetcher {
             public void onResponse(Call<ApiEnvelope<List<ClientSelectResponse>>> call, Response<ApiEnvelope<List<ClientSelectResponse>>> response) {
                 if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
                     localDatabase.putCache(CACHE_CLIENTS_SELECT, gson.toJson(response.body().getData()));
+                    User u = new SessionManager(appContext).getCurrentUser();
+                    if (u != null && u.peutEncaisser()) {
+                        List<ClientSelectResponse> clients = response.body().getData();
+                        for (int i = 0; i < clients.size() && i < COMPTES_CLIENTS_MAX; i++) {
+                            rafraichirCompteClient(appContext, localDatabase, clients.get(i).getUniqueId(), null);
+                        }
+                    }
                 }
             }
 
@@ -280,6 +291,30 @@ public class CachePrefetcher {
         if (u != null && u.peutEncaisser()) {
             rafraichirCommandes(appContext, localDatabase, null);
         }
+    }
+
+    /** Recharge le compte d'un client dans le cache ; fin(true) si le cache a été mis à jour. */
+    public static void rafraichirCompteClient(Context context, LocalDatabase localDatabaseAppelant, String clientUniqueId,
+                                              java.util.function.Consumer<Boolean> fin) {
+        if (clientUniqueId == null) return;
+        LocalDatabase localDatabase = localDatabaseAppelant.figee();
+        ApiClient.dataApi(context.getApplicationContext()).getCompteClient(clientUniqueId).enqueue(
+                new Callback<ApiEnvelope<com.mobile.diafarms.network.dto.CompteClientResponse>>() {
+                    @Override
+                    public void onResponse(Call<ApiEnvelope<com.mobile.diafarms.network.dto.CompteClientResponse>> call,
+                                           Response<ApiEnvelope<com.mobile.diafarms.network.dto.CompteClientResponse>> response) {
+                        com.mobile.diafarms.network.dto.CompteClientResponse r = response.isSuccessful() && response.body() != null
+                                ? response.body().getData() : null;
+                        boolean ok = r != null && r.compte != null;
+                        if (ok) localDatabase.putCache(CACHE_COMPTE_CLIENT_PREFIX + clientUniqueId, gson.toJson(r.compte));
+                        if (fin != null) fin.accept(ok);
+                    }
+
+                    @Override
+                    public void onFailure(Call<ApiEnvelope<com.mobile.diafarms.network.dto.CompteClientResponse>> call, Throwable t) {
+                        if (fin != null) fin.accept(false);
+                    }
+                });
     }
 
     /** Recharge les commandes ouvertes (un appel par statut ouvert, 200 au plus chacun) et

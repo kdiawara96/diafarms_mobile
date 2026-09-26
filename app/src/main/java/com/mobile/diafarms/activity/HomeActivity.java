@@ -140,6 +140,8 @@ public class HomeActivity extends AppCompatActivity {
     private CardView btnNouveauClient;
     private CardView btnNouvelleCommande;
     private CardView btnCommandes;
+    private CardView btnEncaissement;
+    private CardView btnEncaissementCompta;
     private CardView btnPayerSalaire;
     private CardView btnAchatAliment;
     private CardView cardStatsFinance;
@@ -273,6 +275,8 @@ public class HomeActivity extends AppCompatActivity {
         btnNouveauClient = findViewById(R.id.btnNouveauClient);
         btnNouvelleCommande = findViewById(R.id.btnNouvelleCommande);
         btnCommandes = findViewById(R.id.btnCommandes);
+        btnEncaissement = findViewById(R.id.btnEncaissement);
+        btnEncaissementCompta = findViewById(R.id.btnEncaissementCompta);
         btnPayerSalaire = findViewById(R.id.btnPayerSalaire);
         btnAchatAliment = findViewById(R.id.btnAchatAliment);
         cardStatsFinance = findViewById(R.id.cardStatsFinance);
@@ -382,6 +386,7 @@ public class HomeActivity extends AppCompatActivity {
         tvSectionVente.setVisibility(sectionVente ? View.VISIBLE : View.GONE);
         gridVente.setVisibility(sectionVente ? View.VISIBLE : View.GONE);
         btnCommandes.setVisibility(gereCommandesSansReglage ? View.VISIBLE : View.GONE);
+        majEncaissement(null);
         if (!isVente) {
             btnVenteOeufs.setVisibility(View.GONE);
             btnVenteReforme.setVisibility(View.GONE);
@@ -473,6 +478,19 @@ public class HomeActivity extends AppCompatActivity {
                 btnCommandes.setVisibility(s.isVenteMobileEnabled() ? View.VISIBLE : View.GONE);
             }
         }
+        majEncaissement(s);
+    }
+
+    /** Encaissement client : dans la section Vente pour VENTE (si la vente mobile est
+     * activée), RESPONSABLE et ADMIN ; sinon dans la section Comptable pour un COMPTABLE
+     * (si la comptabilité mobile est activée). Jamais les deux cartes à la fois. Réglages
+     * inconnus (s null) : fermé pour VENTE/COMPTABLE, comme les autres cartes. */
+    private void majEncaissement(FarmAppSettingsResponse s) {
+        boolean sansReglage = currentUser.isResponsable() || currentUser.isAdmin();
+        boolean vente = sansReglage || (currentUser.isVente() && s != null && s.isVenteMobileEnabled());
+        boolean compta = !vente && currentUser.isComptable() && s != null && s.isComptableMobileEnabled();
+        btnEncaissement.setVisibility(vente ? View.VISIBLE : View.GONE);
+        btnEncaissementCompta.setVisibility(compta ? View.VISIBLE : View.GONE);
     }
 
     /** Charge les projets réels de la ferme (GET /projets/select) pour peupler le sélecteur. */
@@ -818,6 +836,8 @@ public class HomeActivity extends AppCompatActivity {
         btnNouveauClient.setOnClickListener(v -> openSaisie(SaisieType.CLIENT_CREATE));
         btnNouvelleCommande.setOnClickListener(v -> openSaisie(SaisieType.COMMANDE_CREATE));
         btnCommandes.setOnClickListener(v -> startActivity(new Intent(this, CommandesActivity.class)));
+        btnEncaissement.setOnClickListener(v -> openSaisie(SaisieType.PAIEMENT_CLIENT));
+        btnEncaissementCompta.setOnClickListener(v -> openSaisie(SaisieType.PAIEMENT_CLIENT));
         btnPayerSalaire.setOnClickListener(v -> openSaisie(SaisieType.SALAIRE_PAYER));
         btnAchatAliment.setOnClickListener(v -> openSaisie(SaisieType.ALIMENTATION_ACHAT));
 
@@ -851,7 +871,7 @@ public class HomeActivity extends AppCompatActivity {
         boolean needsProjet = type != SaisieType.TRANSACTION_ENTREE && type != SaisieType.TRANSACTION_SORTIE
                 && type != SaisieType.VENTE_OEUFS && type != SaisieType.VENTE_REFORME && type != SaisieType.VENTE_FIENTES
                 && type != SaisieType.CLIENT_CREATE && type != SaisieType.COMMANDE_CREATE && type != SaisieType.SALAIRE_PAYER
-                && type != SaisieType.ENTRETIEN;
+                && type != SaisieType.ENTRETIEN && type != SaisieType.PAIEMENT_CLIENT && type != SaisieType.LIVRAISON_COMMANDE;
         if (needsProjet && currentProjet == null) {
             Toast.makeText(this, "Veuillez sélectionner un projet", Toast.LENGTH_SHORT).show();
             return;

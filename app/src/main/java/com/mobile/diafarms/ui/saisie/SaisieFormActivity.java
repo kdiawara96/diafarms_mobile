@@ -30,6 +30,8 @@ import com.mobile.diafarms.data.CachePrefetcher;
 import com.mobile.diafarms.data.CommandesHorsLigne;
 import com.mobile.diafarms.network.dto.CommandeResponse;
 import com.mobile.diafarms.network.dto.LivraisonCommandeRequest;
+import com.mobile.diafarms.network.dto.CompteClientResponse;
+import com.mobile.diafarms.network.dto.PaiementClientRequest;
 import com.mobile.diafarms.data.DernierePeseeEstimation;
 import com.mobile.diafarms.network.dto.DernierPoidsMoyenResponse;
 import com.mobile.diafarms.data.LocalDatabase;
@@ -356,6 +358,16 @@ public class SaisieFormActivity extends AppCompatActivity {
     // Stock du magasin de la commande (œufs bons ou sujets réformés), dernière donnée connue.
     private Integer stockLivraisonDisponible;
 
+    // Encaissement client (PAIEMENT_CLIENT) : client obligatoire, commande facultative
+    // (seulement ses commandes ouvertes en cache), mode de paiement obligatoire.
+    private View groupPaiementClient;
+    private AutoCompleteTextView spinnerClientPaiement, spinnerCommandePaiement, spinnerModePaiementClient;
+    private TextView tvAucunClientPaiement, tvSoldeClient;
+    private TextInputEditText etMontantPaiement, etObservationsPaiement;
+    private final List<CommandeResponse> commandesClientPaiement = new ArrayList<>();
+    private String pendingCommandePaiement;
+    private static final String LABEL_SANS_COMMANDE = "Aucune (paiement libre)";
+
     // Transaction
     private View groupTransaction;
     private AutoCompleteTextView spinnerCategorie;
@@ -428,7 +440,16 @@ public class SaisieFormActivity extends AppCompatActivity {
         }
         // Client optionnel sur une vente, obligatoire sur une commande — voir
         // loadClients (uniquement les clients déjà synchronisés côté serveur).
-        if (type == SaisieType.VENTE_OEUFS || type == SaisieType.VENTE_REFORME || type == SaisieType.COMMANDE_CREATE) {
+        if (type == SaisieType.VENTE_OEUFS || type == SaisieType.VENTE_REFORME || type == SaisieType.COMMANDE_CREATE
+                || type == SaisieType.PAIEMENT_CLIENT) {
+            if (type == SaisieType.PAIEMENT_CLIENT && editingLocalId == null) {
+                // Lancé depuis une commande : client et commande présélectionnés.
+                CommandeResponse c = CommandesHorsLigne.trouver(localDatabase, getIntent().getStringExtra(EXTRA_COMMANDE_ID));
+                if (c != null) {
+                    pendingClientSelection = c.clientUniqueId;
+                    pendingCommandePaiement = c.uniqueId;
+                }
+            }
             loadClients();
         }
         // Réformes au kilo : estimation du poids depuis la dernière pesée terminée.
@@ -725,6 +746,20 @@ public class SaisieFormActivity extends AppCompatActivity {
         etMontantRecuLivraison = findViewById(R.id.etMontantRecuLivraison);
         spinnerModePaiementLivraison = findViewById(R.id.spinnerModePaiementLivraison);
 
+        groupPaiementClient = findViewById(R.id.groupPaiementClient);
+        spinnerClientPaiement = findViewById(R.id.spinnerClientPaiement);
+        spinnerCommandePaiement = findViewById(R.id.spinnerCommandePaiement);
+        spinnerModePaiementClient = findViewById(R.id.spinnerModePaiementClient);
+        tvAucunClientPaiement = findViewById(R.id.tvAucunClientPaiement);
+        tvSoldeClient = findViewById(R.id.tvSoldeClient);
+        etMontantPaiement = findViewById(R.id.etMontantPaiement);
+        etObservationsPaiement = findViewById(R.id.etObservationsPaiement);
+        // Mode obligatoire et jamais présélectionné : l'utilisateur doit dire comment il a
+        // été payé (espèces, Orange Money...).
+        spinnerModePaiementClient.setAdapter(new ArrayAdapter<>(this,
+                android.R.layout.simple_dropdown_item_1line, MODE_PAIEMENT_LABELS));
+        spinnerClientPaiement.setOnItemClickListener((parent, view, position, id) -> surClientPaiementChoisi(true));
+
         groupTransaction = findViewById(R.id.groupTransaction);
         spinnerCategorie = findViewById(R.id.spinnerCategorie);
         etMontant = findViewById(R.id.etMontant);
@@ -925,6 +960,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         groupCommande.setVisibility(type == SaisieType.COMMANDE_CREATE ? View.VISIBLE : View.GONE);
         groupSalaire.setVisibility(type == SaisieType.SALAIRE_PAYER ? View.VISIBLE : View.GONE);
         groupLivraison.setVisibility(type == SaisieType.LIVRAISON_COMMANDE ? View.VISIBLE : View.GONE);
+        groupPaiementClient.setVisibility(type == SaisieType.PAIEMENT_CLIENT ? View.VISIBLE : View.GONE);
         groupTransaction.setVisibility(
                 (type == SaisieType.TRANSACTION_ENTREE || type == SaisieType.TRANSACTION_SORTIE || type == SaisieType.VENTE_FIENTES)
                         ? View.VISIBLE : View.GONE);
@@ -943,7 +979,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         // occupés par le projet sélectionné, non pertinent ici.
         boolean sansBatiment = type == SaisieType.CLIENT_CREATE || type == SaisieType.COMMANDE_CREATE || type == SaisieType.SALAIRE_PAYER
                 || type == SaisieType.VENTE_OEUFS || type == SaisieType.VENTE_REFORME || type == SaisieType.VENTE_FIENTES
-                || type == SaisieType.ENTRETIEN || type == SaisieType.LIVRAISON_COMMANDE
+                || type == SaisieType.ENTRETIEN || type == SaisieType.LIVRAISON_COMMANDE || type == SaisieType.PAIEMENT_CLIENT
                 // Le poulailler d'une dépense se choisit dans "Rattachement (facultatif)" ; le champ du haut ne servait à rien pour une transaction.
                 || type == SaisieType.TRANSACTION_ENTREE || type == SaisieType.TRANSACTION_SORTIE;
         groupBatimentTop.setVisibility(sansBatiment ? View.GONE : View.VISIBLE);
@@ -961,6 +997,99 @@ public class SaisieFormActivity extends AppCompatActivity {
         if (type == SaisieType.LIVRAISON_COMMANDE && commandeLivree != null) {
             tvProjetForm.setText(commandeLivree.clientNom);
         }
+    }
+
+    // ===================== ENCAISSEMENT CLIENT =====================
+
+    /** Client choisi (ou rechargé) : ses commandes ouvertes pour le sélecteur facultatif, et
+     * son dernier compte connu (cache d'abord, puis réseau si possible). */
+    private void surClientPaiementChoisi(boolean parUtilisateur) {
+        String clientUid = getSelectedClientUniqueId(spinnerClientPaiement, false);
+        commandesClientPaiement.clear();
+        List<String> labels = new ArrayList<>();
+        labels.add(LABEL_SANS_COMMANDE);
+        if (clientUid != null) {
+            for (CommandeResponse c : CommandesHorsLigne.lire(localDatabase)) {
+                if (clientUid.equals(c.clientUniqueId)) {
+                    commandesClientPaiement.add(c);
+                    labels.add(libelleCommande(c));
+                }
+            }
+        }
+        String avant = spinnerCommandePaiement.getText().toString();
+        spinnerCommandePaiement.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, labels));
+        String choix = LABEL_SANS_COMMANDE;
+        if (!parUtilisateur && labels.contains(avant)) choix = avant;
+        if (pendingCommandePaiement != null) {
+            for (CommandeResponse c : commandesClientPaiement) {
+                if (pendingCommandePaiement.equals(c.uniqueId)) {
+                    choix = libelleCommande(c);
+                    pendingCommandePaiement = null;
+                    break;
+                }
+            }
+        }
+        spinnerCommandePaiement.setText(choix, false);
+        afficherSoldeClient(clientUid);
+        if (clientUid != null) {
+            CachePrefetcher.rafraichirCompteClient(this, localDatabase, clientUid, ok -> {
+                if (ok && !isFinishing() && clientUid.equals(getSelectedClientUniqueId(spinnerClientPaiement, false))) {
+                    afficherSoldeClient(clientUid);
+                }
+            });
+        }
+    }
+
+    private String libelleCommande(CommandeResponse c) {
+        StringBuilder l = new StringBuilder("Commande ");
+        l.append(c.estOeufs() ? "d'œufs" : "de réforme");
+        if (c.dateCommande != null && c.dateCommande.length() >= 10) {
+            l.append(" du ").append(c.dateCommande.substring(8, 10)).append('/').append(c.dateCommande.substring(5, 7));
+        }
+        int reste = c.resteServeur();
+        l.append(", reste ").append(c.estOeufs() ? AlveoleUtils.formatOeufsAvecAlveoles(reste) : reste + " sujet(s)");
+        return l.toString();
+    }
+
+    private String getSelectedCommandePaiement() {
+        String selected = spinnerCommandePaiement.getText().toString();
+        for (CommandeResponse c : commandesClientPaiement) {
+            if (libelleCommande(c).equals(selected)) return c.uniqueId;
+        }
+        return null;
+    }
+
+    /** Dernier compte connu du client + encaissements saisis ici et pas encore envoyés. */
+    private void afficherSoldeClient(String clientUid) {
+        if (clientUid == null) {
+            tvSoldeClient.setVisibility(View.GONE);
+            return;
+        }
+        String key = CachePrefetcher.CACHE_COMPTE_CLIENT_PREFIX + clientUid;
+        CompteClientResponse.Compte compte = getCachedOrNull(key, CompteClientResponse.Compte.class);
+        double enAttente = 0;
+        for (SaisieLocale s : localDatabase.getSaisiesPourControles(SaisieType.PAIEMENT_CLIENT)) {
+            if (!s.seraRenvoyee() || s.getLocalId().equals(editingLocalId)) continue;
+            PaiementClientRequest p = gson.fromJson(s.getPayloadJson(), PaiementClientRequest.class);
+            if (p != null && clientUid.equals(p.clientUniqueId) && p.montant != null) enAttente += p.montant;
+        }
+        StringBuilder t = new StringBuilder();
+        if (compte != null) {
+            t.append(String.format(Locale.FRANCE, "Reste à payer : %,.0f F", compte.resteAPayer));
+            t.append(String.format(Locale.FRANCE, "\nAvance libre : %,.0f F", compte.avanceLibre));
+            t.append(String.format(Locale.FRANCE, "\nAvance réservée aux commandes : %,.0f F", compte.avanceReservee));
+            long maj = localDatabase.getCacheUpdatedAt(key);
+            if (maj > 0) {
+                t.append("\nDonnées du ").append(new SimpleDateFormat("dd/MM à HH:mm", Locale.FRANCE).format(new java.util.Date(maj)));
+            }
+        } else {
+            t.append("Solde du client inconnu sur ce téléphone (jamais chargé en ligne).");
+        }
+        if (enAttente > 0) {
+            t.append(String.format(Locale.FRANCE, "\nEncaissements pas encore envoyés : %,.0f F", enAttente));
+        }
+        tvSoldeClient.setText(t.toString());
+        tvSoldeClient.setVisibility(View.VISIBLE);
     }
 
     // ===================== LIVRAISON D'UNE COMMANDE =====================
@@ -1894,6 +2023,15 @@ public class SaisieFormActivity extends AppCompatActivity {
         tvAucunClientCommande.setVisibility(clients.isEmpty() ? View.VISIBLE : View.GONE);
         spinnerClientCommande.setEnabled(!clients.isEmpty());
 
+        // Encaissement : client obligatoire, aucun présélectionné (on ne devine pas qui paie).
+        String clientPaiementAvant = spinnerClientPaiement.getText().toString();
+        spinnerClientPaiement.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, labelsCommande));
+        if (!clientPaiementAvant.isEmpty() && labelsCommande.contains(clientPaiementAvant)) {
+            spinnerClientPaiement.setText(clientPaiementAvant, false);
+        }
+        tvAucunClientPaiement.setVisibility(clients.isEmpty() ? View.VISIBLE : View.GONE);
+        if (type == SaisieType.PAIEMENT_CLIENT) surClientPaiementChoisi(false);
+
         applyPendingClientSelection();
     }
 
@@ -1924,6 +2062,8 @@ public class SaisieFormActivity extends AppCompatActivity {
                 spinnerClientVenteOeufs.setText(nom, false);
                 spinnerClientVenteReforme.setText(nom, false);
                 spinnerClientCommande.setText(nom, false);
+                spinnerClientPaiement.setText(nom, false);
+                if (type == SaisieType.PAIEMENT_CLIENT) surClientPaiementChoisi(false);
                 // Appelé explicitement (pas seulement via OnItemClickListener) car
                 // AutoCompleteTextView.setText(..., false) ne déclenche jamais le
                 // listener — même raisonnement que applyPendingMagasinSelection.
@@ -3199,6 +3339,39 @@ public class SaisieFormActivity extends AppCompatActivity {
                                 quantite, estReforme ? "sujet(s)" : "œuf(s)", clientNomCommande, montantEstime);
                 break;
             }
+            case PAIEMENT_CLIENT: {
+                if (clients.isEmpty()) {
+                    toast("Aucun client synchronisé : synchronisez d'abord");
+                    return;
+                }
+                String clientUid = getSelectedClientUniqueId(spinnerClientPaiement, false);
+                if (clientUid == null) {
+                    toast("Veuillez choisir le client");
+                    return;
+                }
+                Double montantPaye = parseDoubleOrNull(etMontantPaiement.getText());
+                if (montantPaye == null || montantPaye <= 0) {
+                    toast("Veuillez saisir le montant reçu");
+                    return;
+                }
+                String mode = getSelectedModePaiement(spinnerModePaiementClient);
+                if (mode == null) {
+                    toast("Veuillez choisir le mode de paiement");
+                    return;
+                }
+                PaiementClientRequest req = new PaiementClientRequest();
+                req.clientUniqueId = clientUid;
+                req.montant = montantPaye;
+                req.mode = mode;
+                req.date = date;
+                req.commandeUniqueId = getSelectedCommandePaiement();
+                req.observations = nullIfBlank(textOf(etObservationsPaiement));
+                requestObject = req;
+                summary = String.format(Locale.FRANCE, "Encaissement de %,.0f F de %s (%s)%s", montantPaye,
+                        spinnerClientPaiement.getText().toString(), spinnerModePaiementClient.getText().toString(),
+                        req.commandeUniqueId != null ? ", réservé à sa commande" : "");
+                break;
+            }
             case LIVRAISON_COMMANDE: {
                 CommandeResponse c = commandeLivree;
                 int q = quantiteLivraison();
@@ -3322,7 +3495,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         // comme liée à ce projet, et l'édition la rattacherait par erreur).
         String projetColonne = projetUniqueId;
         String projetLabelColonne = projetLabel;
-        if (requestObject instanceof LivraisonCommandeRequest
+        if (requestObject instanceof LivraisonCommandeRequest || requestObject instanceof PaiementClientRequest
                 || (requestObject instanceof TransactionCreateRequest && Boolean.TRUE.equals(((TransactionCreateRequest) requestObject).commun))) {
             projetColonne = null;
             projetLabelColonne = null;
@@ -3490,6 +3663,18 @@ public class SaisieFormActivity extends AppCompatActivity {
                 selectModePaiementByValue(spinnerModePaiementCommande, req.modePaiement);
                 if (req.dateLivraisonPrevue != null) etDateLivraisonCommande.setText(req.dateLivraisonPrevue);
                 selectMagasinByUniqueId(req.magasinUniqueId);
+                selectClientByUniqueId(req.clientUniqueId);
+                break;
+            }
+            case PAIEMENT_CLIENT: {
+                PaiementClientRequest req = gson.fromJson(json, PaiementClientRequest.class);
+                setDateHeure(req.date, null);
+                if (req.montant != null) etMontantPaiement.setText(formatSaisie(req.montant));
+                etObservationsPaiement.setText(req.observations);
+                for (int i = 0; i < MODE_PAIEMENT_VALEURS.length; i++) {
+                    if (MODE_PAIEMENT_VALEURS[i].equals(req.mode)) spinnerModePaiementClient.setText(MODE_PAIEMENT_LABELS[i], false);
+                }
+                pendingCommandePaiement = req.commandeUniqueId;
                 selectClientByUniqueId(req.clientUniqueId);
                 break;
             }
