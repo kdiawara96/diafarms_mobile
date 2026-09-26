@@ -37,9 +37,24 @@ import retrofit2.Response;
  */
 public class SyncManager {
 
+    /** Résultat d'un envoi. aRenvoyer : saisies restées en attente (réseau, serveur
+     * indisponible, saisie en cours de traitement côté serveur) qui repartiront au
+     * prochain envoi avec la même clé. authMessage non null : la session n'est plus
+     * acceptée (401/403), l'envoi s'est arrêté et l'utilisateur doit se reconnecter ;
+     * aucune saisie n'est perdue. */
+    public static class Bilan {
+        public int envoyees;
+        public int refusees;
+        public int aRenvoyer;
+        public String authMessage;
+    }
+
     public interface SyncCallback {
         default void onProgress(int done, int total) {}
         void onComplete(int success, int failed);
+        default void onBilan(Bilan bilan) {
+            onComplete(bilan.envoyees, bilan.refusees + bilan.aRenvoyer);
+        }
     }
 
     private final Context appContext;
@@ -58,36 +73,50 @@ public class SyncManager {
     // requête (ApiClient.AuthInterceptor), donc si le compte actif change pendant l'envoi,
     // on s'arrête plutôt que d'envoyer une saisie avec le jeton d'un autre compte.
     private String compteEnvoi;
+    private List<SaisieLocale> file;
+    private SyncCallback appelant;
+    private final Bilan bilan = new Bilan();
 
     /** N'envoie que les saisies du compte actif (voir LocalDatabase.getPendingSaisies) ;
      * celles d'un autre compte restent en attente jusqu'à sa prochaine connexion ici. */
     public void syncAll(SyncCallback callback) {
         compteEnvoi = SessionManager.activeUserId(appContext);
-        List<SaisieLocale> pending = compteEnvoi != null ? localDatabase.getPendingSaisies() : new java.util.ArrayList<>();
-        syncNext(pending, 0, 0, 0, callback);
+        file = compteEnvoi != null ? localDatabase.getPendingSaisies() : new java.util.ArrayList<>();
+        appelant = callback;
+        syncNext(0);
     }
 
-    private void syncNext(List<SaisieLocale> list, int index, int success, int failed, SyncCallback callback) {
-        if (index >= list.size()) {
-            callback.onComplete(success, failed);
+    private void terminer() {
+        appelant.onBilan(bilan);
+    }
+
+    /** Arrêt anticipé : tout ce qui n'a pas été tenté reste en attente (compté à renvoyer). */
+    private void arreter(int index) {
+        bilan.aRenvoyer += Math.max(0, file.size() - index);
+        terminer();
+    }
+
+    private void syncNext(int index) {
+        if (index >= file.size()) {
+            terminer();
             return;
         }
         if (compteEnvoi == null || !compteEnvoi.equals(SessionManager.activeUserId(appContext))) {
             // Changement de compte pendant l'envoi : le reste attendra (jamais envoyé avec
             // le jeton d'un autre compte).
-            callback.onComplete(success, failed);
+            arreter(index);
             return;
         }
 
-        SaisieLocale saisie = list.get(index);
-        callback.onProgress(index, list.size());
+        SaisieLocale saisie = file.get(index);
+        appelant.onProgress(index, file.size());
         if (!compteEnvoi.equals(saisie.getOwnerUserId())) {
-            syncNext(list, index + 1, success, failed, callback);
+            syncNext(index + 1);
             return;
         }
 
         if (saisie.getType() == SaisieType.PESEE_SESSION) {
-            envoyerSessionPesee(list, index, success, failed, callback, saisie);
+            envoyerSessionPesee(index, saisie);
             return;
         }
 
@@ -96,23 +125,20 @@ public class SyncManager {
             public void onResponse(Call<ApiEnvelope<CreatedEntityResponse>> call, Response<ApiEnvelope<CreatedEntityResponse>> response) {
                 CreatedEntityResponse data = response.isSuccessful() && response.body() != null
                         ? response.body().getData() : null;
-
+                // 2xx, y compris une réponse rejouée par le serveur (Idempotency-Replayed) :
+                // la saisie existe côté serveur, même si la première réponse s'était perdue.
                 if (data != null && data.getUniqueId() != null) {
-                    // Une session de pesée modifiée pendant l'envoi reste LOCAL : elle
-                    // n'est comptée ni comme synchronisée ni comme en échec.
-                    boolean synced = markSynced(saisie, data.getUniqueId());
-                    syncNext(list, index + 1, synced ? success + 1 : success, failed, callback);
+                    localDatabase.markSynced(saisie.getLocalId(), data.getUniqueId());
+                    bilan.envoyees++;
+                    syncNext(index + 1);
                 } else {
-                    String message = extractServerMessage(response);
-                    markError(saisie, message, response.code());
-                    syncNext(list, index + 1, success, failed + 1, callback);
+                    traiterEchec(index, saisie, response.code(), extractServerMessage(response));
                 }
             }
 
             @Override
             public void onFailure(Call<ApiEnvelope<CreatedEntityResponse>> call, Throwable t) {
-                markError(saisie, "Réseau indisponible", 0);
-                syncNext(list, index + 1, success, failed + 1, callback);
+                traiterEchec(index, saisie, 0, null);
             }
         };
 
@@ -121,13 +147,46 @@ public class SyncManager {
         // synchronisation restait suspendue. On le marque en erreur et on continue.
         if (!dispatch(saisie, retrofitCallback)) {
             markError(saisie, "Ce type de saisie ne peut pas être envoyé par cette version de l'application", -1);
-            syncNext(list, index + 1, success, failed + 1, callback);
+            bilan.refusees++;
+            syncNext(index + 1);
         }
     }
 
-    private boolean markSynced(SaisieLocale saisie, String serverUniqueId) {
-        localDatabase.markSynced(saisie.getLocalId(), serverUniqueId);
-        return true;
+    /**
+     * Échec d'un envoi, selon sa nature (voir le contrat d'idempotence) :
+     * - réseau (code 0), délai dépassé, 5xx, 409 « en cours de traitement » : la saisie reste
+     *   EN ATTENTE avec une petite note, elle repartira au prochain envoi avec la même clé
+     *   (le serveur la rejouera si elle était déjà passée). Réseau coupé : on s'arrête là,
+     *   inutile d'attendre le délai pour chacune des suivantes ;
+     * - 401/403 : la session n'est plus acceptée, rien n'est perdu, l'envoi s'arrête et
+     *   l'utilisateur est invité à se reconnecter ;
+     * - autre 4xx (400 métier, 422 clé déjà utilisée...) : refus définitif, ERREUR avec le
+     *   message du serveur ; il faut corriger la saisie (une nouvelle clé sera alors créée).
+     */
+    private void traiterEchec(int index, SaisieLocale saisie, int code, String message) {
+        if (code == 0 || code == 408 || code == 409 || code == 429 || code >= 500) {
+            String note = code == 0 ? "Pas encore envoyée : réseau indisponible, nouvel essai au prochain envoi"
+                    : code == 409 ? "Pas encore envoyée : en cours de traitement par le serveur, nouvel essai au prochain envoi"
+                    : "Pas encore envoyée : serveur indisponible, nouvel essai au prochain envoi";
+            localDatabase.marquerARenvoyer(saisie.getLocalId(), note, code);
+            bilan.aRenvoyer++;
+            if (code == 0) {
+                arreter(index + 1);
+            } else {
+                syncNext(index + 1);
+            }
+            return;
+        }
+        if (code == 401 || code == 403) {
+            bilan.authMessage = code == 401 || message == null
+                    ? "Votre session n'est plus acceptée par le serveur. Scannez de nouveau votre QR code pour envoyer vos saisies : elles restent enregistrées sur ce téléphone."
+                    : message + "\n\nVos saisies restent enregistrées sur ce téléphone. Reconnectez-vous (nouveau scan du QR code) pour les envoyer.";
+            arreter(index);
+            return;
+        }
+        markError(saisie, message, code);
+        bilan.refusees++;
+        syncNext(index + 1);
     }
 
     /**
@@ -136,10 +195,10 @@ public class SyncManager {
      * PeseeServeurSync.appliquer). La session a pu être réécrite pendant l'envoi : ce qui
      * n'a pas été envoyé reste en attente (ligne LOCAL, repart au prochain envoi) ; ligne
      * SYNCED seulement si l'état local est celui du serveur. Nouvelles modifications web
-     * et pesées refusées (session terminée sur le web) : notification.
+     * et pesées refusées (session terminée sur le web) : notification. Déjà idempotente par
+     * ses propres identifiants : pas d'en-tête Idempotency-Key.
      */
-    private void envoyerSessionPesee(List<SaisieLocale> list, int index, int success, int failed,
-                                     SyncCallback callback, SaisieLocale saisie) {
+    private void envoyerSessionPesee(int index, SaisieLocale saisie) {
         SessionPeseeSyncRequest envoye;
         try {
             envoye = gson.fromJson(saisie.getPayloadJson(), SessionPeseeSyncRequest.class);
@@ -148,7 +207,8 @@ public class SyncManager {
         }
         if (envoye == null) {
             markError(saisie, "Session de pesée illisible sur ce téléphone", -1);
-            syncNext(list, index + 1, success, failed + 1, callback);
+            bilan.refusees++;
+            syncNext(index + 1);
             return;
         }
         final SessionPeseeSyncRequest instantane = envoye;
@@ -163,24 +223,22 @@ public class SyncManager {
                     SessionPeseeServeur serveur = data.pesees != null ? data : null;
                     SessionPeseeSyncRequest.Fusion f = PeseeServeurSync.appliquer(appContext, localDatabase,
                             saisie.getLocalId(), instantane, serveur, true);
-                    boolean synced = f != null && f.aJour;
-                    // Restée LOCAL (modifiée pendant l'envoi) : ni synchronisée ni en échec.
-                    syncNext(list, index + 1, synced ? success + 1 : success, failed, callback);
+                    // Restée LOCAL (modifiée pendant l'envoi) : ni envoyée ni en échec.
+                    if (f != null && f.aJour) bilan.envoyees++;
+                    syncNext(index + 1);
                 } else {
-                    markError(saisie, extractServerMessage(response), response.code());
-                    syncNext(list, index + 1, success, failed + 1, callback);
+                    traiterEchec(index, saisie, response.code(), extractServerMessage(response));
                 }
             }
 
             @Override
             public void onFailure(Call<ApiEnvelope<SessionPeseeServeur>> call, Throwable t) {
-                markError(saisie, "Réseau indisponible", 0);
-                syncNext(list, index + 1, success, failed + 1, callback);
+                traiterEchec(index, saisie, 0, null);
             }
         });
     }
 
-    /** httpCode : code de la réponse, 0 = réseau, -1 = refus local définitif (voir SaisieLocale.seraRenvoyee). */
+    /** httpCode : code de la réponse, -1 = refus local définitif (voir SaisieLocale.seraRenvoyee). */
     private void markError(SaisieLocale saisie, String message, int httpCode) {
         if (saisie.getType() == SaisieType.PESEE_SESSION) {
             localDatabase.markErrorIfPayloadUnchanged(saisie.getLocalId(), message, saisie.getPayloadJson(), httpCode);
@@ -221,54 +279,57 @@ public class SyncManager {
     /** true si la saisie a été mise en file d'envoi (le callback sera appelé), false si ce type n'est pas géré. */
     private boolean dispatch(SaisieLocale saisie, Callback<ApiEnvelope<CreatedEntityResponse>> callback) {
         String json = saisie.getPayloadJson();
+        // Clé stable de la saisie (voir SaisieLocale.cleEnvoi) ; repli sur localId, lui aussi
+        // fixe, pour une ligne qui n'en aurait pas.
+        String cle = saisie.getCleEnvoi() != null ? saisie.getCleEnvoi() : saisie.getLocalId();
 
         switch (saisie.getType()) {
             case SOINS:
                 // Un seul endpoint côté back pour Médicament/Autre/Vaccination — le
                 // payload local porte déjà le bon "type" (VACCINATION/MEDICAMENT/AUTRE),
                 // voir SaisieFormActivity.onValider.
-                api.createSoins(gson.fromJson(json, SoinsCreateRequest.class)).enqueue(callback);
+                api.createSoins(cle, gson.fromJson(json, SoinsCreateRequest.class)).enqueue(callback);
                 break;
             case ENTRETIEN:
-                api.createEntretien(gson.fromJson(json, com.mobile.diafarms.network.dto.EntretienCreateRequest.class)).enqueue(callback);
+                api.createEntretien(cle, gson.fromJson(json, com.mobile.diafarms.network.dto.EntretienCreateRequest.class)).enqueue(callback);
                 break;
             case MORTALITE:
-                api.createMortalite(gson.fromJson(json, MortaliteCreateRequest.class)).enqueue(callback);
+                api.createMortalite(cle, gson.fromJson(json, MortaliteCreateRequest.class)).enqueue(callback);
                 break;
             case REFORME:
-                api.createReforme(gson.fromJson(json, ReformeCreateRequest.class)).enqueue(callback);
+                api.createReforme(cle, gson.fromJson(json, ReformeCreateRequest.class)).enqueue(callback);
                 break;
             case COLLECTE_OEUFS:
-                api.createCollecteOeufs(gson.fromJson(json, CollecteOeufsCreateRequest.class)).enqueue(callback);
+                api.createCollecteOeufs(cle, gson.fromJson(json, CollecteOeufsCreateRequest.class)).enqueue(callback);
                 break;
             case ALIMENTATION_ACHAT:
-                api.createAlimentationAchat(saisie.getProjetUniqueId(), gson.fromJson(json, AlimentationCreateRequest.class))
+                api.createAlimentationAchat(cle, saisie.getProjetUniqueId(), gson.fromJson(json, AlimentationCreateRequest.class))
                         .enqueue(callback);
                 break;
             case ALIMENTATION_CONSOMMATION:
-                api.createConsommationAliment(gson.fromJson(json, ConsommationAlimentCreateRequest.class)).enqueue(callback);
+                api.createConsommationAliment(cle, gson.fromJson(json, ConsommationAlimentCreateRequest.class)).enqueue(callback);
                 break;
             case VENTE_OEUFS:
-                api.createVenteOeufs(gson.fromJson(json, VenteOeufsCreateRequest.class)).enqueue(callback);
+                api.createVenteOeufs(cle, gson.fromJson(json, VenteOeufsCreateRequest.class)).enqueue(callback);
                 break;
             case VENTE_REFORME:
-                api.createVenteReforme(gson.fromJson(json, VenteReformeCreateRequest.class)).enqueue(callback);
+                api.createVenteReforme(cle, gson.fromJson(json, VenteReformeCreateRequest.class)).enqueue(callback);
                 break;
             case TRANSACTION_ENTREE:
             case TRANSACTION_SORTIE:
             // Vente de fientes = simple transaction "entrée" commune, catégorie fixe (voir
             // SaisieType.VENTE_FIENTES) : même endpoint et même payload que les deux ci-dessus.
             case VENTE_FIENTES:
-                api.createTransaction(gson.fromJson(json, TransactionCreateRequest.class)).enqueue(callback);
+                api.createTransaction(cle, gson.fromJson(json, TransactionCreateRequest.class)).enqueue(callback);
                 break;
             case CLIENT_CREATE:
-                api.createClient(gson.fromJson(json, ClientCreateRequest.class)).enqueue(callback);
+                api.createClient(cle, gson.fromJson(json, ClientCreateRequest.class)).enqueue(callback);
                 break;
             case COMMANDE_CREATE:
-                api.createCommande(gson.fromJson(json, CommandeCreateRequest.class)).enqueue(callback);
+                api.createCommande(cle, gson.fromJson(json, CommandeCreateRequest.class)).enqueue(callback);
                 break;
             case SALAIRE_PAYER:
-                api.payerSalaire(gson.fromJson(json, SalairePayerRequest.class)).enqueue(callback);
+                api.payerSalaire(cle, gson.fromJson(json, SalairePayerRequest.class)).enqueue(callback);
                 break;
             default:
                 return false;

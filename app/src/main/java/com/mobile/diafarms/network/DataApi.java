@@ -39,13 +39,16 @@ import java.util.List;
 import retrofit2.Call;
 import retrofit2.http.Body;
 import retrofit2.http.GET;
+import retrofit2.http.Header;
 import retrofit2.http.Headers;
 import retrofit2.http.PUT;
 import retrofit2.http.POST;
 import retrofit2.http.Path;
 import retrofit2.http.Query;
 
-/** Endpoints diafarms_back consommés par les écrans de saisie mobile. */
+/** Endpoints diafarms_back consommés par les écrans de saisie mobile. Toute écriture d'une
+ * saisie porte l'en-tête Idempotency-Key (clé stable de la saisie, SaisieLocale.cleEnvoi) :
+ * un renvoi après une réponse perdue est rejoué par le serveur au lieu d'être recréé. */
 public interface DataApi {
 
     // ============== SÉLECTEURS ==============
@@ -107,12 +110,12 @@ public interface DataApi {
     // type=VACCINATION et les champs quantite/prixUnitaire/modeAdministration
     // renseignés — voir SaisieFormActivity.onValider). ==============
     @POST("soins/create")
-    Call<ApiEnvelope<CreatedEntityResponse>> createSoins(@Body SoinsCreateRequest request);
+    Call<ApiEnvelope<CreatedEntityResponse>> createSoins(@Header("Idempotency-Key") String idempotencyKey, @Body SoinsCreateRequest request);
 
     // ============== ENTRETIEN (poulailler ou site — jamais lié à un projet, voir
     // Entretien.java côté back) ==============
     @POST("entretiens/create")
-    Call<ApiEnvelope<CreatedEntityResponse>> createEntretien(@Body EntretienCreateRequest request);
+    Call<ApiEnvelope<CreatedEntityResponse>> createEntretien(@Header("Idempotency-Key") String idempotencyKey, @Body EntretienCreateRequest request);
 
     // ============== NOTIFICATIONS (alertes ferme entière — voir AlertCheckWorker,
     // vérification périodique en arrière-plan pour les notifications locales) ==============
@@ -121,11 +124,11 @@ public interface DataApi {
 
     // ============== MORTALITÉ ==============
     @POST("mortalites/create")
-    Call<ApiEnvelope<CreatedEntityResponse>> createMortalite(@Body MortaliteCreateRequest request);
+    Call<ApiEnvelope<CreatedEntityResponse>> createMortalite(@Header("Idempotency-Key") String idempotencyKey, @Body MortaliteCreateRequest request);
 
     // ============== COLLECTE D'ŒUFS ==============
     @POST("collectes-oeufs/create")
-    Call<ApiEnvelope<CreatedEntityResponse>> createCollecteOeufs(@Body CollecteOeufsCreateRequest request);
+    Call<ApiEnvelope<CreatedEntityResponse>> createCollecteOeufs(@Header("Idempotency-Key") String idempotencyKey, @Body CollecteOeufsCreateRequest request);
 
     // ============== RÉFORME (Production : comptage pur, plafonné par l'effectif
     // vivant DU PROJET — aucun prix, voir diafarms_back ReformeImpl) ==============
@@ -140,7 +143,7 @@ public interface DataApi {
     Call<ApiEnvelope<EffectifReformeResponse>> getEffectifReforme(@Path("projetUniqueId") String projetUniqueId);
 
     @POST("reformes/create")
-    Call<ApiEnvelope<CreatedEntityResponse>> createReforme(@Body ReformeCreateRequest request);
+    Call<ApiEnvelope<CreatedEntityResponse>> createReforme(@Header("Idempotency-Key") String idempotencyKey, @Body ReformeCreateRequest request);
 
     // ============== VENTE D'ŒUFS (Finance : plafonnée par le stock vendable de
     // TOUTE LA FERME, pas d'un projet précis) ==============
@@ -148,7 +151,7 @@ public interface DataApi {
     Call<ApiEnvelope<StockOeufsResponse>> getStockOeufs();
 
     @POST("ventes-oeufs/create")
-    Call<ApiEnvelope<CreatedEntityResponse>> createVenteOeufs(@Body VenteOeufsCreateRequest request);
+    Call<ApiEnvelope<CreatedEntityResponse>> createVenteOeufs(@Header("Idempotency-Key") String idempotencyKey, @Body VenteOeufsCreateRequest request);
 
     // ============== VENTE RÉFORME (Finance : plafonnée par le total réformé de
     // TOUTE LA FERME) ==============
@@ -156,29 +159,29 @@ public interface DataApi {
     Call<ApiEnvelope<StockReformeResponse>> getStockReforme();
 
     @POST("ventes-reforme/create")
-    Call<ApiEnvelope<CreatedEntityResponse>> createVenteReforme(@Body VenteReformeCreateRequest request);
+    Call<ApiEnvelope<CreatedEntityResponse>> createVenteReforme(@Header("Idempotency-Key") String idempotencyKey, @Body VenteReformeCreateRequest request);
 
     // ============== CLIENT (VENTE) ==============
     @POST("clients/create")
-    Call<ApiEnvelope<CreatedEntityResponse>> createClient(@Body ClientCreateRequest request);
+    Call<ApiEnvelope<CreatedEntityResponse>> createClient(@Header("Idempotency-Key") String idempotencyKey, @Body ClientCreateRequest request);
 
     // ============== COMMANDE (VENTE : ce qu'un client demande avant la vente) ==============
     @POST("commandes/create")
-    Call<ApiEnvelope<CreatedEntityResponse>> createCommande(@Body CommandeCreateRequest request);
+    Call<ApiEnvelope<CreatedEntityResponse>> createCommande(@Header("Idempotency-Key") String idempotencyKey, @Body CommandeCreateRequest request);
 
     // ============== SALAIRES (COMPTABLE : paiement uniquement, pas de gestion de la
     // grille — voir SalaireServiceImpl.payer côté back, au plus un paiement par période) ==============
     @POST("salaires/payer")
-    Call<ApiEnvelope<CreatedEntityResponse>> payerSalaire(@Body SalairePayerRequest request);
+    Call<ApiEnvelope<CreatedEntityResponse>> payerSalaire(@Header("Idempotency-Key") String idempotencyKey, @Body SalairePayerRequest request);
 
     // ============== ALIMENTATION — ACHAT (aliment entrant, par projet) ==============
     @POST("alimentations/create/{uniqueIdProjet}")
     Call<ApiEnvelope<CreatedEntityResponse>> createAlimentationAchat(
-            @Path("uniqueIdProjet") String projetUniqueId, @Body AlimentationCreateRequest request);
+            @Header("Idempotency-Key") String idempotencyKey, @Path("uniqueIdProjet") String projetUniqueId, @Body AlimentationCreateRequest request);
 
     // ============== ALIMENTATION — CONSOMMATION (aliment sortant) ==============
     @POST("consommations-aliment/create")
-    Call<ApiEnvelope<CreatedEntityResponse>> createConsommationAliment(@Body ConsommationAlimentCreateRequest request);
+    Call<ApiEnvelope<CreatedEntityResponse>> createConsommationAliment(@Header("Idempotency-Key") String idempotencyKey, @Body ConsommationAlimentCreateRequest request);
 
     // ============== SESSIONS DE PESÉE (Production) — envoi de l'état complet de la
     // session, idempotent côté serveur (voir SessionPeseeSyncRequest). La réponse est
@@ -207,7 +210,7 @@ public interface DataApi {
 
     // ============== TRANSACTIONS (finance) ==============
     @POST("transactions/create")
-    Call<ApiEnvelope<CreatedEntityResponse>> createTransaction(@Body TransactionCreateRequest request);
+    Call<ApiEnvelope<CreatedEntityResponse>> createTransaction(@Header("Idempotency-Key") String idempotencyKey, @Body TransactionCreateRequest request);
 
     // ============== ALERTES (recalculées côté serveur, jamais mockées côté client —
     // même logique que le web, voir NotificationServiceImpl) ==============

@@ -1062,12 +1062,24 @@ public class HomeActivity extends AppCompatActivity {
 
         new SyncManager(this).syncAll(new SyncManager.SyncCallback() {
             @Override
-            public void onComplete(int success, int failed) {
+            public void onComplete(int success, int failed) { }
+
+            @Override
+            public void onBilan(SyncManager.Bilan b) {
                 runOnUiThread(() -> {
-                    String message = failed == 0
-                            ? success + " saisie(s) synchronisée(s) avec succès"
-                            : success + " synchronisée(s), " + failed + " en échec (réessayez plus tard)";
-                    Toast.makeText(HomeActivity.this, message, Toast.LENGTH_LONG).show();
+                    StringBuilder message = new StringBuilder(b.envoyees + " saisie(s) envoyée(s)");
+                    if (b.aRenvoyer > 0) message.append(", ").append(b.aRenvoyer).append(" à renvoyer plus tard");
+                    if (b.refusees > 0) message.append(", ").append(b.refusees).append(" refusée(s) : à corriger dans Mes saisies");
+                    Toast.makeText(HomeActivity.this, message.toString(), Toast.LENGTH_LONG).show();
+                    if (b.authMessage != null && !isFinishing()) {
+                        new com.google.android.material.dialog.MaterialAlertDialogBuilder(HomeActivity.this)
+                                .setTitle("Reconnexion nécessaire")
+                                .setMessage(b.authMessage)
+                                .setPositiveButton("Scanner mon QR code", (d, w) ->
+                                        startActivity(new Intent(HomeActivity.this, ScannerActivity.class)))
+                                .setNegativeButton("Plus tard", null)
+                                .show();
+                    }
                     setupSyncStatus();
                     loadLastEntry();
                     updateFinanceStats();

@@ -165,11 +165,15 @@ public class DiagnosticsActivity extends AppCompatActivity {
         Toast.makeText(this, "Synchronisation de " + pending + " saisie(s)...", Toast.LENGTH_SHORT).show();
         new SyncManager(this).syncAll(new SyncManager.SyncCallback() {
             @Override
-            public void onComplete(int success, int failed) {
+            public void onComplete(int success, int failed) { }
+
+            @Override
+            public void onBilan(SyncManager.Bilan b) {
                 runOnUiThread(() -> {
-                    Toast.makeText(DiagnosticsActivity.this, failed == 0
-                            ? success + " saisie(s) synchronisée(s) avec succès"
-                            : success + " synchronisée(s), " + failed + " en échec (réessayez plus tard)",
+                    String message = b.envoyees + " saisie(s) envoyée(s)"
+                            + (b.aRenvoyer > 0 ? ", " + b.aRenvoyer + " à renvoyer plus tard" : "")
+                            + (b.refusees > 0 ? ", " + b.refusees + " refusée(s)" : "");
+                    Toast.makeText(DiagnosticsActivity.this, b.authMessage != null ? b.authMessage : message,
                             Toast.LENGTH_LONG).show();
                     refreshPendingCount();
                 });

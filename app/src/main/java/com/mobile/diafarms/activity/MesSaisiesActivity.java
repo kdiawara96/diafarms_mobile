@@ -221,7 +221,9 @@ public class MesSaisiesActivity extends AppCompatActivity {
                     tvStatus.setBackgroundColor(0xFFC62828);
                     break;
                 default:
-                    tvStatus.setText("En attente de synchronisation");
+                    // Note d'un essai d'envoi qui n'a pas abouti (réseau, serveur) : la saisie
+                    // repartira telle quelle au prochain envoi, rien à corriger.
+                    tvStatus.setText(saisie.getErrorMessage() != null ? saisie.getErrorMessage() : "En attente de synchronisation");
                     tvStatus.setTextColor(Color.WHITE);
                     tvStatus.setBackgroundColor(0xFFEF6C00);
             }

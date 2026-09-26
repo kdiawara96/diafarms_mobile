@@ -298,6 +298,14 @@ public class LocalDatabase extends SQLiteOpenHelper {
                               String payloadJson, String displaySummary) {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
+        // Corrigée après un refus définitif (4xx) : c'est une nouvelle demande pour le
+        // serveur, elle reçoit une nouvelle clé (l'ancienne donnerait 422). Dans tous les
+        // autres cas la clé est gardée (renvoi de la même saisie).
+        SaisieLocale avant = getSaisieById(localId);
+        if (avant != null && SaisieLocale.STATUT_ERROR.equals(avant.getSyncStatus()) && estRefusDefinitif(avant.getHttpCode())) {
+            values.put(COL_CLE_ENVOI, UUID.randomUUID().toString());
+        }
+        values.putNull(COL_HTTP_CODE);
         values.put(COL_PROJET_UNIQUE_ID, projetUniqueId);
         values.put(COL_PROJET_LABEL, projetLabel);
         values.put(COL_PAYLOAD_JSON, payloadJson);
@@ -305,6 +313,22 @@ public class LocalDatabase extends SQLiteOpenHelper {
         values.put(COL_SYNC_STATUS, SaisieLocale.STATUT_LOCAL);
         values.putNull(COL_ERROR_MESSAGE);
         db.update(TABLE_SAISIES, values, COL_LOCAL_ID + "=?", new String[]{localId});
+    }
+
+    /** Refus 4xx définitif : ni authentification (401/403), ni « réessayez » (408/409/429). */
+    private static boolean estRefusDefinitif(Integer code) {
+        return code != null && code >= 400 && code < 500
+                && code != 401 && code != 403 && code != 408 && code != 409 && code != 429;
+    }
+
+    /** Échec temporaire (réseau, 5xx, 409) : la saisie reste EN ATTENTE, même clé, avec une
+     * note affichée dans « Mes saisies ». */
+    public void marquerARenvoyer(String localId, String note, int httpCode) {
+        ContentValues values = new ContentValues();
+        values.put(COL_SYNC_STATUS, SaisieLocale.STATUT_LOCAL);
+        values.put(COL_ERROR_MESSAGE, note);
+        values.put(COL_HTTP_CODE, httpCode);
+        getWritableDatabase().update(TABLE_SAISIES, values, COL_LOCAL_ID + "=?", new String[]{localId});
     }
 
     public void deleteSaisie(String localId) {
@@ -318,6 +342,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
         values.put(COL_SYNC_STATUS, SaisieLocale.STATUT_SYNCED);
         values.put(COL_SERVER_UNIQUE_ID, serverUniqueId);
         values.putNull(COL_ERROR_MESSAGE);
+        values.putNull(COL_HTTP_CODE);
         db.update(TABLE_SAISIES, values, COL_LOCAL_ID + "=?", new String[]{localId});
     }
 
@@ -355,6 +380,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
         values.put(COL_SERVER_UNIQUE_ID, serverUniqueId);
         values.put(COL_SYNC_STATUS, synchronisee ? SaisieLocale.STATUT_SYNCED : SaisieLocale.STATUT_LOCAL);
         values.putNull(COL_ERROR_MESSAGE);
+        values.putNull(COL_HTTP_CODE);
         db.update(TABLE_SAISIES, values, COL_LOCAL_ID + "=?", new String[]{localId});
     }
 
