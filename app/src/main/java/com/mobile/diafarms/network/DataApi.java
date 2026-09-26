@@ -10,6 +10,7 @@ import com.mobile.diafarms.network.dto.ConsommationAlimentCreateRequest;
 import com.mobile.diafarms.network.dto.CreatedEntityResponse;
 import com.mobile.diafarms.network.dto.AlimentationCreateRequest;
 import com.mobile.diafarms.network.dto.EffectifReformeResponse;
+import com.mobile.diafarms.network.dto.DernierPoidsMoyenResponse;
 import com.mobile.diafarms.network.dto.PlafondSaisieResponse;
 import com.mobile.diafarms.network.dto.SiteSelectResponse;
 import com.mobile.diafarms.network.dto.FarmAppSettingsResponse;
@@ -196,6 +197,11 @@ public interface DataApi {
                                                                  @Query("size") int size);
 
     /** Détail complet d'une session (pesées annulées comprises + journal web). */
+    // Dernière session de pesée TERMINEE du projet (poids moyen par sujet) : sert à
+    // estimer le poids d'une vente/commande de réformes au kilo. data = null si aucune.
+    @GET("pesees/dernier-poids-moyen")
+    Call<ApiEnvelope<DernierPoidsMoyenResponse>> getDernierPoidsMoyen(@Query("projetUniqueId") String projetUniqueId);
+
     @GET("pesees/sessions/{uniqueId}")
     Call<ApiEnvelope<SessionPeseeServeur>> getSessionPesee(@Path("uniqueId") String uniqueId);
 

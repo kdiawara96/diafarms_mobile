@@ -27,6 +27,8 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.mobile.diafarms.R;
 import com.mobile.diafarms.data.CachePrefetcher;
+import com.mobile.diafarms.data.DernierePeseeEstimation;
+import com.mobile.diafarms.network.dto.DernierPoidsMoyenResponse;
 import com.mobile.diafarms.data.LocalDatabase;
 import com.mobile.diafarms.models.SaisieLocale;
 import com.mobile.diafarms.models.SaisieType;
@@ -309,6 +311,21 @@ public class SaisieFormActivity extends AppCompatActivity {
     private TextInputLayout tilModePaiementCommande;
     private AutoCompleteTextView spinnerModePaiementCommande;
     private final Calendar dateLivraisonCal = Calendar.getInstance();
+    // Commande de réformes : par tête (défaut) ou au kilo (sujets vivants pesés à la
+    // livraison). Au kilo : prix du kg estimé obligatoire, poids estimé facultatif ;
+    // quantite reste un nombre de sujets. Voir refreshTarificationCommandeUi.
+    private View groupTarificationCommande, groupKiloCommande, spacerPrixUnitaireCommande;
+    private RadioGroup radioGroupTarificationCommande;
+    private TextInputEditText etPrixKgCommande, etPoidsEstimeCommande;
+    private TextInputLayout tilMontantEstimeCommande;
+
+    // Estimation du poids d'une vente/commande de réformes au kilo depuis la dernière
+    // pesée terminée (sessions locales d'abord, sinon cache serveur), voir
+    // loadDernierePesee/refreshEstimationPesee. Simple aide : le poids pesé compte seul.
+    private DernierePeseeEstimation dernierePesee;
+    private View groupEstimationPeseeReforme, groupEstimationPeseeCommande;
+    private TextView tvEstimationPeseeReforme, tvEstimationPeseeCommande, tvPoidsMoyenReforme;
+    private MaterialButton btnUtiliserEstimationReforme, btnUtiliserEstimationCommande;
 
     // Payer un salaire (COMPTABLE) — grille déjà synchronisée côté serveur (voir
     // loadSalaires/CachePrefetcher.CACHE_SALAIRES_SELECT), aucune gestion de la grille
@@ -391,6 +408,10 @@ public class SaisieFormActivity extends AppCompatActivity {
         // loadClients (uniquement les clients déjà synchronisés côté serveur).
         if (type == SaisieType.VENTE_OEUFS || type == SaisieType.VENTE_REFORME || type == SaisieType.COMMANDE_CREATE) {
             loadClients();
+        }
+        // Réformes au kilo : estimation du poids depuis la dernière pesée terminée.
+        if (type == SaisieType.VENTE_REFORME || type == SaisieType.COMMANDE_CREATE) {
+            loadDernierePesee();
         }
         // Bâtiment de stockage obligatoire (Production) : où ces œufs seront
         // physiquement déposés, plafonne les transferts vers un magasin de vente
@@ -555,6 +576,12 @@ public class SaisieFormActivity extends AppCompatActivity {
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) { recalculerMontantVenteReforme(); }
             @Override public void afterTextChanged(Editable s) {}
         };
+        groupEstimationPeseeReforme = findViewById(R.id.groupEstimationPeseeReforme);
+        tvEstimationPeseeReforme = findViewById(R.id.tvEstimationPeseeReforme);
+        btnUtiliserEstimationReforme = findViewById(R.id.btnUtiliserEstimationReforme);
+        tvPoidsMoyenReforme = findViewById(R.id.tvPoidsMoyenReforme);
+        btnUtiliserEstimationReforme.setOnClickListener(v ->
+                utiliserEstimation(etNombreSujetsVente, etPoidsTotalReforme));
         etNombreSujetsVente.addTextChangedListener(venteReformeWatcher);
         etPoidsTotalReforme.addTextChangedListener(venteReformeWatcher);
         etPrixUnitaireReforme.addTextChangedListener(venteReformeWatcher);
@@ -584,10 +611,27 @@ public class SaisieFormActivity extends AppCompatActivity {
         etQuantiteCommande = findViewById(R.id.etQuantiteCommande);
         etPrixUnitaireCommande = findViewById(R.id.etPrixUnitaireCommande);
         etMontantEstimeCommande = findViewById(R.id.etMontantEstimeCommande);
+        groupTarificationCommande = findViewById(R.id.groupTarificationCommande);
+        radioGroupTarificationCommande = findViewById(R.id.radioGroupTarificationCommande);
+        groupKiloCommande = findViewById(R.id.groupKiloCommande);
+        spacerPrixUnitaireCommande = findViewById(R.id.spacerPrixUnitaireCommande);
+        etPrixKgCommande = findViewById(R.id.etPrixKgCommande);
+        etPoidsEstimeCommande = findViewById(R.id.etPoidsEstimeCommande);
+        tilMontantEstimeCommande = findViewById(R.id.tilMontantEstimeCommande);
+        groupEstimationPeseeCommande = findViewById(R.id.groupEstimationPeseeCommande);
+        tvEstimationPeseeCommande = findViewById(R.id.tvEstimationPeseeCommande);
+        btnUtiliserEstimationCommande = findViewById(R.id.btnUtiliserEstimationCommande);
+        btnUtiliserEstimationCommande.setOnClickListener(v ->
+                utiliserEstimation(etQuantiteCommande, etPoidsEstimeCommande));
         radioGroupTypeCommande.setOnCheckedChangeListener((group, checkedId) -> {
             boolean estReforme = checkedId == R.id.radioCommandeReforme;
             groupUniteCommande.setVisibility(estReforme ? View.GONE : View.VISIBLE);
             applyLabelsQuantiteCommande();
+            refreshTarificationCommandeUi();
+            recalculerMontantEstimeCommande();
+        });
+        radioGroupTarificationCommande.setOnCheckedChangeListener((group, checkedId) -> {
+            refreshTarificationCommandeUi();
             recalculerMontantEstimeCommande();
         });
         radioGroupUniteCommande.setOnCheckedChangeListener((group, checkedId) -> {
@@ -619,6 +663,8 @@ public class SaisieFormActivity extends AppCompatActivity {
         };
         etQuantiteCommande.addTextChangedListener(commandeWatcher);
         etPrixUnitaireCommande.addTextChangedListener(commandeWatcher);
+        etPrixKgCommande.addTextChangedListener(commandeWatcher);
+        etPoidsEstimeCommande.addTextChangedListener(commandeWatcher);
 
         groupSalaire = findViewById(R.id.groupSalaire);
         spinnerEmployeSalaire = findViewById(R.id.spinnerEmployeSalaire);
@@ -1140,7 +1186,22 @@ public class SaisieFormActivity extends AppCompatActivity {
         int visibility = kilo ? View.VISIBLE : View.GONE;
         tilPoidsTotalReforme.setVisibility(visibility);
         spacerPoidsTotalReforme.setVisibility(visibility);
-        tilPrixUnitaireReforme.setHint(kilo ? "Prix au kilo (FCFA)" : "Prix unitaire (FCFA)");
+        tilPrixUnitaireReforme.setHint(kilo ? "Prix du kg (FCFA)" : "Prix unitaire (FCFA)");
+        refreshPoidsMoyenReforme();
+        refreshEstimationPesee();
+    }
+
+    /** Au kilo : "Poids moyen : X kg/sujet" = poids total pesé / nombre de sujets. */
+    private void refreshPoidsMoyenReforme() {
+        if (tvPoidsMoyenReforme == null) return;
+        Double poids = parseDoubleOrNull(etPoidsTotalReforme.getText());
+        int sujets = parseIntSafe(etNombreSujetsVente.getText());
+        if (isTypeVenteReformeKilo() && poids != null && poids > 0 && sujets > 0) {
+            tvPoidsMoyenReforme.setText("Poids moyen : " + formatNombre(poids / sujets, 2) + " kg/sujet");
+            tvPoidsMoyenReforme.setVisibility(View.VISIBLE);
+        } else {
+            tvPoidsMoyenReforme.setVisibility(View.GONE);
+        }
     }
 
     /** Même principe que recalculerMontantVenteOeufs, pour Vente réforme. Par tête :
@@ -1160,6 +1221,8 @@ public class SaisieFormActivity extends AppCompatActivity {
             etMontantRapporteVenteReforme.setText(montant);
             syncingMontantRapporte = false;
         }
+        refreshPoidsMoyenReforme();
+        refreshEstimationPesee();
     }
 
     private boolean isCommandeReforme() {
@@ -1191,11 +1254,130 @@ public class SaisieFormActivity extends AppCompatActivity {
      * modifiable manuellement ensuite (ex: négociation), même principe que
      * recalculerMontantVenteOeufs(). */
     private void recalculerMontantEstimeCommande() {
-        int saisie = parseIntSafe(etQuantiteCommande.getText());
-        Double prix = parseDoubleOrNull(etPrixUnitaireCommande.getText());
-        if (saisie > 0 && prix != null && prix > 0) {
-            etMontantEstimeCommande.setText(String.format(Locale.FRANCE, "%.0f", saisie * prix));
+        if (isCommandeKilo()) {
+            // Au kilo : montant = poids estimé x prix du kg (le serveur refait ce calcul
+            // et ignore la valeur envoyée) ; sans poids estimé, montant saisi à la main.
+            Double prixKg = parseDoubleOrNull(etPrixKgCommande.getText());
+            Double poids = parseDoubleOrNull(etPoidsEstimeCommande.getText());
+            boolean calcule = prixKg != null && prixKg > 0 && poids != null && poids > 0;
+            if (calcule) etMontantEstimeCommande.setText(String.format(Locale.FRANCE, "%.0f", poids * prixKg));
+            etMontantEstimeCommande.setEnabled(!calcule);
+            tilMontantEstimeCommande.setHint(calcule ? "Montant estimé (FCFA) = poids x prix du kg" : "Montant estimé (FCFA)");
+        } else {
+            etMontantEstimeCommande.setEnabled(true);
+            tilMontantEstimeCommande.setHint("Montant estimé (FCFA)");
+            int saisie = parseIntSafe(etQuantiteCommande.getText());
+            Double prix = parseDoubleOrNull(etPrixUnitaireCommande.getText());
+            if (saisie > 0 && prix != null && prix > 0) {
+                etMontantEstimeCommande.setText(String.format(Locale.FRANCE, "%.0f", saisie * prix));
+            }
         }
+        refreshEstimationPesee();
+    }
+
+    private boolean isCommandeKilo() {
+        return isCommandeReforme() && radioGroupTarificationCommande != null
+                && radioGroupTarificationCommande.getCheckedRadioButtonId() == R.id.radioTarificationCommandeKilo;
+    }
+
+    /** Tarification visible pour une commande de réformes seulement ; au kilo, le prix
+     * par sujet est remplacé par prix du kg estimé + poids estimé. */
+    private void refreshTarificationCommandeUi() {
+        boolean reforme = isCommandeReforme();
+        boolean kilo = isCommandeKilo();
+        groupTarificationCommande.setVisibility(reforme ? View.VISIBLE : View.GONE);
+        groupKiloCommande.setVisibility(kilo ? View.VISIBLE : View.GONE);
+        tilPrixUnitaireCommande.setVisibility(kilo ? View.GONE : View.VISIBLE);
+        spacerPrixUnitaireCommande.setVisibility(kilo ? View.GONE : View.VISIBLE);
+        refreshEstimationPesee();
+    }
+
+    // ===================== ESTIMATION PAR LA DERNIÈRE PESÉE (réformes au kilo) =====================
+
+    /** Hors ligne d'abord : sessions TERMINEE du téléphone + dernière valeur serveur en
+     * cache ; puis, si en ligne et un projet est choisi, rafraîchit ce cache. */
+    private void loadDernierePesee() {
+        dernierePesee = DernierePeseeEstimation.trouver(localDatabase, projetUniqueId);
+        refreshEstimationPesee();
+        if (projetUniqueId == null || projetUniqueId.isEmpty()) return;
+        ApiClient.dataApi(this).getDernierPoidsMoyen(projetUniqueId).enqueue(new Callback<ApiEnvelope<DernierPoidsMoyenResponse>>() {
+            @Override
+            public void onResponse(Call<ApiEnvelope<DernierPoidsMoyenResponse>> call, Response<ApiEnvelope<DernierPoidsMoyenResponse>> response) {
+                if (!response.isSuccessful() || response.body() == null || isFinishing()) return;
+                DernierPoidsMoyenResponse data = response.body().getData();
+                String key = CachePrefetcher.CACHE_DERNIER_POIDS_MOYEN_PREFIX + projetUniqueId;
+                if (data == null || data.poidsMoyenKg == null) localDatabase.deleteCache(key);
+                else localDatabase.putCache(key, gson.toJson(data));
+                dernierePesee = DernierePeseeEstimation.trouver(localDatabase, projetUniqueId);
+                refreshEstimationPesee();
+            }
+
+            @Override
+            public void onFailure(Call<ApiEnvelope<DernierPoidsMoyenResponse>> call, Throwable t) { }
+        });
+    }
+
+    /** "Dernière pesée : 1,86 kg/sujet (25/09) → estimation 37,2 kg ≈ 74 400 F", pour
+     * Vente réforme au kilo et Commande de réformes au kilo seulement. */
+    private void refreshEstimationPesee() {
+        if (groupEstimationPeseeReforme == null || groupEstimationPeseeCommande == null) return;
+        boolean venteKilo = type == SaisieType.VENTE_REFORME && isTypeVenteReformeKilo();
+        boolean commandeKilo = type == SaisieType.COMMANDE_CREATE && isCommandeKilo();
+        groupEstimationPeseeReforme.setVisibility(venteKilo && dernierePesee != null ? View.VISIBLE : View.GONE);
+        groupEstimationPeseeCommande.setVisibility(commandeKilo && dernierePesee != null ? View.VISIBLE : View.GONE);
+        if (dernierePesee == null || (!venteKilo && !commandeKilo)) return;
+
+        int sujets = parseIntSafe((venteKilo ? etNombreSujetsVente : etQuantiteCommande).getText());
+        Double prixKg = parseDoubleOrNull((venteKilo ? etPrixUnitaireReforme : etPrixKgCommande).getText());
+        StringBuilder texte = new StringBuilder("Dernière pesée : ")
+                .append(formatNombre(dernierePesee.poidsMoyenKg, 2)).append(" kg/sujet");
+        String date = dernierePesee.dateCourte();
+        if (!date.isEmpty()) texte.append(" (").append(date).append(")");
+        Double estimation = estimationPoids(sujets);
+        if (estimation != null) {
+            texte.append(" → estimation ").append(formatNombre(estimation, 1)).append(" kg");
+            if (prixKg != null && prixKg > 0) {
+                texte.append(" ≈ ").append(String.format(Locale.FRANCE, "%,.0f", estimation * prixKg)).append(" F");
+            }
+        } else {
+            texte.append(". Indiquez le nombre de sujets pour estimer le poids.");
+        }
+        (venteKilo ? tvEstimationPeseeReforme : tvEstimationPeseeCommande).setText(texte.toString());
+        (venteKilo ? btnUtiliserEstimationReforme : btnUtiliserEstimationCommande).setEnabled(estimation != null);
+    }
+
+    /** Poids estimé = sujets x dernier poids moyen, arrondi à 0,1 kg ; null si impossible. */
+    private Double estimationPoids(int sujets) {
+        if (dernierePesee == null || sujets <= 0) return null;
+        return Math.round(dernierePesee.poidsMoyenKg * sujets * 10.0) / 10.0;
+    }
+
+    /** Pré-remplit le poids avec l'estimation (reste modifiable : le poids réellement
+     * pesé est celui qui compte). */
+    private void utiliserEstimation(TextInputEditText etSujets, TextInputEditText etPoids) {
+        Double estimation = estimationPoids(parseIntSafe(etSujets.getText()));
+        if (estimation == null) {
+            toast("Indiquez d'abord le nombre de sujets");
+            return;
+        }
+        etPoids.setText(formatSaisie(estimation));
+        etPoids.requestFocus();
+        if (etPoids.getText() != null) etPoids.setSelection(etPoids.getText().length());
+    }
+
+    /** Nombre à la française, au plus maxDecimales décimales, zéros inutiles retirés
+     * (1,86 ; 37,2 ; 36). */
+    private static String formatNombre(double valeur, int maxDecimales) {
+        java.text.NumberFormat nf = java.text.NumberFormat.getNumberInstance(Locale.FRANCE);
+        nf.setMinimumFractionDigits(0);
+        nf.setMaximumFractionDigits(maxDecimales);
+        return nf.format(valeur);
+    }
+
+    /** Valeur pour un champ de saisie numérique (point décimal, sans séparateur). */
+    private static String formatSaisie(double valeur) {
+        if (valeur == Math.rint(valeur)) return String.valueOf((long) valeur);
+        return new java.math.BigDecimal(valeur).setScale(3, java.math.RoundingMode.HALF_UP).stripTrailingZeros().toPlainString();
     }
 
     /** Total = alvéoles×30 + œufs saisis hors alvéole, voir groupCollecte dans le
@@ -2624,7 +2806,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                     return;
                 }
                 if (prixReforme == null || prixReforme <= 0) {
-                    toast("Veuillez saisir le prix unitaire");
+                    toast(isTypeVenteReformeKilo() ? "Veuillez saisir le prix du kg" : "Veuillez saisir le prix unitaire");
                     return;
                 }
                 if (montant == null || montant <= 0) {
@@ -2642,7 +2824,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 boolean kiloReforme = isTypeVenteReformeKilo();
                 Double poidsTotalReforme = parseDoubleOrNull(etPoidsTotalReforme.getText());
                 if (kiloReforme && (poidsTotalReforme == null || poidsTotalReforme <= 0)) {
-                    toast("Veuillez saisir le poids total (kg) pour une vente au kilo");
+                    toast("Veuillez saisir le poids total pesé (kg) pour une vente au kilo");
                     return;
                 }
                 VenteReformeCreateRequest req = new VenteReformeCreateRequest();
@@ -2659,7 +2841,10 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.typeVente = kiloReforme ? "KILO" : "TETE";
                 req.poidsTotalKg = kiloReforme ? poidsTotalReforme : null;
                 requestObject = req;
-                summary = String.format(Locale.FRANCE, "Vente réforme de %d sujet(s) (%,.0f FCFA)", nombreSujets, montant);
+                summary = kiloReforme
+                        ? String.format(Locale.FRANCE, "Vente réforme : %d %s, %s kg, %,.0f F/kg",
+                                nombreSujets, nombreSujets > 1 ? "sujets" : "sujet", formatNombre(poidsTotalReforme, 3), prixReforme)
+                        : String.format(Locale.FRANCE, "Vente réforme de %d sujet(s) (%,.0f FCFA)", nombreSujets, montant);
                 break;
             }
             case TRANSACTION_ENTREE:
@@ -2744,10 +2929,25 @@ public class SaisieFormActivity extends AppCompatActivity {
                 // côté back, qui ne connaît jamais l'alvéole (même principe que VenteOeufs).
                 int quantite = (!estReforme && enAlveoles) ? AlveoleUtils.alveolesToOeufs(saisie) : saisie;
                 Double montantEstime = parseDoubleOrNull(etMontantEstimeCommande.getText());
+                boolean kiloCommande = isCommandeKilo();
+                Double prixKgCommande = kiloCommande ? parseDoubleOrNull(etPrixKgCommande.getText()) : null;
+                Double poidsEstimeCommande = kiloCommande ? parseDoubleOrNull(etPoidsEstimeCommande.getText()) : null;
                 if (quantite <= 0) {
                     toast(estReforme ? "Veuillez saisir le nombre de sujets commandés"
                             : (enAlveoles ? "Veuillez saisir le nombre d'alvéoles commandées" : "Veuillez saisir la quantité commandée"));
                     return;
+                }
+                if (kiloCommande) {
+                    if (prixKgCommande == null || prixKgCommande <= 0) {
+                        toast("Veuillez saisir le prix du kg estimé");
+                        return;
+                    }
+                    if (poidsEstimeCommande != null && poidsEstimeCommande <= 0) {
+                        toast("Le poids estimé doit être positif (ou laissez-le vide)");
+                        return;
+                    }
+                    // Même calcul que le serveur quand le poids estimé est connu.
+                    if (poidsEstimeCommande != null) montantEstime = (double) Math.round(poidsEstimeCommande * prixKgCommande);
                 }
                 if (montantEstime == null || montantEstime <= 0) {
                     toast("Veuillez saisir le montant estimé");
@@ -2769,8 +2969,13 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.magasinUniqueId = magasinUniqueIdCommande;
                 req.type = estReforme ? "REFORME" : "OEUFS";
                 req.quantite = quantite;
-                req.prixUnitaireEstime = prixReelCommande;
+                req.prixUnitaireEstime = kiloCommande ? null : prixReelCommande;
                 req.montantEstime = montantEstime;
+                if (estReforme) {
+                    req.tarification = kiloCommande ? "KILO" : "TETE";
+                    req.prixKgEstime = prixKgCommande;
+                    req.poidsEstimeKg = poidsEstimeCommande;
+                }
                 req.montantAcompte = parseDoubleOrNull(etAcompteCommande.getText());
                 // Seulement pertinent s'il y a réellement un acompte — voir
                 // refreshModePaiementCommande/CommandeCreateRequest.modePaiement.
@@ -2779,8 +2984,11 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.dateCommande = date;
                 req.dateLivraisonPrevue = nullIfBlank(textOf(etDateLivraisonCommande));
                 requestObject = req;
-                summary = String.format(Locale.FRANCE, "Commande de %d %s pour %s (%,.0f FCFA)",
-                        quantite, estReforme ? "sujet(s)" : "œuf(s)", clientNomCommande, montantEstime);
+                summary = kiloCommande
+                        ? String.format(Locale.FRANCE, "Commande de %d sujet(s) au kilo (%,.0f F/kg) pour %s (%,.0f FCFA estimés)",
+                                quantite, prixKgCommande, clientNomCommande, montantEstime)
+                        : String.format(Locale.FRANCE, "Commande de %d %s pour %s (%,.0f FCFA)",
+                                quantite, estReforme ? "sujet(s)" : "œuf(s)", clientNomCommande, montantEstime);
                 break;
             }
             case SALAIRE_PAYER: {
@@ -3002,8 +3210,14 @@ public class SaisieFormActivity extends AppCompatActivity {
                 // en œufs, pas la saisie d'origine.
                 boolean estReforme = "REFORME".equals(req.type);
                 radioGroupTypeCommande.check(estReforme ? R.id.radioCommandeReforme : R.id.radioCommandeOeufs);
+                if (estReforme && "KILO".equals(req.tarification)) {
+                    radioGroupTarificationCommande.check(R.id.radioTarificationCommandeKilo);
+                }
+                refreshTarificationCommandeUi();
                 if (req.quantite != null) etQuantiteCommande.setText(String.valueOf(req.quantite));
                 if (req.prixUnitaireEstime != null) etPrixUnitaireCommande.setText(String.valueOf(req.prixUnitaireEstime));
+                if (req.prixKgEstime != null) etPrixKgCommande.setText(formatSaisie(req.prixKgEstime));
+                if (req.poidsEstimeKg != null) etPoidsEstimeCommande.setText(formatSaisie(req.poidsEstimeKg));
                 if (req.montantEstime != null) etMontantEstimeCommande.setText(String.valueOf(req.montantEstime));
                 if (req.montantAcompte != null) etAcompteCommande.setText(String.valueOf(req.montantAcompte));
                 selectModePaiementByValue(spinnerModePaiementCommande, req.modePaiement);

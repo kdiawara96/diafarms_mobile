@@ -10,6 +10,7 @@ import com.mobile.diafarms.network.ApiClient;
 import com.mobile.diafarms.network.dto.ApiEnvelope;
 import com.mobile.diafarms.network.dto.BatimentSelectResponse;
 import com.mobile.diafarms.network.dto.ClientSelectResponse;
+import com.mobile.diafarms.network.dto.DernierPoidsMoyenResponse;
 import com.mobile.diafarms.network.dto.EffectifReformeResponse;
 import com.mobile.diafarms.network.dto.MagasinSelectResponse;
 import com.mobile.diafarms.network.dto.NotificationResponse;
@@ -82,6 +83,10 @@ public class CachePrefetcher {
     // hors ligne (voir PeseeSessionActivity). Seulement celles absentes du téléphone.
     public static final String CACHE_PESEE_SESSIONS_PREFIX = "pesee_sessions_en_cours_";
     public static final String CACHE_PESEE_DETAIL_PREFIX = "pesee_session_detail_";
+    // Dernière pesée TERMINEE connue du serveur, par projet (DernierPoidsMoyenResponse) :
+    // estimation datée du poids d'une vente/commande de réformes au kilo hors ligne,
+    // complétée par les sessions locales (voir DernierePeseeEstimation).
+    public static final String CACHE_DERNIER_POIDS_MOYEN_PREFIX = "dernier_poids_moyen_";
 
     private static final String TAG = "CachePrefetcher";
     private static final Gson gson = new Gson();
@@ -457,6 +462,27 @@ public class CachePrefetcher {
 
             @Override
             public void onFailure(@NonNull Call<ApiEnvelope<EffectifReformeResponse>> call, Throwable t) { }
+        });
+
+        prefetchDernierPoidsMoyen(appContext, localDatabase, projetUniqueId);
+    }
+
+    /** Dernier poids moyen (session de pesée TERMINEE) du projet. Réponse 200 avec
+     * data = null : aucune session terminée, on efface l'ancienne valeur. Échec réseau :
+     * on garde la dernière valeur reçue (affichée comme estimation datée). */
+    public static void prefetchDernierPoidsMoyen(Context appContext, LocalDatabase localDatabase, String projetUniqueId) {
+        ApiClient.dataApi(appContext).getDernierPoidsMoyen(projetUniqueId).enqueue(new Callback<ApiEnvelope<DernierPoidsMoyenResponse>>() {
+            @Override
+            public void onResponse(Call<ApiEnvelope<DernierPoidsMoyenResponse>> call, Response<ApiEnvelope<DernierPoidsMoyenResponse>> response) {
+                if (!response.isSuccessful() || response.body() == null) return;
+                DernierPoidsMoyenResponse data = response.body().getData();
+                String key = CACHE_DERNIER_POIDS_MOYEN_PREFIX + projetUniqueId;
+                if (data == null || data.poidsMoyenKg == null) localDatabase.deleteCache(key);
+                else localDatabase.putCache(key, gson.toJson(data));
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<ApiEnvelope<DernierPoidsMoyenResponse>> call, Throwable t) { }
         });
     }
 

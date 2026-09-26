@@ -18,4 +18,11 @@ public class CommandeCreateRequest {
     public String modePaiement;
     public String dateCommande; // "yyyy-MM-dd", optionnel (défaut aujourd'hui côté back)
     public String dateLivraisonPrevue; // "yyyy-MM-dd", optionnel
+    // Réforme seulement : "TETE" (défaut, null accepté) ou "KILO" (sujets vivants pesés
+    // à la livraison, prix au kilo). En KILO : prixKgEstime obligatoire, poidsEstimeKg
+    // facultatif (si présent, le serveur recalcule montantEstime = poids x prix/kg).
+    // quantite reste TOUJOURS un nombre de sujets.
+    public String tarification;
+    public Double prixKgEstime;
+    public Double poidsEstimeKg;
 }

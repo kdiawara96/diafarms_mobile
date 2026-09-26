@@ -896,17 +896,47 @@
 
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 
+                <!-- Au kilo seulement : estimation depuis la dernière pesée terminée
+                     (voir DernierePeseeEstimation / refreshEstimationPesee). -->
+                <LinearLayout
+                    android:id="@+id/groupEstimationPeseeReforme"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginBottom="12dp"
+                    android:visibility="gone">
+                    <TextView
+                        android:id="@+id/tvEstimationPeseeReforme"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:textSize="13sp"
+                        android:textColor="@android:color/darker_gray"
+                        tools:text="Dernière pesée : 1,86 kg/sujet (25/09) → estimation 37,2 kg ≈ 74 400 F" />
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnUtiliserEstimationReforme"
+                        style="@style/Widget.Material3.Button.TonalButton"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="Utiliser l'estimation" />
+                </LinearLayout>
+
                 <!-- Visible uniquement en mode "Au kilo" — voir refreshTypeVenteReformeUi. -->
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/tilPoidsTotalReforme"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Poids total (kg)"
+                    android:hint="Poids total pesé (kg)"
                     android:visibility="gone">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etPoidsTotalReforme"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
                         android:inputType="numberDecimal" />
                 </com.google.android.material.textfield.TextInputLayout>
+
+                <TextView
+                    android:id="@+id/tvPoidsMoyenReforme"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:textSize="13sp"
+                    android:textColor="@android:color/darker_gray"
+                    android:visibility="gone"
+                    tools:text="Poids moyen : 1,80 kg/sujet" />
 
                 <View android:id="@+id/spacerPoidsTotalReforme" android:layout_width="match_parent" android:layout_height="12dp"
                     android:visibility="gone" />
@@ -1154,6 +1184,84 @@
 
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 
+                <!-- Réforme seulement : tarification par tête ou au kilo (sujets vivants
+                     pesés à la livraison). Voir refreshTarificationCommandeUi. -->
+                <LinearLayout
+                    android:id="@+id/groupTarificationCommande"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+                    <TextView
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="Tarification" android:textColor="@android:color/black" android:textSize="14sp"
+                        android:layout_marginBottom="4dp" />
+                    <RadioGroup
+                        android:id="@+id/radioGroupTarificationCommande"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="12dp">
+                        <RadioButton
+                            android:id="@+id/radioTarificationCommandeTete"
+                            android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                            android:text="Par tête" android:checked="true" />
+                        <RadioButton
+                            android:id="@+id/radioTarificationCommandeKilo"
+                            android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                            android:text="⚖️ Au kilo" />
+                    </RadioGroup>
+                </LinearLayout>
+
+                <!-- Au kilo seulement : prix du kg estimé (obligatoire) et poids estimé
+                     (facultatif) ; montant estimé = poids x prix du kg. -->
+                <LinearLayout
+                    android:id="@+id/groupKiloCommande"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:hint="Prix du kg estimé (FCFA)">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etPrixKgCommande"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:inputType="numberDecimal" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                    <!-- Au kilo seulement : estimation depuis la dernière pesée terminée
+                         (voir DernierePeseeEstimation / refreshEstimationPesee). -->
+                    <LinearLayout
+                        android:id="@+id/groupEstimationPeseeCommande"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:layout_marginBottom="12dp"
+                        android:visibility="gone">
+                        <TextView
+                            android:id="@+id/tvEstimationPeseeCommande"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:textSize="13sp"
+                            android:textColor="@android:color/darker_gray"
+                            tools:text="Dernière pesée : 1,86 kg/sujet (25/09) → estimation 37,2 kg ≈ 74 400 F" />
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnUtiliserEstimationCommande"
+                            style="@style/Widget.Material3.Button.TonalButton"
+                            android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:text="Utiliser l'estimation" />
+                    </LinearLayout>
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:hint="Poids estimé (kg, optionnel)">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etPoidsEstimeCommande"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:inputType="numberDecimal" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <View android:layout_width="match_parent" android:layout_height="12dp" />
+                </LinearLayout>
+
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/tilPrixUnitaireCommande"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -1164,9 +1272,10 @@
                         android:inputType="numberDecimal" />
                 </com.google.android.material.textfield.TextInputLayout>
 
-                <View android:layout_width="match_parent" android:layout_height="12dp" />
+                <View android:id="@+id/spacerPrixUnitaireCommande" android:layout_width="match_parent" android:layout_height="12dp" />
 
                 <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilMontantEstimeCommande"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:hint="Montant estimé (FCFA)">
                     <com.google.android.material.textfield.TextInputEditText
