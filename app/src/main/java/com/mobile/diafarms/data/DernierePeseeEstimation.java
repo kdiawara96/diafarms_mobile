@@ -4,11 +4,8 @@ import com.google.gson.Gson;
 import com.mobile.diafarms.models.SaisieLocale;
 import com.mobile.diafarms.models.SaisieType;
 import com.mobile.diafarms.network.dto.DernierPoidsMoyenResponse;
-import com.mobile.diafarms.network.dto.ProjetSelectResponse;
 import com.mobile.diafarms.network.dto.SessionPeseeSyncRequest;
 
-import java.util.HashSet;
-import java.util.Set;
 
 /**
  * Dernier poids moyen par sujet connu pour un projet, pour estimer le poids d'une vente
@@ -35,9 +32,10 @@ public final class DernierePeseeEstimation {
 
     private static final Gson GSON = new Gson();
 
-    /** projetUniqueId null : aucun projet choisi à l'accueil, on prend la pesée la plus
-     * récente parmi tous les projets connus (sessions locales + projets en cache). */
+    /** projetUniqueId null ou vide : aucun projet choisi à l'accueil, aucune estimation
+     * (un autre projet peut être d'une autre souche ou d'un autre âge). */
     public static DernierePeseeEstimation trouver(LocalDatabase db, String projetUniqueId) {
+        if (projetUniqueId == null || projetUniqueId.isEmpty()) return null;
         DernierePeseeEstimation meilleure = null;
 
         for (SaisieLocale s : db.getSaisiesByType(SaisieType.PESEE_SESSION)) {
@@ -49,7 +47,7 @@ public final class DernierePeseeEstimation {
             }
             if (session == null || !session.isTerminee()) continue;
             String projet = session.projetUniqueId != null ? session.projetUniqueId : s.getProjetUniqueId();
-            if (projetUniqueId != null && !projetUniqueId.equals(projet)) continue;
+            if (!projetUniqueId.equals(projet)) continue;
             double moyen = session.poidsMoyenKg();
             if (moyen <= 0) continue;
             String date = session.dateFin != null ? session.dateFin : session.dateDebut;
@@ -58,32 +56,17 @@ public final class DernierePeseeEstimation {
             if (meilleure == null || date.compareTo(meilleure.dateFin) > 0) meilleure = e;
         }
 
-        Set<String> projets = new HashSet<>();
-        if (projetUniqueId != null) {
-            projets.add(projetUniqueId);
-        } else {
-            try {
-                String json = db.getCache(CachePrefetcher.CACHE_PROJETS_SELECT);
-                ProjetSelectResponse[] liste = json != null ? GSON.fromJson(json, ProjetSelectResponse[].class) : null;
-                if (liste != null) {
-                    for (ProjetSelectResponse p : liste) if (p != null && p.getUniqueId() != null) projets.add(p.getUniqueId());
-                }
-            } catch (Exception ignored) {
-            }
+        DernierPoidsMoyenResponse cache;
+        try {
+            String json = db.getCache(CachePrefetcher.CACHE_DERNIER_POIDS_MOYEN_PREFIX + projetUniqueId);
+            cache = json != null ? GSON.fromJson(json, DernierPoidsMoyenResponse.class) : null;
+        } catch (Exception e) {
+            cache = null;
         }
-        for (String projet : projets) {
-            DernierPoidsMoyenResponse cache;
-            try {
-                String json = db.getCache(CachePrefetcher.CACHE_DERNIER_POIDS_MOYEN_PREFIX + projet);
-                cache = json != null ? GSON.fromJson(json, DernierPoidsMoyenResponse.class) : null;
-            } catch (Exception e) {
-                cache = null;
-            }
-            if (cache == null || cache.poidsMoyenKg == null || cache.poidsMoyenKg <= 0 || cache.dateFin == null) continue;
-            // Strictement plus récente seulement : à date égale, la session locale gagne.
-            if (meilleure == null || cache.dateFin.compareTo(meilleure.dateFin) > 0) {
-                meilleure = new DernierePeseeEstimation(projet, cache.poidsMoyenKg, cache.dateFin);
-            }
+        // Strictement plus récente seulement : à date égale, la session locale gagne.
+        if (cache != null && cache.poidsMoyenKg != null && cache.poidsMoyenKg > 0 && cache.dateFin != null
+                && (meilleure == null || cache.dateFin.compareTo(meilleure.dateFin) > 0)) {
+            meilleure = new DernierePeseeEstimation(projetUniqueId, cache.poidsMoyenKg, cache.dateFin);
         }
         return meilleure;
     }
