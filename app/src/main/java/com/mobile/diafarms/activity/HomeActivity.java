@@ -154,6 +154,7 @@ public class HomeActivity extends AppCompatActivity {
     private TextView tvPendingCount;
     private Button btnSyncNow;
     private TextView tvSaisiesAutresComptes;
+    private TextView tvConsultationSeule;
 
     // Bandeau "Nouvelle version disponible"
     private CardView cardMiseAJour;
@@ -288,6 +289,7 @@ public class HomeActivity extends AppCompatActivity {
         tvPendingCount = findViewById(R.id.tvPendingCount);
         btnSyncNow = findViewById(R.id.btnSyncNow);
         tvSaisiesAutresComptes = findViewById(R.id.tvSaisiesAutresComptes);
+        tvConsultationSeule = findViewById(R.id.tvConsultationSeule);
         cardMiseAJour = findViewById(R.id.cardMiseAJour);
         tvMajTitre = findViewById(R.id.tvMajTitre);
         tvMajNotes = findViewById(R.id.tvMajNotes);
@@ -387,6 +389,7 @@ public class HomeActivity extends AppCompatActivity {
         gridVente.setVisibility(sectionVente ? View.VISIBLE : View.GONE);
         btnCommandes.setVisibility(gereCommandesSansReglage ? View.VISIBLE : View.GONE);
         majEncaissement(null);
+        appliquerConsultationSeule();
         if (!isVente) {
             btnVenteOeufs.setVisibility(View.GONE);
             btnVenteReforme.setVisibility(View.GONE);
@@ -479,6 +482,26 @@ public class HomeActivity extends AppCompatActivity {
             }
         }
         majEncaissement(s);
+        appliquerConsultationSeule();
+    }
+
+    /** Compte de démonstration : le serveur refuse toute écriture (ConsultationSeuleFilter),
+     * donc aucun bouton de saisie ; seule la liste des commandes reste consultable. Appelé
+     * après chaque calcul de visibilité (rôles, réglages de la ferme, profil reçu). */
+    private void appliquerConsultationSeule() {
+        boolean demo = currentUser.isConsultationSeule();
+        tvConsultationSeule.setVisibility(demo ? View.VISIBLE : View.GONE);
+        if (!demo) return;
+        tvSectionProduction.setVisibility(View.GONE);
+        gridProduction.setVisibility(View.GONE);
+        tvSectionComptable.setVisibility(View.GONE);
+        gridComptable.setVisibility(View.GONE);
+        CardView[] saisiesVente = {btnEncaissement, btnVenteOeufs, btnVenteReforme, btnVenteFientes,
+                btnNouveauClient, btnNouvelleCommande};
+        for (CardView c : saisiesVente) c.setVisibility(View.GONE);
+        boolean commandes = btnCommandes.getVisibility() == View.VISIBLE;
+        tvSectionVente.setVisibility(commandes ? View.VISIBLE : View.GONE);
+        gridVente.setVisibility(commandes ? View.VISIBLE : View.GONE);
     }
 
     /** Encaissement client : dans la section Vente pour VENTE (si la vente mobile est
@@ -982,7 +1005,13 @@ public class HomeActivity extends AppCompatActivity {
         if (isFinishing() || isDestroyed()) return;
         User maj = sessionManager.getCurrentUser();
         if (maj == null || !maj.getId().equals(currentUser.getId())) return;
+        boolean etaitDemo = currentUser.isConsultationSeule();
         currentUser = maj;
+        if (etaitDemo != currentUser.isConsultationSeule()) {
+            // Drapeau changé côté serveur : on recalcule toutes les visibilités.
+            setupVisibilityByRole();
+            updateSaisieButtonsVisibility();
+        }
     }
 
     private boolean adoptionDemandee = false;

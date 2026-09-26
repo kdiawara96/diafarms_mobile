@@ -408,6 +408,14 @@ public class SaisieFormActivity extends AppCompatActivity {
 
         localDatabase = new LocalDatabase(this).figee();
 
+        // Compte de démonstration : le serveur refuse toute écriture, rien à saisir ici.
+        com.mobile.diafarms.models.User utilisateur = new com.mobile.diafarms.data.SessionManager(this).getCurrentUser();
+        if (utilisateur != null && utilisateur.isConsultationSeule()) {
+            toast("Compte de démonstration : consultation seulement");
+            finish();
+            return;
+        }
+
         if (type == SaisieType.LIVRAISON_COMMANDE && !chargerCommandeLivree()) {
             finish();
             return;
@@ -2547,7 +2555,9 @@ public class SaisieFormActivity extends AppCompatActivity {
      * pour Collecte et Mortalité : le cache local est lu d'abord et suffit hors ligne ;
      * un appel réseau, s'il aboutit, ne fait que le rafraîchir. */
     private void loadPlafondSaisie() {
-        if ((type != SaisieType.COLLECTE_OEUFS && type != SaisieType.MORTALITE)
+        // Réforme aussi : le serveur plafonne par l'effectif vivant du poulailler en plus de
+        // celui du projet (ReformeImpl.validerEffectifPoulailler).
+        if ((type != SaisieType.COLLECTE_OEUFS && type != SaisieType.MORTALITE && type != SaisieType.REFORME)
                 || projetUniqueId == null || projetUniqueId.isEmpty()) return;
         String batiment = getSelectedBatimentUniqueId();
         String date = textOf(etDate);
@@ -2580,14 +2590,16 @@ public class SaisieFormActivity extends AppCompatActivity {
                 });
     }
 
-    /** Saisies de ce téléphone pas encore tentées à l'envoi (statut LOCAL). Les saisies en
-     * ERREUR sont volontairement exclues : déjà refusées par le serveur, elles ne
-     * doivent pas consommer un plafond. */
+    /** Saisies de ce téléphone qui partiront au prochain envoi et consommeront donc le
+     * plafond côté serveur (voir SaisieLocale.seraRenvoyee) : pas encore envoyées, ou en
+     * échec temporaire (réseau, serveur, session expirée). Un refus définitif (400) ne
+     * compte pas : il doit d'abord être corrigé. Comprend celles des autres comptes de la
+     * même ferme présents sur ce téléphone (voir LocalDatabase.getSaisiesPourControles). */
     private List<SaisieLocale> saisiesEnAttente(SaisieType t) {
         List<SaisieLocale> res = new ArrayList<>();
-        for (SaisieLocale s : localDatabase.getSaisiesByType(t)) {
+        for (SaisieLocale s : localDatabase.getSaisiesPourControles(t)) {
             // En modification, la saisie éditée ne doit pas se compter contre elle-même.
-            if (SaisieLocale.STATUT_LOCAL.equals(s.getSyncStatus())
+            if (s.seraRenvoyee()
                     && (editingLocalId == null || !editingLocalId.equals(s.getLocalId()))) res.add(s);
         }
         return res;
@@ -2725,6 +2737,19 @@ public class SaisieFormActivity extends AppCompatActivity {
                     if (nombre > effectif) {
                         message = String.format(Locale.FRANCE,
                                 "Impossible : %d sujets réformés saisis, alors qu'il n'y a que %d sujet(s) vivant(s) dans le projet (%d de trop).",
+                                nombre, Math.max(0, effectif), nombre - Math.max(0, effectif));
+                        fautifs = new TextInputEditText[]{etNombreSujetsReforme};
+                    }
+                }
+                // Effectif vivant du poulailler choisi (même contrôle que le serveur), morts et
+                // réformes en attente de ce poulailler déduits.
+                if (message == null && nombre > 0 && plafondBase != null && plafondBase.getEffectifVivant() != null
+                        && "BATIMENT".equals(plafondBase.getPerimetre())) {
+                    String batiment = getSelectedBatimentUniqueId();
+                    int effectif = plafondBase.getEffectifVivant() - mortsEnAttente(batiment) - reformesEnAttente(batiment);
+                    if (nombre > effectif) {
+                        message = String.format(Locale.FRANCE,
+                                "Impossible : %d sujets réformés saisis, alors qu'il n'y a que %d sujet(s) vivant(s) dans ce poulailler (%d de trop).",
                                 nombre, Math.max(0, effectif), nombre - Math.max(0, effectif));
                         fautifs = new TextInputEditText[]{etNombreSujetsReforme};
                     }

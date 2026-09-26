@@ -379,6 +379,20 @@
             </androidx.cardview.widget.CardView>
 
             <!-- Alertes actives du projet (tap = voir la liste complète). Masquée s'il n'y en a pas. -->
+            <!-- Compte de démonstration (consultationSeule, voir /auth/me) : boutons de saisie masqués. -->
+            <TextView
+                android:id="@+id/tvConsultationSeule"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:background="@color/orange_soft_bg"
+                android:padding="12dp"
+                android:text="Compte de démonstration : consultation seulement"
+                android:textColor="@color/orange_warning"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:visibility="gone"/>
+
             <!-- Saisies d'un autre compte (ou d'un compte inconnu) restées sur ce téléphone :
                  elles ne partent qu'avec le jeton de leur compte (voir SyncManager). -->
             <TextView
