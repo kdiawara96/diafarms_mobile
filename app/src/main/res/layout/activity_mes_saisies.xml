@@ -48,6 +48,19 @@
 
         <View android:layout_width="match_parent" android:layout_height="12dp" />
 
+        <!-- Saisies d'un autre compte sur ce téléphone : jamais listées ici ni envoyées avec
+             ce compte (voir LocalDatabase.getAllSaisies, SyncManager). -->
+        <TextView
+            android:id="@+id/tvSaisiesAutresComptesMes"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:background="@color/orange_soft_bg"
+            android:padding="10dp"
+            android:textColor="@color/orange_warning"
+            android:textSize="13sp"
+            android:visibility="gone" />
+
         <!-- Menu déroulant M3 : la boîte arrondie et la flèche sont fournies
              nativement par le style, plus besoin du chevron superposé à la main
              qu'exigeait le Spinner classique (voir historique). -->

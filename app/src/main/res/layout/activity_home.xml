@@ -379,6 +379,19 @@
             </androidx.cardview.widget.CardView>
 
             <!-- Alertes actives du projet (tap = voir la liste complète). Masquée s'il n'y en a pas. -->
+            <!-- Saisies d'un autre compte (ou d'un compte inconnu) restées sur ce téléphone :
+                 elles ne partent qu'avec le jeton de leur compte (voir SyncManager). -->
+            <TextView
+                android:id="@+id/tvSaisiesAutresComptes"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:background="@color/orange_soft_bg"
+                android:padding="12dp"
+                android:textColor="@color/orange_warning"
+                android:textSize="13sp"
+                android:visibility="gone"/>
+
             <androidx.cardview.widget.CardView
                 android:id="@+id/cardAlertes"
                 android:layout_width="match_parent"

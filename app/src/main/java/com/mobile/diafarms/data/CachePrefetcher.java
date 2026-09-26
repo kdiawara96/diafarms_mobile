@@ -95,7 +95,9 @@ public class CachePrefetcher {
      * juste après un login/scan QR réussi, quand HomeActivity n'a pas encore tourné. */
     public static void prefetchAll(Context context) {
         Context appContext = context.getApplicationContext();
-        LocalDatabase localDatabase = new LocalDatabase(appContext);
+        // Figée sur le compte qui demande : une réponse tardive ne doit pas atterrir dans
+        // le cache d'un autre compte connecté entre-temps.
+        LocalDatabase localDatabase = new LocalDatabase(appContext).figee();
 
         ApiClient.dataApi(appContext).getProjetsSelect().enqueue(new Callback<ApiEnvelope<List<ProjetSelectResponse>>>() {
             @Override
@@ -253,8 +255,9 @@ public class CachePrefetcher {
 
     /** Précharge le détail/alertes/stock de chaque projet d'une liste déjà récupérée
      * (évite de refaire l'appel /projets/select quand l'appelant l'a déjà en main). */
-    public static void prefetchProjectsDetails(Context context, LocalDatabase localDatabase, List<ProjetSelectResponse> projets) {
+    public static void prefetchProjectsDetails(Context context, LocalDatabase localDatabaseAppelant, List<ProjetSelectResponse> projets) {
         Context appContext = context.getApplicationContext();
+        LocalDatabase localDatabase = localDatabaseAppelant.figee();
         int[] budgetPesees = {PESEE_DETAILS_MAX_PAR_PASSAGE}; // partagé entre les projets
         for (ProjetSelectResponse projet : projets) {
             prefetchOneProjet(appContext, localDatabase, projet.getUniqueId());
@@ -266,6 +269,43 @@ public class CachePrefetcher {
         prefetchRattachements(appContext, localDatabase);
         prefetchClients(appContext, localDatabase);
         prefetchSalaires(appContext, localDatabase);
+    }
+
+    /** Profil du compte que le QR ne donne pas : ferme (/farms/me) et drapeau "consultation
+     * seule" (/auth/me, comptes de démonstration). Enregistrés sur CE compte (userId figé
+     * au départ, voir SessionManager.mettreAJourProfil) ; onMisAJour est appelé sur le
+     * thread principal quand l'une des deux réponses est arrivée. */
+    public static void prefetchProfil(Context context, Runnable onMisAJour) {
+        Context appContext = context.getApplicationContext();
+        String userId = SessionManager.activeUserId(appContext);
+        if (userId == null) return;
+        ApiClient.dataApi(appContext).getMonProfil().enqueue(new Callback<ApiEnvelope<com.mobile.diafarms.network.dto.ProfilResponse>>() {
+            @Override
+            public void onResponse(Call<ApiEnvelope<com.mobile.diafarms.network.dto.ProfilResponse>> call,
+                                   Response<ApiEnvelope<com.mobile.diafarms.network.dto.ProfilResponse>> response) {
+                com.mobile.diafarms.network.dto.ProfilResponse p = response.isSuccessful() && response.body() != null
+                        ? response.body().getData() : null;
+                if (p == null || !userId.equals(p.uniqueId)) return;
+                new SessionManager(appContext).mettreAJourProfil(userId, null, Boolean.TRUE.equals(p.consultationSeule));
+                if (onMisAJour != null) onMisAJour.run();
+            }
+
+            @Override
+            public void onFailure(Call<ApiEnvelope<com.mobile.diafarms.network.dto.ProfilResponse>> call, Throwable t) { }
+        });
+        ApiClient.dataApi(appContext).getMaFerme().enqueue(new Callback<ApiEnvelope<java.util.Map<String, String>>>() {
+            @Override
+            public void onResponse(Call<ApiEnvelope<java.util.Map<String, String>>> call, Response<ApiEnvelope<java.util.Map<String, String>>> response) {
+                java.util.Map<String, String> f = response.isSuccessful() && response.body() != null ? response.body().getData() : null;
+                String farm = f != null ? f.get("uniqueId") : null;
+                if (farm == null || farm.isEmpty()) return;
+                new SessionManager(appContext).mettreAJourProfil(userId, farm, null);
+                if (onMisAJour != null) onMisAJour.run();
+            }
+
+            @Override
+            public void onFailure(Call<ApiEnvelope<java.util.Map<String, String>>> call, Throwable t) { }
+        });
     }
 
     /** Plafond d'aujourd'hui pour le projet entier et pour chaque poulailler actuellement

@@ -214,6 +214,13 @@ public interface DataApi {
     @GET("notifications/projet/{projetUniqueId}")
     Call<ApiEnvelope<List<NotificationResponse>>> getNotificationsForProjet(@Path("projetUniqueId") String projetUniqueId);
 
+    // ============== PROFIL (ferme et "consultation seule", absents du JWT du QR) ==============
+    @GET("auth/me")
+    Call<ApiEnvelope<com.mobile.diafarms.network.dto.ProfilResponse>> getMonProfil();
+
+    @GET("farms/me")
+    Call<ApiEnvelope<java.util.Map<String, String>>> getMaFerme();
+
     @PUT("notifications/{key}/read")
     Call<ApiEnvelope<String>> markNotificationRead(@Path("key") String key);
 }

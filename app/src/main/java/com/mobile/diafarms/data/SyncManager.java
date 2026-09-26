@@ -54,8 +54,16 @@ public class SyncManager {
         this.api = ApiClient.dataApi(appContext);
     }
 
+    // Compte dont on envoie les saisies, figé au début de l'envoi : le jeton est lu à chaque
+    // requête (ApiClient.AuthInterceptor), donc si le compte actif change pendant l'envoi,
+    // on s'arrête plutôt que d'envoyer une saisie avec le jeton d'un autre compte.
+    private String compteEnvoi;
+
+    /** N'envoie que les saisies du compte actif (voir LocalDatabase.getPendingSaisies) ;
+     * celles d'un autre compte restent en attente jusqu'à sa prochaine connexion ici. */
     public void syncAll(SyncCallback callback) {
-        List<SaisieLocale> pending = localDatabase.getPendingSaisies();
+        compteEnvoi = SessionManager.activeUserId(appContext);
+        List<SaisieLocale> pending = compteEnvoi != null ? localDatabase.getPendingSaisies() : new java.util.ArrayList<>();
         syncNext(pending, 0, 0, 0, callback);
     }
 
@@ -64,9 +72,19 @@ public class SyncManager {
             callback.onComplete(success, failed);
             return;
         }
+        if (compteEnvoi == null || !compteEnvoi.equals(SessionManager.activeUserId(appContext))) {
+            // Changement de compte pendant l'envoi : le reste attendra (jamais envoyé avec
+            // le jeton d'un autre compte).
+            callback.onComplete(success, failed);
+            return;
+        }
 
         SaisieLocale saisie = list.get(index);
         callback.onProgress(index, list.size());
+        if (!compteEnvoi.equals(saisie.getOwnerUserId())) {
+            syncNext(list, index + 1, success, failed, callback);
+            return;
+        }
 
         if (saisie.getType() == SaisieType.PESEE_SESSION) {
             envoyerSessionPesee(list, index, success, failed, callback, saisie);
@@ -86,14 +104,14 @@ public class SyncManager {
                     syncNext(list, index + 1, synced ? success + 1 : success, failed, callback);
                 } else {
                     String message = extractServerMessage(response);
-                    markError(saisie, message);
+                    markError(saisie, message, response.code());
                     syncNext(list, index + 1, success, failed + 1, callback);
                 }
             }
 
             @Override
             public void onFailure(Call<ApiEnvelope<CreatedEntityResponse>> call, Throwable t) {
-                markError(saisie, "Réseau indisponible");
+                markError(saisie, "Réseau indisponible", 0);
                 syncNext(list, index + 1, success, failed + 1, callback);
             }
         };
@@ -102,7 +120,7 @@ public class SyncManager {
         // aucun callback n'était appelé pour lui (ex: Vente de fientes) et toute la
         // synchronisation restait suspendue. On le marque en erreur et on continue.
         if (!dispatch(saisie, retrofitCallback)) {
-            markError(saisie, "Ce type de saisie ne peut pas être envoyé par cette version de l'application");
+            markError(saisie, "Ce type de saisie ne peut pas être envoyé par cette version de l'application", -1);
             syncNext(list, index + 1, success, failed + 1, callback);
         }
     }
@@ -129,7 +147,7 @@ public class SyncManager {
             envoye = null;
         }
         if (envoye == null) {
-            markError(saisie, "Session de pesée illisible sur ce téléphone");
+            markError(saisie, "Session de pesée illisible sur ce téléphone", -1);
             syncNext(list, index + 1, success, failed + 1, callback);
             return;
         }
@@ -149,24 +167,25 @@ public class SyncManager {
                     // Restée LOCAL (modifiée pendant l'envoi) : ni synchronisée ni en échec.
                     syncNext(list, index + 1, synced ? success + 1 : success, failed, callback);
                 } else {
-                    markError(saisie, extractServerMessage(response));
+                    markError(saisie, extractServerMessage(response), response.code());
                     syncNext(list, index + 1, success, failed + 1, callback);
                 }
             }
 
             @Override
             public void onFailure(Call<ApiEnvelope<SessionPeseeServeur>> call, Throwable t) {
-                markError(saisie, "Réseau indisponible");
+                markError(saisie, "Réseau indisponible", 0);
                 syncNext(list, index + 1, success, failed + 1, callback);
             }
         });
     }
 
-    private void markError(SaisieLocale saisie, String message) {
+    /** httpCode : code de la réponse, 0 = réseau, -1 = refus local définitif (voir SaisieLocale.seraRenvoyee). */
+    private void markError(SaisieLocale saisie, String message, int httpCode) {
         if (saisie.getType() == SaisieType.PESEE_SESSION) {
-            localDatabase.markErrorIfPayloadUnchanged(saisie.getLocalId(), message, saisie.getPayloadJson());
+            localDatabase.markErrorIfPayloadUnchanged(saisie.getLocalId(), message, saisie.getPayloadJson(), httpCode);
         } else {
-            localDatabase.markError(saisie.getLocalId(), message);
+            localDatabase.markError(saisie.getLocalId(), message, httpCode);
         }
     }
 
@@ -193,6 +212,9 @@ public class SyncManager {
         } catch (Exception ignored) {
             // corps illisible : message générique ci-dessous
         }
+        if (response.code() == 401) return "Session expirée : reconnectez-vous en scannant votre QR code";
+        if (response.code() == 403) return "Accès refusé par le serveur pour ce compte";
+        if (response.code() >= 500) return "Serveur indisponible, réessayez plus tard";
         return "Échec de l'envoi";
     }
 

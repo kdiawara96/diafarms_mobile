@@ -150,6 +150,7 @@ public class HomeActivity extends AppCompatActivity {
     private TextView tvConnectionStatus;
     private TextView tvPendingCount;
     private Button btnSyncNow;
+    private TextView tvSaisiesAutresComptes;
 
     // Bandeau "Nouvelle version disponible"
     private CardView cardMiseAJour;
@@ -178,7 +179,8 @@ public class HomeActivity extends AppCompatActivity {
         });
 
         sessionManager = new SessionManager(this);
-        localDatabase = new LocalDatabase(this);
+        // Figée sur le compte de cet écran : saisies et cache sont cloisonnés par compte.
+        localDatabase = new LocalDatabase(this).figee();
 
         if (!sessionManager.isLoggedIn()) {
             redirectToLogin();
@@ -201,6 +203,8 @@ public class HomeActivity extends AppCompatActivity {
         loadLastEntry();
         updateFinanceStats();
         verifierMiseAJour();
+        proposerAdoptionSaisiesSansCompte();
+        CachePrefetcher.prefetchProfil(this, this::surProfilMisAJour);
 
         // Vérification périodique des alertes en arrière-plan (notifications locales,
         // voir AlertCheckWorker) — pas de vrai push, un contrôle toutes les 15-30 min.
@@ -277,6 +281,7 @@ public class HomeActivity extends AppCompatActivity {
         tvConnectionStatus = findViewById(R.id.tvConnectionStatus);
         tvPendingCount = findViewById(R.id.tvPendingCount);
         btnSyncNow = findViewById(R.id.btnSyncNow);
+        tvSaisiesAutresComptes = findViewById(R.id.tvSaisiesAutresComptes);
         cardMiseAJour = findViewById(R.id.cardMiseAJour);
         tvMajTitre = findViewById(R.id.tvMajTitre);
         tvMajNotes = findViewById(R.id.tvMajNotes);
@@ -934,7 +939,44 @@ public class HomeActivity extends AppCompatActivity {
         }
     }
 
+    /** Ferme / consultation seule arrivées du serveur (voir CachePrefetcher.prefetchProfil). */
+    private void surProfilMisAJour() {
+        if (isFinishing() || isDestroyed()) return;
+        User maj = sessionManager.getCurrentUser();
+        if (maj == null || !maj.getId().equals(currentUser.getId())) return;
+        currentUser = maj;
+    }
+
+    private boolean adoptionDemandee = false;
+
+    /** Saisies antérieures à la 1.31 dont le compte n'a pas pu être déterminé (plusieurs
+     * comptes sur l'appareil au moment de la mise à jour, voir LocalDatabase.migrerVersV7) :
+     * elles ne partent avec AUCUN jeton tant qu'un utilisateur ne les a pas reconnues. */
+    private void proposerAdoptionSaisiesSansCompte() {
+        int n = localDatabase.countPendingSansCompte();
+        if (n == 0 || adoptionDemandee) return;
+        adoptionDemandee = true;
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Saisies sans compte")
+                .setMessage(n + " saisie(s) en attente ont été enregistrées sur ce téléphone avant la mise à jour, "
+                        + "sans indication du compte qui les a faites.\n\nLes avez-vous saisies avec votre compte ("
+                        + currentUser.getNom() + ") ? Si oui, elles seront envoyées avec votre compte. "
+                        + "Sinon, elles attendront que leur auteur se connecte sur ce téléphone.")
+                .setCancelable(false)
+                .setPositiveButton("Oui, ce sont les miennes", (d, w) -> {
+                    localDatabase.adopterSaisiesSansCompte();
+                    setupSyncStatus();
+                    loadLastEntry();
+                })
+                .setNegativeButton("Non", (d, w) -> setupSyncStatus())
+                .show();
+    }
+
     private void setupSyncStatus() {
+        int autres = localDatabase.countPendingAutresComptes();
+        tvSaisiesAutresComptes.setVisibility(autres > 0 ? View.VISIBLE : View.GONE);
+        tvSaisiesAutresComptes.setText(autres + " saisie(s) d'un autre compte en attente : "
+                + "reconnectez-vous avec ce compte pour les envoyer");
         int pending = localDatabase.countPending();
 
         if (pending > 0) {

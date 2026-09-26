@@ -13,6 +13,11 @@ public class User {
     private long qrExpiry;
     private boolean actif;
     private String photoUrl;
+    // Renseignés après coup par /auth/me et /farms/me (voir CachePrefetcher.prefetchProfil) :
+    // le JWT du QR ne porte ni la ferme ni le drapeau "consultation seule". null tant que
+    // le téléphone n'a pas encore été en ligne avec ce compte.
+    private String farmUniqueId;
+    private Boolean consultationSeule;
 
     public User() {}
 
@@ -54,6 +59,18 @@ public class User {
     public String getPhotoUrl() { return photoUrl; }
     public void setPhotoUrl(String photoUrl) { this.photoUrl = photoUrl; }
 
+    public String getFarmUniqueId() { return farmUniqueId; }
+    public void setFarmUniqueId(String farmUniqueId) { this.farmUniqueId = farmUniqueId; }
+
+    public Boolean getConsultationSeule() { return consultationSeule; }
+    public void setConsultationSeule(Boolean consultationSeule) { this.consultationSeule = consultationSeule; }
+
+    /** Compte de démonstration (voir ConsultationSeuleFilter côté back) : toute écriture
+     * est refusée par le serveur, les boutons de saisie sont donc masqués. */
+    public boolean isConsultationSeule() {
+        return Boolean.TRUE.equals(consultationSeule);
+    }
+
     // Méthodes utilitaires
     public boolean hasRole(String role) {
         if (roles == null || role == null) return false;
@@ -89,6 +106,20 @@ public class User {
 
     public boolean isAdmin() {
         return hasRole("ADMIN") || hasRole("SUPER_ADMIN");
+    }
+
+    public boolean isResponsable() {
+        return hasRole("RESPONSABLE");
+    }
+
+    /** Voir et livrer les commandes : mêmes rôles que CommandeServiceImpl.ensureCanManage. */
+    public boolean peutGererCommandes() {
+        return isVente() || isResponsable() || isAdmin();
+    }
+
+    /** Encaisser un paiement client : mêmes rôles que PaiementClientService.ensureCanEncaisser. */
+    public boolean peutEncaisser() {
+        return peutGererCommandes() || isComptable();
     }
 
     public boolean isDoubleRole() {

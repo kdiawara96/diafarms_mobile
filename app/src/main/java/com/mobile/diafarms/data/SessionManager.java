@@ -54,10 +54,27 @@ public class SessionManager {
     private SharedPreferences pref;
     private final Gson gson;
 
+    // Compte actif, gardé en mémoire pour LocalDatabase qui en a besoin à chaque lecture
+    // (saisies et cache cloisonnés par compte) sans relire les préférences chiffrées à
+    // chaque fois. Mis à jour à chaque changement de compte actif (voir setActiveAccountId).
+    private static volatile String sActiveUserId;
+    private static volatile boolean sActiveUserIdCharge;
+
     public SessionManager(Context context) {
         this.context = context.getApplicationContext();
         pref = buildEncryptedPrefs(this.context);
         gson = new Gson();
+        if (!sActiveUserIdCharge) {
+            sActiveUserId = safeGetString(KEY_ACTIVE_ACCOUNT_ID, null);
+            sActiveUserIdCharge = true;
+        }
+    }
+
+    /** Identifiant (User.getId) du compte actif de l'appareil, null si aucun. Le compte
+     * reste « actif » quand l'appli est seulement verrouillée (voir lockSession). */
+    public static String activeUserId(Context context) {
+        if (!sActiveUserIdCharge) new SessionManager(context);
+        return sActiveUserId;
     }
 
     private static SharedPreferences buildEncryptedPrefs(Context context) {
@@ -91,6 +108,8 @@ public class SessionManager {
         context.deleteSharedPreferences(PREF_NAME);
         resetMasterKeyIfNeeded();
         pref = buildEncryptedPrefs(context);
+        sActiveUserId = null;
+        sActiveUserIdCharge = true;
     }
 
     /** Sur certains appareils (Samsung notamment), c'est la clé Keystore elle-même qui
@@ -193,6 +212,38 @@ public class SessionManager {
 
     private void setActiveAccountId(String userId) {
         safeEdit(editor -> editor.putString(KEY_ACTIVE_ACCOUNT_ID, userId));
+        sActiveUserId = userId;
+        sActiveUserIdCharge = true;
+    }
+
+    /** Nombre de comptes mémorisés sur l'appareil. */
+    public int accountCount() {
+        return getAccounts().size();
+    }
+
+    /** Identifiant du seul compte mémorisé, null s'il y en a zéro ou plusieurs. */
+    public String seulCompteId() {
+        List<Account> accounts = getAccounts();
+        return accounts.size() == 1 ? accounts.get(0).userId : null;
+    }
+
+    /** Ferme du compte actif si déjà connue (voir mettreAJourProfil), sinon null. */
+    public String getCurrentFarmId() {
+        User u = getCurrentUser();
+        return u != null ? u.getFarmUniqueId() : null;
+    }
+
+    /** Complète le profil d'un compte (ferme, consultation seule) avec la réponse du
+     * serveur. userId est celui du compte pour lequel la requête a été faite : si le
+     * compte actif a changé entre-temps, c'est bien CE compte-là qui est mis à jour.
+     * Une valeur null laisse l'ancienne en place. */
+    public void mettreAJourProfil(String userId, String farmUniqueId, Boolean consultationSeule) {
+        List<Account> accounts = getAccounts();
+        Account a = findAccount(accounts, userId);
+        if (a == null || a.user == null) return;
+        if (farmUniqueId != null) a.user.setFarmUniqueId(farmUniqueId);
+        if (consultationSeule != null) a.user.setConsultationSeule(consultationSeule);
+        saveAccounts(accounts);
     }
 
     private Account getActiveAccount() {
@@ -216,6 +267,12 @@ public class SessionManager {
             account = new Account();
             account.userId = user.getId();
             accounts.add(account);
+        }
+        // Nouveau scan du même compte : la ferme et le drapeau "consultation seule" déjà
+        // connus (voir mettreAJourProfil) sont gardés, le JWT du QR ne les porte pas.
+        if (account.user != null) {
+            if (user.getFarmUniqueId() == null) user.setFarmUniqueId(account.user.getFarmUniqueId());
+            if (user.getConsultationSeule() == null) user.setConsultationSeule(account.user.getConsultationSeule());
         }
         account.user = user;
         account.token = token;
@@ -311,10 +368,9 @@ public class SessionManager {
     /** Retire complètement le compte ACTIF de l'appareil (session, token et mot de passe
      * local) — les autres comptes mémorisés ne sont pas affectés. S'il en reste un
      * autre, il devient le compte actif ; sinon plus aucun compte n'est actif (retour à
-     * l'écran de connexion, nouveau scan QR nécessaire pour ce compte). Le cache
-     * local générique (projets, détails...) et la file de saisies en attente restent en
-     * revanche partagés au niveau de l'appareil (voir LocalDatabase) — pas encore
-     * cloisonnés par compte. */
+     * l'écran de connexion, nouveau scan QR nécessaire pour ce compte). Ses saisies en
+     * attente restent sur l'appareil (cloisonnées par compte, voir LocalDatabase) : elles
+     * ne seront envoyées que si ce compte est de nouveau scanné ici. */
     public void deleteAccount() {
         List<Account> accounts = getAccounts();
         String activeId = getActiveAccountId();
@@ -329,6 +385,8 @@ public class SessionManager {
             }
             editor.putBoolean(KEY_IS_LOGGED_IN, false);
         });
+        sActiveUserId = nextActiveId;
+        sActiveUserIdCharge = true;
     }
 
     /** true s'il reste au moins un compte mémorisé sur cet appareil (avant ou après un

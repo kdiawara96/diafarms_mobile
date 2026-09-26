@@ -377,7 +377,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         projetLabel = getIntent().getStringExtra(EXTRA_PROJET_LABEL);
         editingLocalId = getIntent().getStringExtra(EXTRA_LOCAL_ID);
 
-        localDatabase = new LocalDatabase(this);
+        localDatabase = new LocalDatabase(this).figee();
 
         bindViews();
         applyTypeVisibility();

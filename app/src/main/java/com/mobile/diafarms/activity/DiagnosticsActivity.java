@@ -229,7 +229,7 @@ public class DiagnosticsActivity extends AppCompatActivity {
      * sinon on emporterait par erreur les données d'un compte encore présent.
      */
     private void confirmSuppressionCompte() {
-        int pending = localDatabase.countPending();
+        int pending = localDatabase.countPendingTous();
         String message = "Cette action est irréversible : la session et le mot de passe hors ligne de ce compte "
                 + "seront supprimés de cet appareil. Un nouveau scan QR sera nécessaire pour s'y reconnecter."
                 + (pending > 0 ? "\n\nSi c'est le seul compte de l'appareil, " + pending
@@ -250,7 +250,7 @@ public class DiagnosticsActivity extends AppCompatActivity {
     }
 
     private void confirmViderBase() {
-        int pending = localDatabase.countPending();
+        int pending = localDatabase.countPendingTous();
         String message = (pending > 0
                 ? "Cette action supprime toutes les données locales, y compris "
                     + pending + " saisie(s) non encore synchronisée(s) qui seront définitivement perdues."

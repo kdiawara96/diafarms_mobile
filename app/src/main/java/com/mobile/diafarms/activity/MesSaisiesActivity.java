@@ -38,7 +38,7 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Liste toutes les saisies enregistrées sur l'appareil (production comme finance),
+ * Liste les saisies du compte connecté enregistrées sur l'appareil (production comme finance),
  * filtrable par type. Les saisies encore LOCAL ou en ERROR (pas encore synchronisées
  * avec succès) sont modifiables et supprimables ; les saisies SYNCED sont en lecture seule.
  */
@@ -66,7 +66,7 @@ public class MesSaisiesActivity extends AppCompatActivity {
             return insets;
         });
 
-        localDatabase = new LocalDatabase(this);
+        localDatabase = new LocalDatabase(this).figee();
 
         findViewById(R.id.btnBackMesSaisies).setOnClickListener(v -> finish());
 
@@ -108,6 +108,11 @@ public class MesSaisiesActivity extends AppCompatActivity {
         List<SaisieLocale> saisies = filtreActuel == null
                 ? localDatabase.getAllSaisies()
                 : localDatabase.getSaisiesByType(filtreActuel);
+
+        int autres = localDatabase.countPendingAutresComptes();
+        TextView tvAutres = findViewById(R.id.tvSaisiesAutresComptesMes);
+        tvAutres.setVisibility(autres > 0 ? View.VISIBLE : View.GONE);
+        tvAutres.setText(autres + " saisie(s) d'un autre compte en attente : reconnectez-vous avec ce compte pour les envoyer");
 
         adapter.setItems(saisies);
         tvEmpty.setVisibility(saisies.isEmpty() ? View.VISIBLE : View.GONE);
