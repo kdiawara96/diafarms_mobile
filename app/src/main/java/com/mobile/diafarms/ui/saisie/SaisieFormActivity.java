@@ -416,6 +416,16 @@ public class SaisieFormActivity extends AppCompatActivity {
             return;
         }
 
+        if (editingLocalId != null) {
+            SaisieLocale aModifier = localDatabase.getSaisieById(editingLocalId);
+            if (aModifier != null && !aModifier.peutEtreModifiee()) {
+                toast(SaisieLocale.STATUT_DEJA_ENREGISTREE.equals(aModifier.getSyncStatus())
+                        ? SaisieLocale.MESSAGE_DEJA_ENREGISTREE : SaisieLocale.MESSAGE_ATTENTE_CONFIRMATION);
+                finish();
+                return;
+            }
+        }
+
         if (type == SaisieType.LIVRAISON_COMMANDE && !chargerCommandeLivree()) {
             finish();
             return;
@@ -998,9 +1008,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         // n'avait tout simplement pas ce champ. Seuls Client/Salaire restent sans
         // aucune notion de date/heure de saisie.
         groupDateHeureTop.setVisibility(
-                (type == SaisieType.CLIENT_CREATE || type == SaisieType.SALAIRE_PAYER
-                        // Livraison datée par le serveur au jour de l'envoi (pas de date dans /livrer).
-                        || type == SaisieType.LIVRAISON_COMMANDE)
+                (type == SaisieType.CLIENT_CREATE || type == SaisieType.SALAIRE_PAYER)
                         ? View.GONE : View.VISIBLE);
         if (type == SaisieType.LIVRAISON_COMMANDE && commandeLivree != null) {
             tvProjetForm.setText(commandeLivree.clientNom);
@@ -3412,6 +3420,9 @@ public class SaisieFormActivity extends AppCompatActivity {
                 LivraisonCommandeRequest req = new LivraisonCommandeRequest();
                 req.commandeUniqueId = c.uniqueId;
                 req.quantite = q;
+                // Date et heure réelles de la livraison (saisie hors ligne envoyée plus tard).
+                req.date = date;
+                req.heure = heure;
                 req.type = c.type;
                 req.magasinUniqueId = c.magasinUniqueId;
                 req.clientUniqueId = c.clientUniqueId;
@@ -3705,6 +3716,7 @@ public class SaisieFormActivity extends AppCompatActivity {
             }
             case LIVRAISON_COMMANDE: {
                 LivraisonCommandeRequest req = gson.fromJson(json, LivraisonCommandeRequest.class);
+                setDateHeure(req.date, req.heure);
                 // Toujours rouverte en œufs (unité Œuf), comme une vente d'œufs.
                 if (req.quantite != null) etQuantiteLivraison.setText(String.valueOf(req.quantite));
                 if (req.poidsTotalKg != null) etPoidsLivraison.setText(formatSaisie(req.poidsTotalKg));

@@ -215,6 +215,11 @@ public class MesSaisiesActivity extends AppCompatActivity {
                     tvStatus.setTextColor(Color.WHITE);
                     tvStatus.setBackgroundColor(0xFF2E7D32);
                     break;
+                case SaisieLocale.STATUT_DEJA_ENREGISTREE:
+                    tvStatus.setText(SaisieLocale.MESSAGE_DEJA_ENREGISTREE);
+                    tvStatus.setTextColor(Color.WHITE);
+                    tvStatus.setBackgroundColor(0xFF6D4C41);
+                    break;
                 case SaisieLocale.STATUT_ERROR:
                     tvStatus.setText("Erreur : " + (saisie.getErrorMessage() != null ? saisie.getErrorMessage() : "envoi échoué"));
                     tvStatus.setTextColor(Color.WHITE);
@@ -223,12 +228,15 @@ public class MesSaisiesActivity extends AppCompatActivity {
                 default:
                     // Note d'un essai d'envoi qui n'a pas abouti (réseau, serveur) : la saisie
                     // repartira telle quelle au prochain envoi, rien à corriger.
-                    tvStatus.setText(saisie.getErrorMessage() != null ? saisie.getErrorMessage() : "En attente de synchronisation");
+                    tvStatus.setText(saisie.isEnAttenteConfirmation() ? SaisieLocale.MESSAGE_ATTENTE_CONFIRMATION
+                            : saisie.getErrorMessage() != null ? saisie.getErrorMessage() : "En attente de synchronisation");
                     tvStatus.setTextColor(Color.WHITE);
                     tvStatus.setBackgroundColor(0xFFEF6C00);
             }
 
-            boolean editable = saisie.isEditable();
+            // Pas de modification ni de suppression tant qu'un envoi déjà tenté n'est pas
+            // confirmé (le serveur l'a peut-être) : voir SaisieLocale.peutEtreModifiee.
+            boolean editable = saisie.peutEtreModifiee();
             boolean deletable = editable;
             if (saisie.getType() == SaisieType.PESEE_SESSION) {
                 // Toujours consultable (ouvre l'écran de la session). Suppression : session

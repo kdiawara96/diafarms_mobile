@@ -11,6 +11,8 @@ public class LivraisonCommandeRequest {
     public String mode; // mode de paiement de montantRecu
     public Double poidsTotalKg; // commande au kilo seulement
     public Double prixKg; // commande au kilo seulement
+    public String date; // yyyy-MM-dd, jour réel de la livraison (facultatif côté serveur)
+    public String heure; // HH:mm, facultatif
 
     // Infos (non envoyées)
     public String type; // "OEUFS" ou "REFORME"

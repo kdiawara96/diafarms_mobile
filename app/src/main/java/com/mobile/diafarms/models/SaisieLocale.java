@@ -11,6 +11,15 @@ public class SaisieLocale {
     public static final String STATUT_LOCAL = "LOCAL";
     public static final String STATUT_SYNCED = "SYNCED";
     public static final String STATUT_ERROR = "ERROR";
+    // Réponse 422 « clé déjà utilisée » : le serveur a DÉJÀ enregistré une première version
+    // de cette saisie (même clé, contenu différent). Traitée comme une saisie envoyée avec
+    // un avertissement, et non comme une erreur : elle ne repart plus (sinon doublon ou 422
+    // sans fin), n'est plus modifiable ici, et se corrige sur le web.
+    public static final String STATUT_DEJA_ENREGISTREE = "DEJA_ENREGISTREE";
+    public static final String MESSAGE_DEJA_ENREGISTREE =
+            "Cette saisie a déjà été enregistrée sur le serveur ; pour la corriger, faites-le depuis l'application web";
+    public static final String MESSAGE_ATTENTE_CONFIRMATION =
+            "Envoi en attente de confirmation : modification possible après la prochaine synchronisation";
 
     private String localId;
     private SaisieType type;
@@ -86,6 +95,23 @@ public class SaisieLocale {
         return c == 0 || c == 401 || c == 408 || c == 429 || c >= 500;
     }
 
+    /** Déjà tentée sans réponse claire (réseau, délai, 5xx, 409) : le serveur l'a peut-être
+     * enregistrée. Ni modification ni suppression tant que le prochain envoi (même clé) n'a
+     * pas tranché. Les sessions de pesée, idempotentes par leurs propres identifiants et
+     * réécrites au fil de l'eau, ne sont pas concernées. */
+    public boolean isEnAttenteConfirmation() {
+        if (!STATUT_LOCAL.equals(syncStatus) || httpCode == null || type == SaisieType.PESEE_SESSION) return false;
+        int c = httpCode;
+        return c == 0 || c == 408 || c == 409 || c == 429 || c >= 500;
+    }
+
+    /** Modifiable / supprimable par l'utilisateur : jamais envoyée, ou refusée
+     * définitivement (ERROR, à corriger). */
+    public boolean peutEtreModifiee() {
+        return (STATUT_LOCAL.equals(syncStatus) && !isEnAttenteConfirmation()) || STATUT_ERROR.equals(syncStatus);
+    }
+
+    /** Pas encore acceptée par le serveur (LOCAL ou ERROR), qu'elle soit modifiable ou non. */
     public boolean isEditable() {
         return STATUT_LOCAL.equals(syncStatus) || STATUT_ERROR.equals(syncStatus);
     }

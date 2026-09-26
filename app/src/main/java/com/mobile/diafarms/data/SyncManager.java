@@ -186,6 +186,14 @@ public class SyncManager {
             arreter(index);
             return;
         }
+        if (code == 422 && saisie.getType() != SaisieType.PESEE_SESSION) {
+            // Clé déjà utilisée pour un autre contenu : la première version est enregistrée
+            // sur le serveur. Ne plus la renvoyer (voir SaisieLocale.STATUT_DEJA_ENREGISTREE).
+            localDatabase.marquerDejaEnregistree(saisie.getLocalId(), SaisieLocale.MESSAGE_DEJA_ENREGISTREE);
+            bilan.refusees++;
+            syncNext(index + 1);
+            return;
+        }
         markError(saisie, message, code);
         bilan.refusees++;
         syncNext(index + 1);
@@ -338,7 +346,7 @@ public class SyncManager {
                 api.livrerCommande(cle, l.commandeUniqueId, l.quantite,
                         l.montantRecu != null && l.montantRecu > 0 ? l.montantRecu : null,
                         l.montantRecu != null && l.montantRecu > 0 ? l.mode : null,
-                        kilo ? l.poidsTotalKg : null, kilo ? l.prixKg : null).enqueue(callback);
+                        kilo ? l.poidsTotalKg : null, kilo ? l.prixKg : null, l.date, l.heure).enqueue(callback);
                 break;
             }
             case PAIEMENT_CLIENT: {

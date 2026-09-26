@@ -241,10 +241,7 @@ public class CachePrefetcher {
                     localDatabase.putCache(CACHE_CLIENTS_SELECT, gson.toJson(response.body().getData()));
                     User u = new SessionManager(appContext).getCurrentUser();
                     if (u != null && u.peutEncaisser()) {
-                        List<ClientSelectResponse> clients = response.body().getData();
-                        for (int i = 0; i < clients.size() && i < COMPTES_CLIENTS_MAX; i++) {
-                            rafraichirCompteClient(appContext, localDatabase, clients.get(i).getUniqueId(), null);
-                        }
+                        rafraichirComptesClients(appContext, localDatabase, response.body().getData(), 0);
                     }
                 }
             }
@@ -291,6 +288,50 @@ public class CachePrefetcher {
         if (u != null && u.peutEncaisser()) {
             rafraichirCommandes(appContext, localDatabase, null);
         }
+    }
+
+    /** Comptes de tous les clients en un appel par page (GET /clients/comptes). Si le serveur
+     * ne connaît pas encore cet appel (404), repli sur un appel par client (150 au plus). */
+    private static void rafraichirComptesClients(Context appContext, LocalDatabase localDatabase,
+                                                 List<ClientSelectResponse> clients, int page) {
+        ApiClient.dataApi(appContext).getComptesClients(page, 200).enqueue(new Callback<ApiEnvelope<com.google.gson.JsonElement>>() {
+            @Override
+            public void onResponse(Call<ApiEnvelope<com.google.gson.JsonElement>> call, Response<ApiEnvelope<com.google.gson.JsonElement>> response) {
+                if (response.code() == 404) {
+                    for (int i = 0; i < clients.size() && i < COMPTES_CLIENTS_MAX; i++) {
+                        rafraichirCompteClient(appContext, localDatabase, clients.get(i).getUniqueId(), null);
+                    }
+                    return;
+                }
+                com.google.gson.JsonElement data = response.isSuccessful() && response.body() != null ? response.body().getData() : null;
+                if (data == null || data.isJsonNull()) return;
+                // Liste directe, ou page { data: [...], totalPages }.
+                com.google.gson.JsonArray items = null;
+                int totalPages = 1;
+                if (data.isJsonArray()) {
+                    items = data.getAsJsonArray();
+                } else if (data.isJsonObject()) {
+                    com.google.gson.JsonObject o = data.getAsJsonObject();
+                    if (o.has("data") && o.get("data").isJsonArray()) items = o.getAsJsonArray("data");
+                    if (o.has("totalPages") && o.get("totalPages").isJsonPrimitive()) totalPages = o.get("totalPages").getAsInt();
+                }
+                if (items == null) return;
+                for (com.google.gson.JsonElement e : items) {
+                    if (!e.isJsonObject()) continue;
+                    com.google.gson.JsonObject o = e.getAsJsonObject();
+                    // Élément = le compte lui-même, ou { compte: {...} }.
+                    com.google.gson.JsonObject compte = o.has("compte") && o.get("compte").isJsonObject() ? o.getAsJsonObject("compte") : o;
+                    if (!compte.has("clientUniqueId") || compte.get("clientUniqueId").isJsonNull()) continue;
+                    localDatabase.putCache(CACHE_COMPTE_CLIENT_PREFIX + compte.get("clientUniqueId").getAsString(), gson.toJson(compte));
+                }
+                if (items.size() > 0 && page + 1 < totalPages && page < 50) {
+                    rafraichirComptesClients(appContext, localDatabase, clients, page + 1);
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiEnvelope<com.google.gson.JsonElement>> call, Throwable t) { }
+        });
     }
 
     /** Recharge le compte d'un client dans le cache ; fin(true) si le cache a été mis à jour. */

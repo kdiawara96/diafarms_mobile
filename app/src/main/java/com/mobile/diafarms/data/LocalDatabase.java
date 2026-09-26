@@ -331,6 +331,15 @@ public class LocalDatabase extends SQLiteOpenHelper {
         getWritableDatabase().update(TABLE_SAISIES, values, COL_LOCAL_ID + "=?", new String[]{localId});
     }
 
+    /** 422 « clé déjà utilisée » : sortie de la file d'envoi, message gardé pour l'affichage. */
+    public void marquerDejaEnregistree(String localId, String message) {
+        ContentValues values = new ContentValues();
+        values.put(COL_SYNC_STATUS, SaisieLocale.STATUT_DEJA_ENREGISTREE);
+        values.put(COL_ERROR_MESSAGE, message);
+        values.put(COL_HTTP_CODE, 422);
+        getWritableDatabase().update(TABLE_SAISIES, values, COL_LOCAL_ID + "=?", new String[]{localId});
+    }
+
     public void deleteSaisie(String localId) {
         SQLiteDatabase db = this.getWritableDatabase();
         db.delete(TABLE_SAISIES, COL_LOCAL_ID + "=?", new String[]{localId});

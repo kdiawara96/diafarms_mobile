@@ -182,6 +182,8 @@ public interface DataApi {
 
     // Livraison partielle ou totale (voir CommandeController.livrer) : paramètres d'URL,
     // pas de corps. quantite en œufs ou en sujets ; au kilo, poidsTotalKg obligatoire.
+    // date (yyyy-MM-dd) / heure (HH:mm) facultatives : jour réel d'une livraison saisie hors
+    // ligne (un serveur plus ancien les ignore et date la livraison du jour de l'envoi).
     @POST("commandes/{uniqueId}/livrer")
     Call<ApiEnvelope<CreatedEntityResponse>> livrerCommande(@Header("Idempotency-Key") String idempotencyKey,
                                                             @Path("uniqueId") String commandeUniqueId,
@@ -189,7 +191,9 @@ public interface DataApi {
                                                             @Query("montantRecu") Double montantRecu,
                                                             @Query("mode") String mode,
                                                             @Query("poidsTotalKg") Double poidsTotalKg,
-                                                            @Query("prixKg") Double prixKg);
+                                                            @Query("prixKg") Double prixKg,
+                                                            @Query("date") String date,
+                                                            @Query("heure") String heure);
 
     // ============== PAIEMENTS CLIENT (encaissement) ==============
     @POST("paiements-client/create")
@@ -204,6 +208,11 @@ public interface DataApi {
 
     // Compte d'un client (reste à payer, avance libre / réservée) : seule la partie "compte"
     // est lue, l'historique est ignoré.
+    // Comptes de tous les clients de la ferme en un appel (paginé). Réponse lue souplement
+    // (voir CachePrefetcher.rafraichirComptesClients) ; 404 = serveur plus ancien.
+    @GET("clients/comptes")
+    Call<ApiEnvelope<com.google.gson.JsonElement>> getComptesClients(@Query("page") int page, @Query("size") int size);
+
     @GET("clients/{uniqueId}/compte")
     Call<ApiEnvelope<CompteClientResponse>> getCompteClient(@Path("uniqueId") String clientUniqueId);
 

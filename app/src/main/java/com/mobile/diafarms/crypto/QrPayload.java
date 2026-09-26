@@ -15,10 +15,12 @@ public class QrPayload {
     private String qrExpiresAt;    // "dd-MM-yy HH:mm", absent/null = QR permanent
     private String uniqueIdUser;
     private String token;          // JWT signé, utilisable tel quel comme Bearer token
+    private Boolean consultationSeule; // compte de démonstration, si le serveur le fournit
 
     public String getQrExpiresAt() { return qrExpiresAt; }
     public String getUniqueIdUser() { return uniqueIdUser; }
     public String getToken() { return token; }
+    public Boolean getConsultationSeule() { return consultationSeule; }
 
     public boolean isValid() {
         return uniqueIdUser != null && !uniqueIdUser.isEmpty()

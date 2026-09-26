@@ -17,12 +17,16 @@ public class QrJwtClaims {
     private String fullName;
     private String role;
     private long exp;
+    // Compte de démonstration, si le serveur l'ajoute au JWT du QR (absent aujourd'hui :
+    // alors lu par /auth/me, voir CachePrefetcher.prefetchProfil).
+    private Boolean consultationSeule;
 
     public String getSub() { return sub; }
     public String getUniqueId() { return uniqueId; }
     public String getFullName() { return fullName; }
     public String getRole() { return role; }
     public long getExp() { return exp; }
+    public Boolean getConsultationSeule() { return consultationSeule; }
 
     public List<String> getRoles() {
         List<String> roles = new ArrayList<>();

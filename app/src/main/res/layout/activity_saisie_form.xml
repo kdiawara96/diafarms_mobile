@@ -1480,7 +1480,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:text="La livraison est datée du jour de son envoi au serveur. L'acompte réservé à la commande règle la livraison en premier."
+                    android:text="L'acompte réservé à la commande règle la livraison en premier."
                     android:textColor="@color/gray_text_soft"
                     android:textSize="12sp" />
             </LinearLayout>

@@ -287,15 +287,19 @@ public class CameraScanActivity extends AppCompatActivity {
             return;
         }
 
-        onQrLoginSuccess(claims, payload.getToken());
+        onQrLoginSuccess(claims, payload.getToken(),
+                payload.getConsultationSeule() != null ? payload.getConsultationSeule() : claims.getConsultationSeule());
     }
 
-    private void onQrLoginSuccess(QrJwtClaims claims, String token) {
+    private void onQrLoginSuccess(QrJwtClaims claims, String token, Boolean consultationSeule) {
         User user = new User();
         user.setId(claims.getUniqueId());
         user.setNom(claims.getFullName());
         user.setActif(true); // pas de vérification serveur au scan, voir le commentaire de processQr()
         user.setRoles(claims.getRoles());
+        // Compte de démonstration connu dès la connexion quand le QR le dit : aucun bouton
+        // de saisie, même avant le premier appel en ligne à /auth/me.
+        user.setConsultationSeule(consultationSeule);
 
         sessionManager.createSession(user, token);
         String identifiant = claims.getSub();
