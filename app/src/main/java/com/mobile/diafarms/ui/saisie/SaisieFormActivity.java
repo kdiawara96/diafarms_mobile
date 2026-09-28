@@ -118,7 +118,7 @@ public class SaisieFormActivity extends AppCompatActivity {
     // envoi vers alimentations/create qui crée le stock ET la sortie d'argent). Le serveur
     // refuse une sortie manuelle "Aliment" : cette catégorie ne part jamais en transaction.
     private static final String CATEGORIE_ACHAT_ALIMENT = "Achat d'aliment";
-    private static final String[] CATEGORIES_TRANSACTION_SORTIE = {"Santé / Vétérinaire", "Logistique", "Électricité / Eau", "Entretien / Maintenance", "Alvéole", "Copeau", "Matériels", CATEGORIE_ACHAT_ALIMENT, "Autre"};
+    private static final String[] CATEGORIES_TRANSACTION_SORTIE = {CATEGORIE_ACHAT_ALIMENT, "Santé / Vétérinaire", "Logistique", "Électricité / Eau", "Entretien / Maintenance", "Alvéole", "Copeau", "Matériels", "Autre"};
     // Type d'aliment acheté : libellés affichés et valeurs envoyées (enum TypeAliment côté back), même ordre.
     private static final String[] TYPES_ALIMENT = {"Démarrage", "Croissance", "Ponte", "Autre"};
     private static final String[] TYPES_ALIMENT_WIRE = {"DEMARRAGE", "CROISSANCE", "PONTE", "AUTRE"};
@@ -846,7 +846,14 @@ public class SaisieFormActivity extends AppCompatActivity {
         ArrayAdapter<String> categorieAdapter = new ArrayAdapter<>(this,
                 android.R.layout.simple_dropdown_item_1line, categories);
         spinnerCategorie.setAdapter(categorieAdapter);
-        if (categories.length > 0) spinnerCategorie.setText(categories[0], false);
+        // "Achat d'aliment" est en tête de liste (demande du propriétaire) mais n'est pas
+        // présélectionné : une sortie d'argent s'ouvre toujours en sortie simple, l'achat
+        // n'est choisi que volontairement.
+        if (categories.length > 0) {
+            String parDefaut = categories[0];
+            if (categories.length > 1 && CATEGORIE_ACHAT_ALIMENT.equals(parDefaut) && editingLocalId == null) parDefaut = categories[1];
+            spinnerCategorie.setText(parDefaut, false);
+        }
         spinnerCategorie.setOnItemClickListener((parent, view, position, id) -> basculerAchatAliment());
 
         ArrayAdapter<String> typeSoinAdapter = new ArrayAdapter<>(this,
