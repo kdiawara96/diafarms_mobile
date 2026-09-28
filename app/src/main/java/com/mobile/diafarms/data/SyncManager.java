@@ -92,6 +92,10 @@ public class SyncManager {
     public void syncAll(SyncCallback callback) {
         compteEnvoi = SessionManager.activeUserId(appContext);
         file = compteEnvoi != null ? localDatabase.getPendingSaisies() : new java.util.ArrayList<>();
+        // Achats d'aliment d'abord (tri stable) : le contrôle hors ligne compte déjà un achat
+        // en attente dans le stock, une consommation saisie après lui ne doit pas partir avant.
+        java.util.Collections.sort(file, (a, b) -> Boolean.compare(
+                b.getType() == SaisieType.ALIMENTATION_ACHAT, a.getType() == SaisieType.ALIMENTATION_ACHAT));
         appelant = callback;
         com.mobile.diafarms.models.User u = new SessionManager(appContext).getCurrentUser();
         if (u != null && u.isConsultationSeule()) {
@@ -339,8 +343,13 @@ public class SyncManager {
                 api.createCollecteOeufs(cle, gson.fromJson(json, CollecteOeufsCreateRequest.class)).enqueue(callback);
                 break;
             case ALIMENTATION_ACHAT:
-                api.createAlimentationAchat(cle, saisie.getProjetUniqueId(), gson.fromJson(json, AlimentationCreateRequest.class))
-                        .enqueue(callback);
+            {
+                AlimentationCreateRequest achat = gson.fromJson(json, AlimentationCreateRequest.class);
+                // Le nombre de sacs est désormais obligatoire côté serveur : une saisie d'une
+                // version antérieure (sacs facultatifs) part avec 0 sac et sa quantité en kg.
+                if (achat != null && achat.sac == null) achat.sac = 0d;
+                api.createAlimentationAchat(cle, saisie.getProjetUniqueId(), achat).enqueue(callback);
+            }
                 break;
             case ALIMENTATION_CONSOMMATION:
                 api.createConsommationAliment(cle, gson.fromJson(json, ConsommationAlimentCreateRequest.class)).enqueue(callback);

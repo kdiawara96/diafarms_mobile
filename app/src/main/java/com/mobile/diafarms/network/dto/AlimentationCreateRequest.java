@@ -16,4 +16,9 @@ public class AlimentationCreateRequest {
     public String observations;
     public String batimentUniqueId;
     public String fournisseur; // optionnel
+    // DEMARRAGE / CROISSANCE / PONTE / AUTRE (null = saisie d'une version antérieure :
+    // le serveur déduit alors le nom "Aliment").
+    public String typeAliment;
+    // Poids d'un sac (kg), non stocké côté serveur : sert au calcul si quantiteKg manque.
+    public Double poidsSacKg;
 }

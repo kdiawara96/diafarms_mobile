@@ -534,79 +534,6 @@
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
-            <!-- ===================== ALIMENTATION — ACHAT (entrant) ===================== -->
-            <LinearLayout
-                android:id="@+id/groupAlimentationAchat"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:visibility="gone">
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Nom de l'aliment">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etNomAliment"
-                        android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:inputType="text" />
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <View android:layout_width="match_parent" android:layout_height="12dp" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Nombre de sacs (optionnel)">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etSac"
-                        android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:inputType="numberDecimal" />
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <View android:layout_width="match_parent" android:layout_height="12dp" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Quantité (kg)">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etQuantiteKgAchat"
-                        android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:inputType="numberDecimal" />
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <View android:layout_width="match_parent" android:layout_height="12dp" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Coût total (FCFA)">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etCoutAchatAliment"
-                        android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:inputType="numberDecimal" />
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <View android:layout_width="match_parent" android:layout_height="12dp" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Fournisseur (optionnel)">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etFournisseurAchat"
-                        android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:inputType="text" />
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <View android:layout_width="match_parent" android:layout_height="12dp" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Observations (optionnel)">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etObservationsAchat"
-                        android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:inputType="textMultiLine" android:minLines="2" />
-                </com.google.android.material.textfield.TextInputLayout>
-            </LinearLayout>
-
             <!-- ===================== ALIMENTATION — CONSOMMATION (sortie) ===================== -->
             <LinearLayout
                 android:id="@+id/groupConsommation"
@@ -1756,6 +1683,65 @@
 
                 </com.google.android.material.textfield.TextInputLayout>
 
+                <!-- Catégorie "Achat d'aliment" : l'achat d'aliment n'est plus un formulaire à part.
+                     La saisie est enregistrée en ALIMENTATION_ACHAT (stock du projet + sortie
+                     d'argent côté serveur), voir SaisieFormActivity.basculerAchatAliment. -->
+                <LinearLayout
+                    android:id="@+id/groupAlimentationAchat"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginTop="12dp"
+                    android:visibility="gone">
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Type d'aliment"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
+                    <AutoCompleteTextView
+                        android:id="@+id/spinnerTypeAliment"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none"
+                        android:editable="false" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Nombre de sacs">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etSac"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="numberDecimal" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Poids d'un sac (kg)">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etPoidsSac"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="numberDecimal" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Quantité totale (kg)">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etQuantiteKgAchat"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="numberDecimal" />
+                </com.google.android.material.textfield.TextInputLayout>
+                </LinearLayout>
+
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 
                 <com.google.android.material.textfield.TextInputLayout
@@ -1766,6 +1752,43 @@
                         android:layout_width="match_parent" android:layout_height="wrap_content"
                         android:inputType="numberDecimal" />
                 </com.google.android.material.textfield.TextInputLayout>
+
+                <LinearLayout
+                    android:id="@+id/groupAlimentationAchatFin"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Fournisseur (facultatif)">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etFournisseurAchat"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="text" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Observations (facultatif)">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etObservationsAchat"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="textMultiLine" />
+                </com.google.android.material.textfield.TextInputLayout>
+                </LinearLayout>
+
+                <!-- Tout ce qui suit ne concerne qu'une vraie transaction (masqué pour un achat d'aliment). -->
+                <LinearLayout
+                    android:id="@+id/groupTransactionDetails"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
 
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 
@@ -1906,6 +1929,7 @@
                         android:inputType="none"
                         android:editable="false" />
                 </com.google.android.material.textfield.TextInputLayout>
+                </LinearLayout>
             </LinearLayout>
 
             <!-- Alerte de cohérence EN DIRECT (valeur saisie au-delà de l'effectif vivant ou du

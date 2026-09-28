@@ -143,7 +143,6 @@ public class HomeActivity extends AppCompatActivity {
     private CardView btnEncaissement;
     private CardView btnEncaissementCompta;
     private CardView btnPayerSalaire;
-    private CardView btnAchatAliment;
     private CardView cardStatsFinance;
     private TextView tvMesEntrees;
     private TextView tvMesSorties;
@@ -280,7 +279,6 @@ public class HomeActivity extends AppCompatActivity {
         btnEncaissement = findViewById(R.id.btnEncaissement);
         btnEncaissementCompta = findViewById(R.id.btnEncaissementCompta);
         btnPayerSalaire = findViewById(R.id.btnPayerSalaire);
-        btnAchatAliment = findViewById(R.id.btnAchatAliment);
         cardStatsFinance = findViewById(R.id.cardStatsFinance);
         tvMesEntrees = findViewById(R.id.tvMesEntrees);
         tvMesSorties = findViewById(R.id.tvMesSorties);
@@ -413,7 +411,6 @@ public class HomeActivity extends AppCompatActivity {
             btnEntreeArgent.setVisibility(View.GONE);
             btnSortieArgent.setVisibility(View.GONE);
             btnPayerSalaire.setVisibility(View.GONE);
-            btnAchatAliment.setVisibility(View.GONE);
         }
         if (isVente) {
             btnVenteOeufs.setVisibility(View.GONE);
@@ -472,7 +469,6 @@ public class HomeActivity extends AppCompatActivity {
             // la grille (ajouter un salarié, fixer son taux) reste une action web (voir
             // SaisieType.SALAIRE_PAYER, DefinirSalaireDialog côté web).
             btnPayerSalaire.setVisibility(s.isComptableMobileEnabled() ? View.VISIBLE : View.GONE);
-            btnAchatAliment.setVisibility(s.isComptableMobileEnabled() ? View.VISIBLE : View.GONE);
         }
         if (currentUser.isVente()) {
             btnVenteOeufs.setVisibility(s.isVenteMobileEnabled() ? View.VISIBLE : View.GONE);
@@ -856,6 +852,7 @@ public class HomeActivity extends AppCompatActivity {
 
         // Finance
         btnEntreeArgent.setOnClickListener(v -> openSaisie(SaisieType.TRANSACTION_ENTREE));
+        // L'achat d'aliment n'a plus de carte : c'est la catégorie "Achat d'aliment" de la sortie d'argent.
         btnSortieArgent.setOnClickListener(v -> openSaisie(SaisieType.TRANSACTION_SORTIE));
         btnVenteOeufs.setOnClickListener(v -> openSaisie(SaisieType.VENTE_OEUFS));
         btnVenteReforme.setOnClickListener(v -> openSaisie(SaisieType.VENTE_REFORME));
@@ -866,7 +863,6 @@ public class HomeActivity extends AppCompatActivity {
         btnEncaissement.setOnClickListener(v -> openSaisie(SaisieType.PAIEMENT_CLIENT));
         btnEncaissementCompta.setOnClickListener(v -> openSaisie(SaisieType.PAIEMENT_CLIENT));
         btnPayerSalaire.setOnClickListener(v -> openSaisie(SaisieType.SALAIRE_PAYER));
-        btnAchatAliment.setOnClickListener(v -> openSaisie(SaisieType.ALIMENTATION_ACHAT));
 
         // Sync — écouteur sur l'ImageButton interne, même raison que btnDiagnostics ci-dessus.
         findViewById(R.id.imgBtnSync).setOnClickListener(v -> forceSync());

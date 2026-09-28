@@ -113,7 +113,16 @@ public class SaisieFormActivity extends AppCompatActivity {
     // de "Logistique", sans Alvéole/Copeau/Matériels, donc impossible de saisir ces
     // dépenses depuis le terrain. Les anciennes saisies "Transport" déjà envoyées
     // restent valides côté back (catégorie libre), seule la liste proposée change.
-    private static final String[] CATEGORIES_TRANSACTION_SORTIE = {"Santé / Vétérinaire", "Logistique", "Électricité / Eau", "Entretien / Maintenance", "Alvéole", "Copeau", "Matériels", "Autre"};
+    // "Achat d'aliment" : l'achat d'aliment n'a plus de formulaire à part. Choisir cette
+    // catégorie bascule le formulaire en SaisieType.ALIMENTATION_ACHAT (champs aliment,
+    // envoi vers alimentations/create qui crée le stock ET la sortie d'argent). Le serveur
+    // refuse une sortie manuelle "Aliment" : cette catégorie ne part jamais en transaction.
+    private static final String CATEGORIE_ACHAT_ALIMENT = "Achat d'aliment";
+    private static final String[] CATEGORIES_TRANSACTION_SORTIE = {"Santé / Vétérinaire", "Logistique", "Électricité / Eau", "Entretien / Maintenance", "Alvéole", "Copeau", "Matériels", CATEGORIE_ACHAT_ALIMENT, "Autre"};
+    // Type d'aliment acheté : libellés affichés et valeurs envoyées (enum TypeAliment côté back), même ordre.
+    private static final String[] TYPES_ALIMENT = {"Démarrage", "Croissance", "Ponte", "Autre"};
+    private static final String[] TYPES_ALIMENT_WIRE = {"DEMARRAGE", "CROISSANCE", "PONTE", "AUTRE"};
+    private static final double POIDS_SAC_DEFAUT_KG = 50;
     // Fusion Soins/Vaccination (UI) : un seul point d'entrée (SaisieType.SOINS, voir
     // HomeActivity/btnSoins), le type choisi ici décide quel sous-groupe de champs est
     // affiché (voir updateGroupSoinsSousType()) — Vaccination n'est plus un
@@ -229,8 +238,16 @@ public class SaisieFormActivity extends AppCompatActivity {
     private Integer effectifReformeDisponible;
 
     // Alimentation - achat
-    private View groupAlimentationAchat;
-    private TextInputEditText etNomAliment, etSac, etQuantiteKgAchat, etCoutAchatAliment, etFournisseurAchat, etObservationsAchat;
+    // Affiché dans le formulaire Sortie d'argent, catégorie "Achat d'aliment" (le montant
+    // est celui de la sortie, etMontant).
+    private View groupAlimentationAchat, groupAlimentationAchatFin, groupTransactionDetails;
+    private AutoCompleteTextView spinnerTypeAliment;
+    private TextInputEditText etSac, etPoidsSac, etQuantiteKgAchat, etFournisseurAchat, etObservationsAchat;
+    // Nom libre d'un achat saisi avec une version antérieure (conservé tel quel en modification).
+    private String nomAlimentExistant;
+    // Quantité totale : calculée (sacs x poids d'un sac) tant que l'utilisateur ne l'a pas modifiée.
+    private boolean quantiteAchatManuelle = false;
+    private boolean majQuantiteAchatAuto = false;
 
     // Alimentation - consommation
     private View groupConsommation;
@@ -559,12 +576,32 @@ public class SaisieFormActivity extends AppCompatActivity {
         etCauseReforme = findViewById(R.id.etCauseReforme);
 
         groupAlimentationAchat = findViewById(R.id.groupAlimentationAchat);
-        etNomAliment = findViewById(R.id.etNomAliment);
+        groupAlimentationAchatFin = findViewById(R.id.groupAlimentationAchatFin);
+        groupTransactionDetails = findViewById(R.id.groupTransactionDetails);
+        spinnerTypeAliment = findViewById(R.id.spinnerTypeAliment);
+        spinnerTypeAliment.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, TYPES_ALIMENT));
         etSac = findViewById(R.id.etSac);
+        etPoidsSac = findViewById(R.id.etPoidsSac);
+        etPoidsSac.setText(formatSaisie(POIDS_SAC_DEFAUT_KG));
         etQuantiteKgAchat = findViewById(R.id.etQuantiteKgAchat);
-        etCoutAchatAliment = findViewById(R.id.etCoutAchatAliment);
         etFournisseurAchat = findViewById(R.id.etFournisseurAchat);
         etObservationsAchat = findViewById(R.id.etObservationsAchat);
+        android.text.TextWatcher recalculQuantite = new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence c, int a, int b, int d) { }
+            @Override public void onTextChanged(CharSequence c, int a, int b, int d) { }
+            @Override public void afterTextChanged(android.text.Editable e) { majQuantiteAchatCalculee(); }
+        };
+        etSac.addTextChangedListener(recalculQuantite);
+        etPoidsSac.addTextChangedListener(recalculQuantite);
+        etQuantiteKgAchat.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence c, int a, int b, int d) { }
+            @Override public void onTextChanged(CharSequence c, int a, int b, int d) { }
+            @Override public void afterTextChanged(android.text.Editable e) {
+                if (majQuantiteAchatAuto) return;
+                // Vidée à la main : le calcul automatique reprend.
+                quantiteAchatManuelle = e.length() > 0;
+            }
+        });
 
         groupConsommation = findViewById(R.id.groupConsommation);
         tvStockInfo = findViewById(R.id.tvStockInfo);
@@ -810,6 +847,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 android.R.layout.simple_dropdown_item_1line, categories);
         spinnerCategorie.setAdapter(categorieAdapter);
         if (categories.length > 0) spinnerCategorie.setText(categories[0], false);
+        spinnerCategorie.setOnItemClickListener((parent, view, position, id) -> basculerAchatAliment());
 
         ArrayAdapter<String> typeSoinAdapter = new ArrayAdapter<>(this,
                 android.R.layout.simple_dropdown_item_1line, TYPES_SOIN);
@@ -959,11 +997,58 @@ public class SaisieFormActivity extends AppCompatActivity {
 
     private String[] categoriesPourType() {
         if (type == SaisieType.VENTE_FIENTES) return CATEGORIE_VENTE_FIENTES;
-        return type == SaisieType.TRANSACTION_SORTIE ? CATEGORIES_TRANSACTION_SORTIE : CATEGORIES_TRANSACTION_ENTREE;
+        // En modification, une saisie garde son type (updateSaisie ne le change pas) : un
+        // achat d'aliment reste un achat, une sortie ne peut pas devenir un achat.
+        if (type == SaisieType.ALIMENTATION_ACHAT) {
+            return editingLocalId != null ? new String[]{CATEGORIE_ACHAT_ALIMENT} : CATEGORIES_TRANSACTION_SORTIE;
+        }
+        if (type == SaisieType.TRANSACTION_SORTIE) {
+            if (editingLocalId == null) return CATEGORIES_TRANSACTION_SORTIE;
+            List<String> sansAchat = new ArrayList<>(java.util.Arrays.asList(CATEGORIES_TRANSACTION_SORTIE));
+            sansAchat.remove(CATEGORIE_ACHAT_ALIMENT);
+            return sansAchat.toArray(new String[0]);
+        }
+        return CATEGORIES_TRANSACTION_ENTREE;
+    }
+
+    /** Sortie d'argent : la catégorie "Achat d'aliment" bascule le formulaire en achat
+     * d'aliment (ALIMENTATION_ACHAT), toute autre catégorie le ramène en sortie simple. */
+    private void basculerAchatAliment() {
+        if (editingLocalId != null) return;
+        if (type != SaisieType.TRANSACTION_SORTIE && type != SaisieType.ALIMENTATION_ACHAT) return;
+        boolean achat = CATEGORIE_ACHAT_ALIMENT.equals(spinnerCategorie.getText().toString());
+        SaisieType nouveau = achat ? SaisieType.ALIMENTATION_ACHAT : SaisieType.TRANSACTION_SORTIE;
+        if (nouveau == type) return;
+        type = nouveau;
+        applyTypeVisibility();
+        if (achat && (projetUniqueId == null || projetUniqueId.isEmpty())) {
+            toast("Un achat d'aliment entre dans le stock d'un projet : choisissez d'abord un projet à l'accueil");
+        }
+    }
+
+    /** Quantité totale = sacs x poids d'un sac, tant qu'elle n'a pas été modifiée à la main. */
+    private void majQuantiteAchatCalculee() {
+        if (quantiteAchatManuelle || majQuantiteAchatAuto) return;
+        Double sacs = parseDoubleOrNull(etSac.getText());
+        Double poids = parseDoubleOrNull(etPoidsSac.getText());
+        majQuantiteAchatAuto = true;
+        etQuantiteKgAchat.setText(sacs != null && poids != null && sacs > 0 && poids > 0 ? formatSaisie(sacs * poids) : "");
+        majQuantiteAchatAuto = false;
+    }
+
+    private static String typeAlimentToWire(String libelle) {
+        for (int i = 0; i < TYPES_ALIMENT.length; i++) if (TYPES_ALIMENT[i].equals(libelle)) return TYPES_ALIMENT_WIRE[i];
+        return null;
+    }
+
+    private static String typeAlimentLibelle(String wire) {
+        for (int i = 0; i < TYPES_ALIMENT_WIRE.length; i++) if (TYPES_ALIMENT_WIRE[i].equals(wire)) return TYPES_ALIMENT[i];
+        return null;
     }
 
     private void applyTypeVisibility() {
-        tvTitreForm.setText(type.getLabel());
+        // Un achat d'aliment se saisit dans le formulaire Sortie d'argent (catégorie dédiée).
+        tvTitreForm.setText(type == SaisieType.ALIMENTATION_ACHAT ? SaisieType.TRANSACTION_SORTIE.getLabel() : type.getLabel());
         tvProjetForm.setText(projetLabel != null ? projetLabel : "");
 
         groupCollecte.setVisibility(type == SaisieType.COLLECTE_OEUFS ? View.VISIBLE : View.GONE);
@@ -974,6 +1059,8 @@ public class SaisieFormActivity extends AppCompatActivity {
         groupMortalite.setVisibility(type == SaisieType.MORTALITE ? View.VISIBLE : View.GONE);
         groupReforme.setVisibility(type == SaisieType.REFORME ? View.VISIBLE : View.GONE);
         groupAlimentationAchat.setVisibility(type == SaisieType.ALIMENTATION_ACHAT ? View.VISIBLE : View.GONE);
+        groupAlimentationAchatFin.setVisibility(type == SaisieType.ALIMENTATION_ACHAT ? View.VISIBLE : View.GONE);
+        groupTransactionDetails.setVisibility(type == SaisieType.ALIMENTATION_ACHAT ? View.GONE : View.VISIBLE);
         groupConsommation.setVisibility(type == SaisieType.ALIMENTATION_CONSOMMATION ? View.VISIBLE : View.GONE);
         groupVenteOeufs.setVisibility(type == SaisieType.VENTE_OEUFS ? View.VISIBLE : View.GONE);
         groupVenteReforme.setVisibility(type == SaisieType.VENTE_REFORME ? View.VISIBLE : View.GONE);
@@ -984,7 +1071,8 @@ public class SaisieFormActivity extends AppCompatActivity {
         groupLivraison.setVisibility(type == SaisieType.LIVRAISON_COMMANDE ? View.VISIBLE : View.GONE);
         groupPaiementClient.setVisibility(type == SaisieType.PAIEMENT_CLIENT ? View.VISIBLE : View.GONE);
         groupTransaction.setVisibility(
-                (type == SaisieType.TRANSACTION_ENTREE || type == SaisieType.TRANSACTION_SORTIE || type == SaisieType.VENTE_FIENTES)
+                (type == SaisieType.TRANSACTION_ENTREE || type == SaisieType.TRANSACTION_SORTIE || type == SaisieType.VENTE_FIENTES
+                        || type == SaisieType.ALIMENTATION_ACHAT)
                         ? View.VISIBLE : View.GONE);
 
         // Aucun de ces types n'a de notion de bâtiment (poulailler) — client, commande et
@@ -2672,6 +2760,17 @@ public class SaisieFormActivity extends AppCompatActivity {
         return total;
     }
 
+    /** Achats d'aliment de ce projet pas encore envoyés : ils comptent déjà comme stock. */
+    private double achatsAlimentEnAttente() {
+        double total = 0;
+        for (SaisieLocale s : saisiesEnAttente(SaisieType.ALIMENTATION_ACHAT)) {
+            if (!projetUniqueId.equals(s.getProjetUniqueId())) continue;
+            AlimentationCreateRequest r = gson.fromJson(s.getPayloadJson(), AlimentationCreateRequest.class);
+            if (r != null && r.quantiteKg != null) total += r.quantiteKg;
+        }
+        return total;
+    }
+
     private int ventesOeufsEnAttente(String magasin, boolean casse) {
         int total = 0;
         for (SaisieLocale s : saisiesEnAttente(SaisieType.VENTE_OEUFS)) {
@@ -2785,7 +2884,7 @@ public class SaisieFormActivity extends AppCompatActivity {
             case ALIMENTATION_CONSOMMATION: {
                 Double kg = parseDoubleOrNull(etQuantiteKgConso.getText());
                 if (kg != null && stockAlimentRestantConnu != null) {
-                    double stock = stockAlimentRestantConnu - consommationsEnAttente();
+                    double stock = stockAlimentRestantConnu + achatsAlimentEnAttente() - consommationsEnAttente();
                     if (kg > stock) {
                         message = String.format(Locale.FRANCE,
                                 "Impossible : %.1f kg saisis, alors qu'il ne reste que %.1f kg de stock pour ce projet. Si un achat n'est pas encore enregistré, il doit l'être par la comptabilité.",
@@ -3072,26 +3171,45 @@ public class SaisieFormActivity extends AppCompatActivity {
                 break;
             }
             case ALIMENTATION_ACHAT: {
-                // Un achat est lié au projet (stock du projet) ; le poulailler reste
-                // facultatif, c'est la consommation qui se fait dans un poulailler.
-                String nom = textOf(etNomAliment);
-                Double quantiteKg = parseDoubleOrNull(etQuantiteKgAchat.getText());
-                if (nom.isEmpty() || quantiteKg == null || quantiteKg <= 0) {
-                    toast("Veuillez préciser l'aliment et la quantité (kg)");
+                // Catégorie "Achat d'aliment" de la sortie d'argent. Un achat est lié au projet
+                // (stock du projet) ; le poulailler reste facultatif, c'est la consommation qui
+                // se fait dans un poulailler.
+                if (projetUniqueId == null || projetUniqueId.isEmpty()) {
+                    toast("Un achat d'aliment entre dans le stock d'un projet : choisissez d'abord un projet à l'accueil");
                     return;
                 }
-                Double coutAchat = parseDoubleOrNull(etCoutAchatAliment.getText());
+                String typeAliment = typeAlimentToWire(spinnerTypeAliment.getText().toString());
+                // Obligatoire pour un nouvel achat ; une saisie d'une version antérieure n'en a pas.
+                if (typeAliment == null && nomAlimentExistant == null) {
+                    toast("Veuillez choisir le type d'aliment");
+                    return;
+                }
+                Double sacs = parseDoubleOrNull(etSac.getText());
+                if (sacs == null || sacs < 0) {
+                    toast("Veuillez saisir le nombre de sacs");
+                    return;
+                }
+                Double poidsSac = parseDoubleOrNull(etPoidsSac.getText());
+                Double quantiteKg = parseDoubleOrNull(etQuantiteKgAchat.getText());
+                if (quantiteKg == null && poidsSac != null && poidsSac > 0) quantiteKg = sacs * poidsSac;
+                if (quantiteKg == null || quantiteKg <= 0) {
+                    toast("Veuillez préciser la quantité totale (kg)");
+                    return;
+                }
+                Double coutAchat = parseDoubleOrNull(etMontant.getText());
                 if (coutAchat == null || coutAchat <= 0) {
-                    toast("Veuillez saisir le coût total de l'achat");
+                    toast("Veuillez saisir le montant de l'achat");
                     return;
                 }
                 AlimentationCreateRequest req = new AlimentationCreateRequest();
-                req.nomAliment = nom;
-                req.sac = parseDoubleOrNull(etSac.getText());
+                req.typeAliment = typeAliment;
+                // Vide pour un nouvel achat : le serveur le déduit du type ("Aliment ponte"...).
+                req.nomAliment = nomAlimentExistant;
+                req.sac = sacs;
+                req.poidsSacKg = poidsSac != null && poidsSac > 0 ? poidsSac : null;
                 req.quantiteKg = quantiteKg;
-                // Obligatoire : génère la sortie comptable liée au projet côté back (voir
-                // AlimentationImpl.syncTransaction) : pas besoin de la ressaisir dans
-                // "Sortie d'argent".
+                // Montant de la sortie d'argent : le serveur crée la sortie liée au projet
+                // (voir AlimentationImpl.syncTransaction).
                 req.coutTotal = coutAchat;
                 req.dateDistribution = date;
                 req.heure = heure;
@@ -3099,7 +3217,11 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.fournisseur = nullIfBlank(textOf(etFournisseurAchat));
                 req.batimentUniqueId = batimentUniqueId;
                 requestObject = req;
-                summary = String.format(Locale.FRANCE, "Achat %s : %.1f kg", nom, quantiteKg);
+                String libelleType = typeAlimentLibelle(typeAliment);
+                String quoi = libelleType != null ? "aliment " + libelleType.toLowerCase(Locale.FRANCE)
+                        : (nomAlimentExistant != null ? nomAlimentExistant : "aliment");
+                summary = String.format(Locale.FRANCE, "Achat %s : %s sac(s), %s kg (-%,.0f FCFA)",
+                        quoi, formatNombre(sacs, 2), formatNombre(quantiteKg, 1), coutAchat);
                 break;
             }
             case ALIMENTATION_CONSOMMATION: {
@@ -3653,10 +3775,19 @@ public class SaisieFormActivity extends AppCompatActivity {
             case ALIMENTATION_ACHAT: {
                 AlimentationCreateRequest req = gson.fromJson(json, AlimentationCreateRequest.class);
                 setDateHeure(req.dateDistribution, req.heure);
-                etNomAliment.setText(req.nomAliment);
-                if (req.sac != null) etSac.setText(String.valueOf(req.sac));
-                if (req.quantiteKg != null) etQuantiteKgAchat.setText(String.valueOf(req.quantiteKg));
-                if (req.coutTotal != null) etCoutAchatAliment.setText(String.valueOf(req.coutTotal));
+                nomAlimentExistant = nullIfBlank(req.nomAliment);
+                String libelleType = typeAlimentLibelle(req.typeAliment);
+                if (libelleType != null) spinnerTypeAliment.setText(libelleType, false);
+                double poids = req.poidsSacKg != null && req.poidsSacKg > 0 ? req.poidsSacKg : POIDS_SAC_DEFAUT_KG;
+                // Pas de recalcul pendant le pré-remplissage : la quantité enregistrée fait foi.
+                majQuantiteAchatAuto = true;
+                etPoidsSac.setText(formatSaisie(poids));
+                if (req.sac != null) etSac.setText(formatSaisie(req.sac));
+                if (req.quantiteKg != null) etQuantiteKgAchat.setText(formatSaisie(req.quantiteKg));
+                majQuantiteAchatAuto = false;
+                quantiteAchatManuelle = req.quantiteKg != null
+                        && (req.sac == null || Math.abs(req.sac * poids - req.quantiteKg) > 1e-6);
+                if (req.coutTotal != null) etMontant.setText(formatSaisie(req.coutTotal));
                 etFournisseurAchat.setText(req.fournisseur);
                 etObservationsAchat.setText(req.observations);
                 selectBatimentByUniqueId(req.batimentUniqueId);
