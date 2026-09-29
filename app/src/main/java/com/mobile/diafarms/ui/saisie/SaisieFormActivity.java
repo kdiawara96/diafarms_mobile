@@ -398,7 +398,9 @@ public class SaisieFormActivity extends AppCompatActivity {
     private AutoCompleteTextView spinnerCategorie;
     private TextInputEditText etMontant, etDescriptionTransaction;
     private CheckBox checkCommun;
-    private View layoutCommun, groupRattachementTransaction;
+    private View layoutCommun, groupRattachementTransaction, groupSanteQuantite;
+    private TextInputEditText etQuantiteSante, etPrixUnitaireSante;
+    private boolean majSanteAuto = false;
     // Rattachement FACULTATIF d'une dépense à un site et/ou un poulailler (voir afficherRattachements).
     private TextView btnAfficherProjetsConcernes;
     private AutoCompleteTextView spinnerSiteTransaction, spinnerBatimentTransaction;
@@ -831,6 +833,32 @@ public class SaisieFormActivity extends AppCompatActivity {
         checkCommun = findViewById(R.id.checkCommun);
         layoutCommun = findViewById(R.id.layoutCommun);
         groupRattachementTransaction = findViewById(R.id.groupRattachementTransaction);
+        groupSanteQuantite = findViewById(R.id.groupSanteQuantite);
+        etQuantiteSante = findViewById(R.id.etQuantiteSante);
+        etPrixUnitaireSante = findViewById(R.id.etPrixUnitaireSante);
+        // Montant total <-> prix unitaire, à partir de la quantité (Santé / Vétérinaire).
+        etMontant.addTextChangedListener(apresSaisie(() -> {
+            if (majSanteAuto || !estSante()) return;
+            Double q = parseDoubleOrNull(etQuantiteSante.getText());
+            Double m = parseDoubleOrNull(etMontant.getText());
+            if (q != null && q > 0 && m != null && m > 0) {
+                majSanteAuto = true;
+                etPrixUnitaireSante.setText(formatSaisie(Math.round(m / q * 100.0) / 100.0));
+                majSanteAuto = false;
+            }
+        }));
+        android.text.TextWatcher versMontant = apresSaisie(() -> {
+            if (majSanteAuto || !estSante()) return;
+            Double q = parseDoubleOrNull(etQuantiteSante.getText());
+            Double pu = parseDoubleOrNull(etPrixUnitaireSante.getText());
+            if (q != null && q > 0 && pu != null && pu > 0) {
+                majSanteAuto = true;
+                etMontant.setText(formatSaisie(Math.round(q * pu * 100.0) / 100.0));
+                majSanteAuto = false;
+            }
+        });
+        etQuantiteSante.addTextChangedListener(versMontant);
+        etPrixUnitaireSante.addTextChangedListener(versMontant);
         groupProjetsConcernes = findViewById(R.id.groupProjetsConcernes);
         containerProjetsConcernes = findViewById(R.id.containerProjetsConcernes);
         btnToutSelectionner = findViewById(R.id.btnToutSelectionner);
@@ -1048,6 +1076,15 @@ public class SaisieFormActivity extends AppCompatActivity {
         }
     }
 
+    /** TextWatcher qui n'agit qu'après chaque modification du texte. */
+    private static android.text.TextWatcher apresSaisie(Runnable action) {
+        return new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence c, int a, int b, int d) { }
+            @Override public void onTextChanged(CharSequence c, int a, int b, int d) { }
+            @Override public void afterTextChanged(android.text.Editable e) { action.run(); }
+        };
+    }
+
     private boolean estSante() {
         return type == SaisieType.TRANSACTION_SORTIE && spinnerCategorie != null
                 && CATEGORIE_SANTE.equals(spinnerCategorie.getText().toString());
@@ -1069,6 +1106,9 @@ public class SaisieFormActivity extends AppCompatActivity {
             checkCommun.setChecked(true);
         }
         layoutCommun.setVisibility(sante ? View.GONE : View.VISIBLE);
+        groupSanteQuantite.setVisibility(sante ? View.VISIBLE : View.GONE);
+        com.google.android.material.textfield.TextInputLayout tilMontant = findViewById(R.id.tilMontant);
+        if (tilMontant != null) tilMontant.setHint(sante ? "Montant total (FCFA) *" : "Montant (FCFA)");
         groupRattachementTransaction.setVisibility(sante ? View.GONE : View.VISIBLE);
         groupBatimentTop.setVisibility(sante && batiments.size() > 1 ? View.VISIBLE : View.GONE);
         if (sante) populateBatimentSpinner();
@@ -3437,6 +3477,11 @@ public class SaisieFormActivity extends AppCompatActivity {
                     toast("Un soin concerne un projet : choisissez d'abord le projet à l'accueil");
                     return;
                 }
+                Double quantiteSante = sante ? parseDoubleOrNull(etQuantiteSante.getText()) : null;
+                if (sante && (quantiteSante == null || quantiteSante <= 0)) {
+                    toast("Indiquez la quantité (doses, flacons, sachets...)");
+                    return;
+                }
                 boolean commun = !sante && ((type == SaisieType.VENTE_FIENTES) || checkCommun.isChecked());
                 if (!commun && (projetUniqueId == null || projetUniqueId.isEmpty())) {
                     toast("Aucun projet sélectionné à l'accueil : laissez \"Commune\" coché, ou choisissez un projet depuis l'accueil");
@@ -3454,6 +3499,11 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.montant = montant;
                 req.categorie = spinnerCategorie.getText().toString();
                 req.siteUniqueId = sante ? null : getSelectedSiteTransaction();
+                if (sante) {
+                    req.quantite = quantiteSante;
+                    Double pu = parseDoubleOrNull(etPrixUnitaireSante.getText());
+                    req.prixUnitaire = pu != null && pu > 0 ? pu : null;
+                }
                 req.batimentUniqueId = sante
                         ? (batiments.size() > 1 ? getSelectedBatimentUniqueId() : null)
                         : getSelectedBatimentTransaction();
@@ -3978,6 +4028,10 @@ public class SaisieFormActivity extends AppCompatActivity {
                 if (req.montant != null) etMontant.setText(String.valueOf(req.montant));
                 etDescriptionTransaction.setText(req.description);
                 selectSpinnerValue(spinnerCategorie, categoriesPourType(), req.categorie);
+                majSanteAuto = true;
+                if (req.quantite != null) etQuantiteSante.setText(formatSaisie(req.quantite));
+                if (req.prixUnitaire != null) etPrixUnitaireSante.setText(formatSaisie(req.prixUnitaire));
+                majSanteAuto = false;
                 // commun absent (payload d'une autre version) = commune, comme le serveur.
                 boolean communPrefill = req.commun == null || Boolean.TRUE.equals(req.commun);
                 checkCommun.setChecked(communPrefill);

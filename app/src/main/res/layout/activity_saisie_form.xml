@@ -1744,7 +1744,36 @@
 
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 
+                <!-- Santé / Vétérinaire : quantité (obligatoire) et prix unitaire (facultatif) ;
+                     le montant total saisi remplit le prix unitaire et inversement. -->
+                <LinearLayout
+                    android:id="@+id/groupSanteQuantite"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="12dp"
+                    android:visibility="gone">
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+                        android:layout_marginEnd="8dp"
+                        android:hint="Quantité *">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etQuantiteSante"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:inputType="numberDecimal" />
+                    </com.google.android.material.textfield.TextInputLayout>
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+                        android:hint="Prix unitaire (facultatif)">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etPrixUnitaireSante"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:inputType="numberDecimal" />
+                    </com.google.android.material.textfield.TextInputLayout>
+                </LinearLayout>
+
                 <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilMontant"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:hint="Montant (FCFA)">
                     <com.google.android.material.textfield.TextInputEditText

@@ -12,6 +12,9 @@ public class TransactionCreateRequest {
     public String description;
     public Double montant;
     public String categorie;
+    // Santé / Vétérinaire : quantité (obligatoire) et prix unitaire (facultatif).
+    public Double quantite;
+    public Double prixUnitaire;
     // Rattachements FACULTATIFS (absents = ferme entière), voir Transaction.site/batiment côté back.
     public String siteUniqueId;
     public String batimentUniqueId;
