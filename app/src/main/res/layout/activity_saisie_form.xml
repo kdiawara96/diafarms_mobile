@@ -280,6 +280,50 @@
 
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 
+                <!-- Soin pris dans le stock de médicaments du projet (achats en Comptabilité). -->
+                <LinearLayout
+                    android:id="@+id/groupSoinStock"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+                <CheckBox
+                    android:id="@+id/checkSoinDepuisStock"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Pris dans le stock du projet" />
+                <LinearLayout
+                    android:id="@+id/groupSoinStockChamps"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Médicament du stock *"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
+                    <AutoCompleteTextView
+                        android:id="@+id/spinnerSoinStock"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none"
+                        android:editable="false" />
+                </com.google.android.material.textfield.TextInputLayout>
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Quantité utilisée *">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etQuantiteSoinStock"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="numberDecimal" />
+                </com.google.android.material.textfield.TextInputLayout>
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+                </LinearLayout>
+                </LinearLayout>
+
                 <!-- Champs génériques (Médicament/Autre) -->
                 <LinearLayout
                     android:id="@+id/groupSoinsGenerique"
@@ -1743,6 +1787,87 @@
                 </LinearLayout>
 
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <!-- Santé / Vétérinaire : ce qui a été payé (achat de médicament = dépense + stock
+                     du projet ; service = dépense seule), puis les champs du médicament. -->
+                <LinearLayout
+                    android:id="@+id/groupNatureSante"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Qu'avez-vous payé ? *"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
+                    <AutoCompleteTextView
+                        android:id="@+id/spinnerNatureSante"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none"
+                        android:editable="false" />
+                </com.google.android.material.textfield.TextInputLayout>
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/groupMedicamentAchat"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Médicament / vaccin *">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etNomMedicament"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="text" />
+                </com.google.android.material.textfield.TextInputLayout>
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Forme *"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
+                    <AutoCompleteTextView
+                        android:id="@+id/spinnerFormeMedicament"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none"
+                        android:editable="false" />
+                </com.google.android.material.textfield.TextInputLayout>
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Unité *"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
+                    <AutoCompleteTextView
+                        android:id="@+id/spinnerUniteMedicament"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none"
+                        android:editable="false" />
+                </com.google.android.material.textfield.TextInputLayout>
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Fournisseur (facultatif)">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etFournisseurMedicament"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="text" />
+                </com.google.android.material.textfield.TextInputLayout>
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+                </LinearLayout>
 
                 <!-- Santé / Vétérinaire : quantité (obligatoire) et prix unitaire (facultatif) ;
                      le montant total saisi remplit le prix unitaire et inversement. -->

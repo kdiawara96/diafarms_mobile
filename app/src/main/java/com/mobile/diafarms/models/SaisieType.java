@@ -14,6 +14,10 @@ public enum SaisieType {
     // coût obligatoire), donc côté Comptable et non plus Production — voir
     // diafarms_back AlimentationImpl.ensureCanManageAchat.
     ALIMENTATION_ACHAT("Achat d'aliment", Categorie.FINANCE),
+    // Achat de médicament ou de vaccin (Sortie d'argent, Santé / Vétérinaire) : dépense +
+    // stock de médicaments du projet, où les soins peuvent puiser (voir diafarms_back
+    // MedicamentService). Saisi depuis le formulaire Sortie d'argent.
+    MEDICAMENT_ACHAT("Achat de médicament", Categorie.FINANCE),
     // Couvre Médicament/Autre ET Vaccination (fusionnées à la fois côté back — un
     // seul endpoint POST /soins/create — et côté UI, depuis la fusion des deux
     // écrans/boutons mobile : un seul point d'entrée, SaisieFormActivity affiche un

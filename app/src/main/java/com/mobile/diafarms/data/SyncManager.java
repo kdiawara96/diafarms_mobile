@@ -94,8 +94,10 @@ public class SyncManager {
         file = compteEnvoi != null ? localDatabase.getPendingSaisies() : new java.util.ArrayList<>();
         // Achats d'aliment d'abord (tri stable) : le contrôle hors ligne compte déjà un achat
         // en attente dans le stock, une consommation saisie après lui ne doit pas partir avant.
+        // Idem pour les achats de médicaments (les soins pris dans le stock viennent après).
         java.util.Collections.sort(file, (a, b) -> Boolean.compare(
-                b.getType() == SaisieType.ALIMENTATION_ACHAT, a.getType() == SaisieType.ALIMENTATION_ACHAT));
+                b.getType() == SaisieType.ALIMENTATION_ACHAT || b.getType() == SaisieType.MEDICAMENT_ACHAT,
+                a.getType() == SaisieType.ALIMENTATION_ACHAT || a.getType() == SaisieType.MEDICAMENT_ACHAT));
         appelant = callback;
         com.mobile.diafarms.models.User u = new SessionManager(appContext).getCurrentUser();
         if (u != null && u.isConsultationSeule()) {
@@ -350,6 +352,10 @@ public class SyncManager {
                 if (achat != null && achat.sac == null) achat.sac = 0d;
                 api.createAlimentationAchat(cle, saisie.getProjetUniqueId(), achat).enqueue(callback);
             }
+                break;
+            case MEDICAMENT_ACHAT:
+                api.createAchatMedicament(cle, saisie.getProjetUniqueId(),
+                        gson.fromJson(json, com.mobile.diafarms.network.dto.AchatMedicamentCreateRequest.class)).enqueue(callback);
                 break;
             case ALIMENTATION_CONSOMMATION:
                 api.createConsommationAliment(cle, gson.fromJson(json, ConsommationAlimentCreateRequest.class)).enqueue(callback);

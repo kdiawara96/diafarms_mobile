@@ -399,6 +399,27 @@ public class SaisieFormActivity extends AppCompatActivity {
     private TextInputEditText etMontant, etDescriptionTransaction;
     private CheckBox checkCommun;
     private View layoutCommun, groupRattachementTransaction, groupSanteQuantite;
+    // Santé / Vétérinaire : achat de médicament (dépense + stock, saisie MEDICAMENT_ACHAT)
+    // ou service (transaction simple).
+    private View groupNatureSante, groupMedicamentAchat;
+    private AutoCompleteTextView spinnerNatureSante, spinnerFormeMedicament, spinnerUniteMedicament;
+    private TextInputEditText etNomMedicament, etFournisseurMedicament;
+    private boolean editionMedicament = false;
+    private SaisieType typeEnregistrement = null;
+    private static final String NATURE_MEDICAMENT = "Achat de médicament ou de vaccin";
+    private static final String NATURE_SERVICE = "Service de santé (consultation, visite...)";
+    private static final String[] NATURES_SANTE = {NATURE_MEDICAMENT, NATURE_SERVICE};
+    private static final String[] FORMES_MEDICAMENT = {"Liquide", "Poudre", "Comprimés", "Autre"};
+    private static final String[] FORMES_MEDICAMENT_WIRE = {"LIQUIDE", "POUDRE", "COMPRIME", "AUTRE"};
+    private static final String[][] UNITES_MEDICAMENT = {
+            {"flacon", "litre", "ml", "dose"}, {"sachet", "kg", "g", "dose"}, {"boîte", "comprimé"}, {"unité", "dose", "boîte"}};
+    // Soin pris dans le stock de médicaments du projet.
+    private View groupSoinStock, groupSoinStockChamps;
+    private CheckBox checkSoinDepuisStock;
+    private AutoCompleteTextView spinnerSoinStock;
+    private TextInputEditText etQuantiteSoinStock;
+    private List<com.mobile.diafarms.network.dto.StockMedicamentResponse> stockMedicaments = new ArrayList<>();
+    private String soinStockEnAttente;
     private TextInputEditText etQuantiteSante, etPrixUnitaireSante;
     private boolean majSanteAuto = false;
     // Rattachement FACULTATIF d'une dépense à un site et/ou un poulailler (voir afficherRattachements).
@@ -430,6 +451,11 @@ public class SaisieFormActivity extends AppCompatActivity {
         });
 
         type = SaisieType.valueOf(getIntent().getStringExtra(EXTRA_TYPE));
+        // Un achat de médicament en attente se modifie dans le formulaire Sortie d'argent.
+        if (type == SaisieType.MEDICAMENT_ACHAT) {
+            editionMedicament = true;
+            type = SaisieType.TRANSACTION_SORTIE;
+        }
         projetUniqueId = getIntent().getStringExtra(EXTRA_PROJET_ID);
         projetLabel = getIntent().getStringExtra(EXTRA_PROJET_LABEL);
         editingLocalId = getIntent().getStringExtra(EXTRA_LOCAL_ID);
@@ -463,6 +489,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         applyTypeVisibility();
         setupDateHeurePickers();
         loadBatiments();
+        if (type == SaisieType.SOINS) loadStockMedicaments();
         setupCoherenceChecks();
         if (estTypeTransaction()) {
             loadRattachementsTransaction();
@@ -552,6 +579,12 @@ public class SaisieFormActivity extends AppCompatActivity {
         spinnerTypeSoin = findViewById(R.id.spinnerTypeSoin);
         spinnerTypeSoin.setOnItemClickListener((parent, view, position, id) -> updateGroupSoinsSousType());
         groupSoinsGenerique = findViewById(R.id.groupSoinsGenerique);
+        groupSoinStock = findViewById(R.id.groupSoinStock);
+        groupSoinStockChamps = findViewById(R.id.groupSoinStockChamps);
+        checkSoinDepuisStock = findViewById(R.id.checkSoinDepuisStock);
+        spinnerSoinStock = findViewById(R.id.spinnerSoinStock);
+        etQuantiteSoinStock = findViewById(R.id.etQuantiteSoinStock);
+        checkSoinDepuisStock.setOnCheckedChangeListener((b, c) -> updateGroupSoinsSousType());
         etProduit = findViewById(R.id.etProduit);
         etQuantiteSoin = findViewById(R.id.etQuantiteSoin);
         etObservationsSoin = findViewById(R.id.etObservationsSoin);
@@ -834,6 +867,18 @@ public class SaisieFormActivity extends AppCompatActivity {
         layoutCommun = findViewById(R.id.layoutCommun);
         groupRattachementTransaction = findViewById(R.id.groupRattachementTransaction);
         groupSanteQuantite = findViewById(R.id.groupSanteQuantite);
+        groupNatureSante = findViewById(R.id.groupNatureSante);
+        groupMedicamentAchat = findViewById(R.id.groupMedicamentAchat);
+        spinnerNatureSante = findViewById(R.id.spinnerNatureSante);
+        spinnerFormeMedicament = findViewById(R.id.spinnerFormeMedicament);
+        spinnerUniteMedicament = findViewById(R.id.spinnerUniteMedicament);
+        etNomMedicament = findViewById(R.id.etNomMedicament);
+        etFournisseurMedicament = findViewById(R.id.etFournisseurMedicament);
+        spinnerNatureSante.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, NATURES_SANTE));
+        spinnerNatureSante.setOnItemClickListener((parent, view, position, id) -> appliquerSante());
+        spinnerFormeMedicament.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, FORMES_MEDICAMENT));
+        spinnerFormeMedicament.setOnItemClickListener((parent, view, position, id) -> majUnitesMedicament(true));
+        if (editionMedicament) spinnerNatureSante.setEnabled(false);
         etQuantiteSante = findViewById(R.id.etQuantiteSante);
         etPrixUnitaireSante = findViewById(R.id.etPrixUnitaireSante);
         // Montant total <-> prix unitaire, à partir de la quantité (Santé / Vétérinaire).
@@ -943,8 +988,87 @@ public class SaisieFormActivity extends AppCompatActivity {
      * (prefillFromExisting), une fois le spinner positionné sur la bonne valeur. */
     private void updateGroupSoinsSousType() {
         boolean vaccination = isTypeSoinVaccination();
-        groupSoinsGenerique.setVisibility(vaccination ? View.GONE : View.VISIBLE);
-        groupVaccination.setVisibility(vaccination ? View.VISIBLE : View.GONE);
+        boolean stockDispo = groupSoinStock != null && !stockMedicaments.isEmpty();
+        if (groupSoinStock != null) groupSoinStock.setVisibility(stockDispo ? View.VISIBLE : View.GONE);
+        boolean depuisStock = stockDispo && checkSoinDepuisStock.isChecked();
+        if (groupSoinStockChamps != null) groupSoinStockChamps.setVisibility(depuisStock ? View.VISIBLE : View.GONE);
+        groupSoinsGenerique.setVisibility(!depuisStock && !vaccination ? View.VISIBLE : View.GONE);
+        groupVaccination.setVisibility(!depuisStock && vaccination ? View.VISIBLE : View.GONE);
+    }
+
+    private boolean soinDepuisStock() {
+        return type == SaisieType.SOINS && groupSoinStock != null && groupSoinStock.getVisibility() == View.VISIBLE
+                && checkSoinDepuisStock.isChecked();
+    }
+
+    /** Stock de médicaments du projet : cache d'abord, puis réseau si possible. */
+    private void loadStockMedicaments() {
+        if (projetUniqueId == null || projetUniqueId.isEmpty()) return;
+        String cle = "stock_medicaments_" + projetUniqueId;
+        appliquerStockMedicaments(lireListeCache(cle, com.mobile.diafarms.network.dto.StockMedicamentResponse.class), true);
+        ApiClient.dataApi(this).getStockMedicaments(projetUniqueId).enqueue(new Callback<ApiEnvelope<List<com.mobile.diafarms.network.dto.StockMedicamentResponse>>>() {
+            @Override
+            public void onResponse(Call<ApiEnvelope<List<com.mobile.diafarms.network.dto.StockMedicamentResponse>>> call,
+                                   Response<ApiEnvelope<List<com.mobile.diafarms.network.dto.StockMedicamentResponse>>> response) {
+                List<com.mobile.diafarms.network.dto.StockMedicamentResponse> liste = response.isSuccessful() && response.body() != null
+                        ? response.body().getData() : null;
+                if (liste != null) {
+                    localDatabase.putCache(cle, gson.toJson(liste));
+                    appliquerStockMedicaments(liste, false);
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiEnvelope<List<com.mobile.diafarms.network.dto.StockMedicamentResponse>>> call, Throwable t) { }
+        });
+    }
+
+    private void appliquerStockMedicaments(List<com.mobile.diafarms.network.dto.StockMedicamentResponse> liste, boolean premierAffichage) {
+        boolean avaitStock = !stockMedicaments.isEmpty();
+        stockMedicaments = liste != null ? liste : new ArrayList<>();
+        List<String> labels = new ArrayList<>();
+        for (com.mobile.diafarms.network.dto.StockMedicamentResponse m : stockMedicaments) labels.add(libelleStock(m));
+        String avant = spinnerSoinStock.getText().toString();
+        spinnerSoinStock.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, labels));
+        if (labels.contains(avant)) spinnerSoinStock.setText(avant, false);
+        // Nouvelle saisie : cochée par défaut dès qu'un médicament du projet a du stock.
+        if (editingLocalId == null && !avaitStock && !stockMedicaments.isEmpty()) {
+            boolean restant = false;
+            for (com.mobile.diafarms.network.dto.StockMedicamentResponse m : stockMedicaments) if (m.restant > 0) restant = true;
+            checkSoinDepuisStock.setChecked(restant);
+        }
+        if (soinStockEnAttente != null) {
+            for (com.mobile.diafarms.network.dto.StockMedicamentResponse m : stockMedicaments) {
+                if (soinStockEnAttente.equalsIgnoreCase(m.nom + "|" + m.unite)) {
+                    spinnerSoinStock.setText(libelleStock(m), false);
+                    soinStockEnAttente = null;
+                    break;
+                }
+            }
+        }
+        if (type == SaisieType.SOINS) updateGroupSoinsSousType();
+    }
+
+    private static String libelleStock(com.mobile.diafarms.network.dto.StockMedicamentResponse m) {
+        return m.nom + " : reste " + formatSaisie(m.restant) + " " + m.unite;
+    }
+
+    private com.mobile.diafarms.network.dto.StockMedicamentResponse stockChoisi() {
+        String choisi = spinnerSoinStock.getText().toString();
+        for (com.mobile.diafarms.network.dto.StockMedicamentResponse m : stockMedicaments) if (libelleStock(m).equals(choisi)) return m;
+        return null;
+    }
+
+    /** Achat de médicament : unités proposées selon la forme. */
+    private void majUnitesMedicament(boolean choisirPremiere) {
+        int i = java.util.Arrays.asList(FORMES_MEDICAMENT).indexOf(spinnerFormeMedicament.getText().toString());
+        String[] unites = i >= 0 ? UNITES_MEDICAMENT[i] : new String[0];
+        spinnerUniteMedicament.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, unites));
+        if (choisirPremiere && unites.length > 0) spinnerUniteMedicament.setText(unites[0], false);
+    }
+
+    private boolean estMedicamentSante() {
+        return estSante() && NATURE_MEDICAMENT.equals(spinnerNatureSante.getText().toString());
     }
 
     private boolean isNiveauEntretienBatiment() {
@@ -1085,6 +1209,13 @@ public class SaisieFormActivity extends AppCompatActivity {
         };
     }
 
+    private static void setHintParent(android.widget.EditText champ, String hint) {
+        android.view.ViewParent p = champ.getParent() != null ? champ.getParent().getParent() : null;
+        if (p instanceof com.google.android.material.textfield.TextInputLayout) {
+            ((com.google.android.material.textfield.TextInputLayout) p).setHint(hint);
+        }
+    }
+
     private boolean estSante() {
         return type == SaisieType.TRANSACTION_SORTIE && spinnerCategorie != null
                 && CATEGORIE_SANTE.equals(spinnerCategorie.getText().toString());
@@ -1106,7 +1237,14 @@ public class SaisieFormActivity extends AppCompatActivity {
             checkCommun.setChecked(true);
         }
         layoutCommun.setVisibility(sante ? View.GONE : View.VISIBLE);
-        groupSanteQuantite.setVisibility(sante ? View.VISIBLE : View.GONE);
+        boolean natureChoisie = sante && spinnerNatureSante.getText().length() > 0;
+        boolean medicament = sante && NATURE_MEDICAMENT.equals(spinnerNatureSante.getText().toString());
+        groupNatureSante.setVisibility(sante ? View.VISIBLE : View.GONE);
+        groupMedicamentAchat.setVisibility(medicament ? View.VISIBLE : View.GONE);
+        groupSanteQuantite.setVisibility(natureChoisie ? View.VISIBLE : View.GONE);
+        setHintParent(etQuantiteSante, medicament ? "Quantité achetée *" : "Nombre de jours (facultatif)");
+        setHintParent(etPrixUnitaireSante, medicament ? "Prix unitaire (facultatif)" : "Prix par jour (facultatif)");
+        setHintParent(etDescriptionTransaction, !sante ? "Description" : medicament ? "Observations (facultatif)" : "Nature du service *");
         com.google.android.material.textfield.TextInputLayout tilMontant = findViewById(R.id.tilMontant);
         if (tilMontant != null) tilMontant.setHint(sante ? "Montant total (FCFA) *" : "Montant (FCFA)");
         groupRattachementTransaction.setVisibility(sante ? View.GONE : View.VISIBLE);
@@ -3149,6 +3287,34 @@ public class SaisieFormActivity extends AppCompatActivity {
                 // Commun aux deux sous-types (Médicament/Autre ET Vaccination).
                 req.observations = nullIfBlank(textOf(etObservationsSoin));
 
+                if (soinDepuisStock()) {
+                    com.mobile.diafarms.network.dto.StockMedicamentResponse m = stockChoisi();
+                    if (m == null) {
+                        toast("Choisissez le médicament dans le stock du projet");
+                        return;
+                    }
+                    Double qUtilisee = parseDoubleOrNull(etQuantiteSoinStock.getText());
+                    if (qUtilisee == null || qUtilisee <= 0) {
+                        toast("Indiquez la quantité utilisée");
+                        return;
+                    }
+                    if (qUtilisee > m.restant + 1e-9) {
+                        toast("Stock insuffisant : il reste " + formatSaisie(m.restant) + " " + m.unite + " de " + m.nom);
+                        return;
+                    }
+                    if (batimentUniqueId == null) {
+                        toast("Veuillez sélectionner le poulailler");
+                        return;
+                    }
+                    req.produit = m.nom;
+                    req.unite = m.unite;
+                    req.quantite = qUtilisee;
+                    req.depuisStock = true;
+                    requestObject = req;
+                    summary = spinnerTypeSoin.getText().toString() + " : " + m.nom + " (" + formatSaisie(qUtilisee) + " " + m.unite + ", stock)";
+                    break;
+                }
+
                 if (isTypeSoinVaccination()) {
                     String nomVaccin = textOf(etNomVaccin);
                     if (nomVaccin.isEmpty()) {
@@ -3463,6 +3629,50 @@ public class SaisieFormActivity extends AppCompatActivity {
             case TRANSACTION_ENTREE:
             case TRANSACTION_SORTIE:
             case VENTE_FIENTES: {
+                if (type == SaisieType.TRANSACTION_SORTIE && estSante() && spinnerNatureSante.getText().length() == 0) {
+                    toast("Précisez ce que vous avez payé : achat de médicament ou service");
+                    return;
+                }
+                if (type == SaisieType.TRANSACTION_SORTIE && estMedicamentSante()) {
+                    if (projetUniqueId == null || projetUniqueId.isEmpty()) {
+                        toast("Un médicament entre dans le stock d'un projet : choisissez d'abord le projet à l'accueil");
+                        return;
+                    }
+                    String nomMed = textOf(etNomMedicament);
+                    int iForme = java.util.Arrays.asList(FORMES_MEDICAMENT).indexOf(spinnerFormeMedicament.getText().toString());
+                    String unite = spinnerUniteMedicament.getText().toString().trim();
+                    Double qMed = parseDoubleOrNull(etQuantiteSante.getText());
+                    Double montantMed = parseDoubleOrNull(etMontant.getText());
+                    if (nomMed.isEmpty() || iForme < 0 || unite.isEmpty()) {
+                        toast("Indiquez le médicament, sa forme et son unité");
+                        return;
+                    }
+                    if (qMed == null || qMed <= 0) {
+                        toast("Indiquez la quantité achetée");
+                        return;
+                    }
+                    if (montantMed == null || montantMed <= 0) {
+                        toast("Indiquez le montant payé");
+                        return;
+                    }
+                    com.mobile.diafarms.network.dto.AchatMedicamentCreateRequest achatMed = new com.mobile.diafarms.network.dto.AchatMedicamentCreateRequest();
+                    achatMed.nom = nomMed;
+                    achatMed.forme = FORMES_MEDICAMENT_WIRE[iForme];
+                    achatMed.unite = unite;
+                    achatMed.quantite = qMed;
+                    Double puMed = parseDoubleOrNull(etPrixUnitaireSante.getText());
+                    achatMed.prixUnitaire = puMed != null && puMed > 0 ? puMed : null;
+                    achatMed.coutTotal = montantMed;
+                    achatMed.dateAchat = date;
+                    achatMed.fournisseur = nullIfBlank(textOf(etFournisseurMedicament));
+                    achatMed.observations = nullIfBlank(textOf(etDescriptionTransaction));
+                    achatMed.batimentUniqueId = batiments.size() > 1 ? getSelectedBatimentUniqueId() : null;
+                    requestObject = achatMed;
+                    typeEnregistrement = SaisieType.MEDICAMENT_ACHAT;
+                    summary = String.format(Locale.FRANCE, "Achat médicament : %s %s de %s (%,.0f FCFA)",
+                            formatSaisie(qMed), unite, nomMed, montantMed);
+                    break;
+                }
                 Double montant = parseDoubleOrNull(etMontant.getText());
                 String description = textOf(etDescriptionTransaction);
                 if (montant == null || montant <= 0 || description.isEmpty()) {
@@ -3477,11 +3687,9 @@ public class SaisieFormActivity extends AppCompatActivity {
                     toast("Un soin concerne un projet : choisissez d'abord le projet à l'accueil");
                     return;
                 }
+                // Service de santé : nombre de jours facultatif.
                 Double quantiteSante = sante ? parseDoubleOrNull(etQuantiteSante.getText()) : null;
-                if (sante && (quantiteSante == null || quantiteSante <= 0)) {
-                    toast("Indiquez la quantité (doses, flacons, sachets...)");
-                    return;
-                }
+                if (quantiteSante != null && quantiteSante <= 0) quantiteSante = null;
                 boolean commun = !sante && ((type == SaisieType.VENTE_FIENTES) || checkCommun.isChecked());
                 if (!commun && (projetUniqueId == null || projetUniqueId.isEmpty())) {
                     toast("Aucun projet sélectionné à l'accueil : laissez \"Commune\" coché, ou choisissez un projet depuis l'accueil");
@@ -3807,7 +4015,7 @@ public class SaisieFormActivity extends AppCompatActivity {
             }
             toast("Saisie modifiée");
         } else {
-            localDatabase.insertSaisie(type, projetColonne, projetLabelColonne, payloadJson, summary);
+            localDatabase.insertSaisie(typeEnregistrement != null ? typeEnregistrement : type, projetColonne, projetLabelColonne, payloadJson, summary);
             toast("Enregistré, à synchroniser depuis l'accueil");
         }
 
@@ -3822,6 +4030,30 @@ public class SaisieFormActivity extends AppCompatActivity {
         if (existing == null) return;
 
         String json = existing.getPayloadJson();
+
+        if (editionMedicament) {
+            com.mobile.diafarms.network.dto.AchatMedicamentCreateRequest r = gson.fromJson(json, com.mobile.diafarms.network.dto.AchatMedicamentCreateRequest.class);
+            spinnerCategorie.setText(CATEGORIE_SANTE, false);
+            spinnerNatureSante.setText(NATURE_MEDICAMENT, false);
+            setDateHeure(r.dateAchat, null);
+            etNomMedicament.setText(r.nom);
+            int iForme = java.util.Arrays.asList(FORMES_MEDICAMENT_WIRE).indexOf(r.forme);
+            if (iForme >= 0) {
+                spinnerFormeMedicament.setText(FORMES_MEDICAMENT[iForme], false);
+                majUnitesMedicament(false);
+            }
+            spinnerUniteMedicament.setText(r.unite, false);
+            majSanteAuto = true;
+            if (r.quantite != null) etQuantiteSante.setText(formatSaisie(r.quantite));
+            if (r.prixUnitaire != null) etPrixUnitaireSante.setText(formatSaisie(r.prixUnitaire));
+            if (r.coutTotal != null) etMontant.setText(formatSaisie(r.coutTotal));
+            majSanteAuto = false;
+            etFournisseurMedicament.setText(r.fournisseur);
+            etDescriptionTransaction.setText(r.observations);
+            if (r.batimentUniqueId != null) selectBatimentByUniqueId(r.batimentUniqueId);
+            appliquerSante();
+            return;
+        }
 
         switch (type) {
             case COLLECTE_OEUFS: {
@@ -3846,6 +4078,12 @@ public class SaisieFormActivity extends AppCompatActivity {
                 // Bascule d'abord le type (montre/masque le bon sous-groupe de champs,
                 // voir updateGroupSoinsSousType()) avant de remplir les valeurs.
                 selectSpinnerValue(spinnerTypeSoin, TYPES_SOIN, soinsTypeFromWire(req.type));
+                if (Boolean.TRUE.equals(req.depuisStock)) {
+                    checkSoinDepuisStock.setChecked(true);
+                    soinStockEnAttente = req.produit + "|" + req.unite;
+                    if (req.quantite != null) etQuantiteSoinStock.setText(formatSaisie(req.quantite));
+                    appliquerStockMedicaments(stockMedicaments, false);
+                }
                 updateGroupSoinsSousType();
                 etObservationsSoin.setText(req.observations);
                 if ("VACCINATION".equalsIgnoreCase(req.type)) {

@@ -226,6 +226,16 @@ public interface DataApi {
     Call<ApiEnvelope<CreatedEntityResponse>> createAlimentationAchat(
             @Header("Idempotency-Key") String idempotencyKey, @Path("uniqueIdProjet") String projetUniqueId, @Body AlimentationCreateRequest request);
 
+    // ============== MÉDICAMENTS — achat (dépense + stock du projet) et stock ==============
+    @POST("medicaments/create/{uniqueIdProjet}")
+    Call<ApiEnvelope<CreatedEntityResponse>> createAchatMedicament(
+            @Header("Idempotency-Key") String idempotencyKey, @Path("uniqueIdProjet") String projetUniqueId,
+            @Body com.mobile.diafarms.network.dto.AchatMedicamentCreateRequest request);
+
+    @GET("medicaments/stock/{uniqueIdProjet}")
+    Call<ApiEnvelope<java.util.List<com.mobile.diafarms.network.dto.StockMedicamentResponse>>> getStockMedicaments(
+            @Path("uniqueIdProjet") String projetUniqueId);
+
     // ============== ALIMENTATION — CONSOMMATION (aliment sortant) ==============
     @POST("consommations-aliment/create")
     Call<ApiEnvelope<CreatedEntityResponse>> createConsommationAliment(@Header("Idempotency-Key") String idempotencyKey, @Body ConsommationAlimentCreateRequest request);

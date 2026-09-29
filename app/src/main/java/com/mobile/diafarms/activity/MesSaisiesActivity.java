@@ -335,6 +335,7 @@ public class MesSaisiesActivity extends AppCompatActivity {
                 case ALIMENTATION_ACHAT:
                 case ALIMENTATION_CONSOMMATION:
                     return R.drawable.ble;
+                case MEDICAMENT_ACHAT:
                 case SOINS:
                     // Couvre Médicament/Autre ET Vaccination depuis la fusion des deux
                     // écrans/boutons mobile — voir SaisieType.SOINS. Pas d'icône dédiée à

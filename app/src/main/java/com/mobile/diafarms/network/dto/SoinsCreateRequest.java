@@ -22,4 +22,7 @@ public class SoinsCreateRequest {
     // Uniquement pertinent pour VACCINATION — le back joint la liste avec " | ".
     public List<String> modeAdministration;
     public String observations;
+    // Pris dans le stock de médicaments du projet : produit + unité d'un achat.
+    public Boolean depuisStock;
+    public String unite;
 }
