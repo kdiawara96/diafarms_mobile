@@ -1804,6 +1804,7 @@
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 
                 <LinearLayout
+                    android:id="@+id/layoutCommun"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
@@ -1881,6 +1882,11 @@
 
                 <!-- Rattachement FACULTATIF à un site et/ou un poulailler précis (suivi des dépenses
                      par site / par poulailler). Rien de choisi = ferme entière. Indépendant du projet. -->
+                <LinearLayout
+                    android:id="@+id/groupRattachementTransaction"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -1929,6 +1935,7 @@
                         android:inputType="none"
                         android:editable="false" />
                 </com.google.android.material.textfield.TextInputLayout>
+                </LinearLayout>
                 </LinearLayout>
             </LinearLayout>
 

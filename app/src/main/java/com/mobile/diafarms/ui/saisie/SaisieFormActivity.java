@@ -118,6 +118,10 @@ public class SaisieFormActivity extends AppCompatActivity {
     // envoi vers alimentations/create qui crée le stock ET la sortie d'argent). Le serveur
     // refuse une sortie manuelle "Aliment" : cette catégorie ne part jamais en transaction.
     private static final String CATEGORIE_ACHAT_ALIMENT = "Achat d'aliment";
+    // Santé / Vétérinaire : toujours liée au projet choisi à l'accueil (le serveur refuse
+    // une telle dépense sans projet) ; poulailler facultatif, proposé seulement si le
+    // projet en occupe plusieurs ; jamais « commune » ni site.
+    private static final String CATEGORIE_SANTE = "Santé / Vétérinaire";
     private static final String[] CATEGORIES_TRANSACTION_SORTIE = {CATEGORIE_ACHAT_ALIMENT, "Santé / Vétérinaire", "Logistique", "Électricité / Eau", "Entretien / Maintenance", "Alvéole", "Copeau", "Matériels", "Autre"};
     // Type d'aliment acheté : libellés affichés et valeurs envoyées (enum TypeAliment côté back), même ordre.
     private static final String[] TYPES_ALIMENT = {"Démarrage", "Croissance", "Ponte", "Autre"};
@@ -394,6 +398,7 @@ public class SaisieFormActivity extends AppCompatActivity {
     private AutoCompleteTextView spinnerCategorie;
     private TextInputEditText etMontant, etDescriptionTransaction;
     private CheckBox checkCommun;
+    private View layoutCommun, groupRattachementTransaction;
     // Rattachement FACULTATIF d'une dépense à un site et/ou un poulailler (voir afficherRattachements).
     private TextView btnAfficherProjetsConcernes;
     private AutoCompleteTextView spinnerSiteTransaction, spinnerBatimentTransaction;
@@ -824,6 +829,8 @@ public class SaisieFormActivity extends AppCompatActivity {
         etMontant = findViewById(R.id.etMontant);
         etDescriptionTransaction = findViewById(R.id.etDescriptionTransaction);
         checkCommun = findViewById(R.id.checkCommun);
+        layoutCommun = findViewById(R.id.layoutCommun);
+        groupRattachementTransaction = findViewById(R.id.groupRattachementTransaction);
         groupProjetsConcernes = findViewById(R.id.groupProjetsConcernes);
         containerProjetsConcernes = findViewById(R.id.containerProjetsConcernes);
         btnToutSelectionner = findViewById(R.id.btnToutSelectionner);
@@ -851,10 +858,18 @@ public class SaisieFormActivity extends AppCompatActivity {
         // n'est choisi que volontairement.
         if (categories.length > 0) {
             String parDefaut = categories[0];
-            if (categories.length > 1 && CATEGORIE_ACHAT_ALIMENT.equals(parDefaut) && editingLocalId == null) parDefaut = categories[1];
+            // Ni l'achat d'aliment ni la santé (qui exigent un projet) ne sont présélectionnés.
+            if (editingLocalId == null) {
+                for (String c : categories) {
+                    if (!CATEGORIE_ACHAT_ALIMENT.equals(c) && !CATEGORIE_SANTE.equals(c)) { parDefaut = c; break; }
+                }
+            }
             spinnerCategorie.setText(parDefaut, false);
         }
-        spinnerCategorie.setOnItemClickListener((parent, view, position, id) -> basculerAchatAliment());
+        spinnerCategorie.setOnItemClickListener((parent, view, position, id) -> {
+            basculerAchatAliment();
+            appliquerSante();
+        });
 
         ArrayAdapter<String> typeSoinAdapter = new ArrayAdapter<>(this,
                 android.R.layout.simple_dropdown_item_1line, TYPES_SOIN);
@@ -1033,6 +1048,32 @@ public class SaisieFormActivity extends AppCompatActivity {
         }
     }
 
+    private boolean estSante() {
+        return type == SaisieType.TRANSACTION_SORTIE && spinnerCategorie != null
+                && CATEGORIE_SANTE.equals(spinnerCategorie.getText().toString());
+    }
+
+    /** Santé / Vétérinaire : pas de « commune » ni de site ; poulailler du projet
+     * (facultatif) seulement si le projet en occupe plusieurs. */
+    private void appliquerSante() {
+        if (type != SaisieType.TRANSACTION_SORTIE) return;
+        boolean sante = estSante();
+        if (sante) {
+            checkCommun.setChecked(false);
+            groupProjetsConcernes.setVisibility(View.GONE);
+            btnAfficherProjetsConcernes.setVisibility(View.GONE);
+            if (projetUniqueId == null || projetUniqueId.isEmpty()) {
+                toast("Un soin concerne un projet : choisissez d'abord le projet à l'accueil");
+            }
+        } else if (editingLocalId == null && layoutCommun.getVisibility() != View.VISIBLE) {
+            checkCommun.setChecked(true);
+        }
+        layoutCommun.setVisibility(sante ? View.GONE : View.VISIBLE);
+        groupRattachementTransaction.setVisibility(sante ? View.GONE : View.VISIBLE);
+        groupBatimentTop.setVisibility(sante && batiments.size() > 1 ? View.VISIBLE : View.GONE);
+        if (sante) populateBatimentSpinner();
+    }
+
     /** Quantité totale = sacs x poids d'un sac, tant qu'elle n'a pas été modifiée à la main. */
     private void majQuantiteAchatCalculee() {
         if (quantiteAchatManuelle || majQuantiteAchatAuto) return;
@@ -1112,6 +1153,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         if (type == SaisieType.LIVRAISON_COMMANDE && commandeLivree != null) {
             tvProjetForm.setText(commandeLivree.clientNom);
         }
+        if (type == SaisieType.TRANSACTION_SORTIE && layoutCommun != null) appliquerSante();
     }
 
     // ===================== ENCAISSEMENT CLIENT =====================
@@ -1877,6 +1919,7 @@ public class SaisieFormActivity extends AppCompatActivity {
             }
         }
         populateBatimentSpinner();
+        if (estSante()) groupBatimentTop.setVisibility(batiments.size() > 1 ? View.VISIBLE : View.GONE);
     }
 
     // Collecte, sortie d'aliment, soins (vaccination comprise), mortalité et réforme se
@@ -1887,12 +1930,14 @@ public class SaisieFormActivity extends AppCompatActivity {
                 || type == SaisieType.SOINS || type == SaisieType.MORTALITE || type == SaisieType.REFORME;
     }
 
+    private static final String LIBELLE_TOUT_LE_PROJET = "Tout le projet";
+
     private void populateBatimentSpinner() {
         List<String> labels = new ArrayList<>();
         boolean obligatoire = poulaillerObligatoire();
         com.google.android.material.textfield.TextInputLayout til = findViewById(R.id.tilBatimentTop);
         if (til != null) til.setHint(obligatoire ? "Poulailler *" : "Poulailler (optionnel)");
-        if (!obligatoire) labels.add("Aucun bâtiment précis");
+        if (!obligatoire) labels.add(estSante() ? LIBELLE_TOUT_LE_PROJET : "Aucun bâtiment précis");
         for (OccupationBatimentResponse b : batiments) {
             labels.add(b.getNomBatiment());
         }
@@ -3387,7 +3432,12 @@ public class SaisieFormActivity extends AppCompatActivity {
                 // Vente de fientes : toujours commune (acte Finance à l'échelle de la
                 // ferme, comme sur web — voir CreateVenteFienteDialog), la case à cocher
                 // ne s'affiche même pas pour ce type.
-                boolean commun = (type == SaisieType.VENTE_FIENTES) || checkCommun.isChecked();
+                boolean sante = estSante();
+                if (sante && (projetUniqueId == null || projetUniqueId.isEmpty())) {
+                    toast("Un soin concerne un projet : choisissez d'abord le projet à l'accueil");
+                    return;
+                }
+                boolean commun = !sante && ((type == SaisieType.VENTE_FIENTES) || checkCommun.isChecked());
                 if (!commun && (projetUniqueId == null || projetUniqueId.isEmpty())) {
                     toast("Aucun projet sélectionné à l'accueil : laissez \"Commune\" coché, ou choisissez un projet depuis l'accueil");
                     return;
@@ -3403,14 +3453,22 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.description = description;
                 req.montant = montant;
                 req.categorie = spinnerCategorie.getText().toString();
-                req.siteUniqueId = getSelectedSiteTransaction();
-                req.batimentUniqueId = getSelectedBatimentTransaction();
+                req.siteUniqueId = sante ? null : getSelectedSiteTransaction();
+                req.batimentUniqueId = sante
+                        ? (batiments.size() > 1 ? getSelectedBatimentUniqueId() : null)
+                        : getSelectedBatimentTransaction();
+                // « Commune » avec un seul projet coché = ce projet (même règle que le web).
+                if (req.commun && projetsConcernes != null && projetsConcernes.size() == 1) {
+                    req.commun = false;
+                    req.projetUniqueId = projetsConcernes.get(0);
+                    req.projetsConcernesUniqueIds = null;
+                }
                 requestObject = req;
                 summary = String.format(Locale.FRANCE, "%s %,.0f FCFA : %s",
                         type == SaisieType.TRANSACTION_SORTIE ? "-" : "+", montant, description);
                 if (req.siteUniqueId != null || req.batimentUniqueId != null) {
                     String s1 = req.siteUniqueId != null ? spinnerSiteTransaction.getText().toString() : null;
-                    String b1 = req.batimentUniqueId != null ? spinnerBatimentTransaction.getText().toString() : null;
+                    String b1 = req.batimentUniqueId != null ? (sante ? spinnerBatiment : spinnerBatimentTransaction).getText().toString() : null;
                     summary += " (" + (s1 != null ? s1 : "") + (s1 != null && b1 != null ? " · " : "") + (b1 != null ? b1 : "") + ")";
                 }
                 break;
