@@ -20,6 +20,7 @@ public class SaisieLocale {
             "Cette saisie a déjà été enregistrée sur le serveur ; pour la corriger, faites-le depuis l'application web";
     public static final String MESSAGE_ATTENTE_CONFIRMATION =
             "Envoi en attente de confirmation : modification possible après la prochaine synchronisation";
+    public static final String MESSAGE_INCOHERENTE = "Saisie incohérente : supprimez-la et saisissez-la de nouveau";
 
     private String localId;
     private SaisieType type;
@@ -138,5 +139,24 @@ public class SaisieLocale {
     /** Pas encore acceptée par le serveur (LOCAL ou ERROR), qu'elle soit modifiable ou non. */
     public boolean isEditable() {
         return STATUT_LOCAL.equals(syncStatus) || STATUT_ERROR.equals(syncStatus);
+    }
+
+    /** Type enregistré qui ne correspond plus au contenu : sortie d'argent dont le contenu est
+     * un achat de médicament, ou l'inverse (modification 1.33/1.34 qui changeait la nature de
+     * la saisie). Elle ne peut ni partir ni se modifier : il faut la supprimer. */
+    public boolean estIncoherente() {
+        if (type != SaisieType.TRANSACTION_SORTIE && type != SaisieType.MEDICAMENT_ACHAT) return false;
+        com.google.gson.JsonObject o;
+        try {
+            o = new com.google.gson.Gson().fromJson(payloadJson, com.google.gson.JsonObject.class);
+        } catch (Exception e) {
+            return false;
+        }
+        if (o == null) return false;
+        boolean contenuMedicament = o.has("coutTotal") || o.has("forme") || o.has("dateAchat");
+        boolean contenuTransaction = o.has("montant") || o.has("categorie") || o.has("commun");
+        return type == SaisieType.TRANSACTION_SORTIE
+                ? contenuMedicament && !contenuTransaction
+                : contenuTransaction && !contenuMedicament;
     }
 }

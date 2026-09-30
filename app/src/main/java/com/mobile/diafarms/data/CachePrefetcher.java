@@ -46,6 +46,8 @@ public class CachePrefetcher {
     public static final String CACHE_PROJET_DETAIL_PREFIX = "projet_detail_";
     public static final String CACHE_NOTIFICATIONS_PREFIX = "notifications_";
     public static final String CACHE_STOCK_ALIMENT_PREFIX = "stock_aliment_";
+    // Stock de médicaments du projet (achats - soins pris dans le stock), pour les soins hors ligne.
+    public static final String CACHE_STOCK_MEDICAMENTS_PREFIX = "stock_medicaments_";
     // Effectif vivant (Production, ReformeImpl) : par projet, comme le stock aliment.
     // Plafond de saisie (effectif vivant + œufs déjà collectés) par projet et poulailler,
     // préchargé comme le stock : les alertes du formulaire marchent ainsi hors ligne.
@@ -632,6 +634,19 @@ public class CachePrefetcher {
 
             @Override
             public void onFailure(@NonNull Call<ApiEnvelope<StockAlimentResponse>> call, Throwable t) { }
+        });
+
+        ApiClient.dataApi(appContext).getStockMedicaments(projetUniqueId).enqueue(new Callback<ApiEnvelope<List<com.mobile.diafarms.network.dto.StockMedicamentResponse>>>() {
+            @Override
+            public void onResponse(Call<ApiEnvelope<List<com.mobile.diafarms.network.dto.StockMedicamentResponse>>> call,
+                                   Response<ApiEnvelope<List<com.mobile.diafarms.network.dto.StockMedicamentResponse>>> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
+                    localDatabase.putCache(CACHE_STOCK_MEDICAMENTS_PREFIX + projetUniqueId, gson.toJson(response.body().getData()));
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiEnvelope<List<com.mobile.diafarms.network.dto.StockMedicamentResponse>>> call, Throwable t) { }
         });
 
         ApiClient.dataApi(appContext).getEffectifReforme(projetUniqueId).enqueue(new Callback<ApiEnvelope<EffectifReformeResponse>>() {

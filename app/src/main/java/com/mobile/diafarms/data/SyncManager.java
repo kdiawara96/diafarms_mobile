@@ -143,6 +143,13 @@ public class SyncManager {
             envoyerSessionPesee(index, saisie);
             return;
         }
+        // Nature changée par une modification (1.33/1.34) : ne jamais la renvoyer en boucle.
+        if (saisie.estIncoherente()) {
+            markError(saisie, SaisieLocale.MESSAGE_INCOHERENTE, -1);
+            bilan.refusees++;
+            syncNext(index + 1);
+            return;
+        }
 
         Callback<ApiEnvelope<CreatedEntityResponse>> retrofitCallback = new Callback<ApiEnvelope<CreatedEntityResponse>>() {
             @Override

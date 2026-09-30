@@ -419,6 +419,8 @@ public class SaisieFormActivity extends AppCompatActivity {
     private AutoCompleteTextView spinnerSoinStock;
     private TextInputEditText etQuantiteSoinStock;
     private List<com.mobile.diafarms.network.dto.StockMedicamentResponse> stockMedicaments = new ArrayList<>();
+    // Dernier stock connu du serveur (cache ou réseau), avant ajout des saisies en attente.
+    private List<com.mobile.diafarms.network.dto.StockMedicamentResponse> stockMedicamentsServeur = new ArrayList<>();
     private String soinStockEnAttente;
     private TextInputEditText etQuantiteSante, etPrixUnitaireSante;
     private boolean majSanteAuto = false;
@@ -477,6 +479,30 @@ public class SaisieFormActivity extends AppCompatActivity {
                         ? SaisieLocale.MESSAGE_DEJA_ENREGISTREE : SaisieLocale.MESSAGE_ATTENTE_CONFIRMATION);
                 finish();
                 return;
+            }
+            if (aModifier != null && aModifier.estIncoherente()) {
+                toast(SaisieLocale.MESSAGE_INCOHERENTE);
+                finish();
+                return;
+            }
+            // Santé / Vétérinaire « commune » d'une version 1.31 ou antérieure (sans projet) :
+            // un soin concerne un projet. Un seul projet concerné = ce projet ; sinon, à refaire.
+            if (aModifier != null && type == SaisieType.TRANSACTION_SORTIE && !editionMedicament
+                    && (projetUniqueId == null || projetUniqueId.isEmpty())) {
+                TransactionCreateRequest ancienne = null;
+                try {
+                    ancienne = gson.fromJson(aModifier.getPayloadJson(), TransactionCreateRequest.class);
+                } catch (Exception ignored) { }
+                if (ancienne != null && CATEGORIE_SANTE.equals(ancienne.categorie)) {
+                    if (ancienne.projetsConcernesUniqueIds != null && ancienne.projetsConcernesUniqueIds.size() == 1) {
+                        projetUniqueId = ancienne.projetsConcernesUniqueIds.get(0);
+                        projetLabel = libelleProjet(projetUniqueId);
+                    } else {
+                        Toast.makeText(this, "Cette saisie doit être supprimée puis saisie de nouveau depuis le projet", Toast.LENGTH_LONG).show();
+                        finish();
+                        return;
+                    }
+                }
             }
         }
 
@@ -874,11 +900,16 @@ public class SaisieFormActivity extends AppCompatActivity {
         spinnerUniteMedicament = findViewById(R.id.spinnerUniteMedicament);
         etNomMedicament = findViewById(R.id.etNomMedicament);
         etFournisseurMedicament = findViewById(R.id.etFournisseurMedicament);
-        spinnerNatureSante.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, NATURES_SANTE));
+        // En modification, une saisie garde son type : un achat de médicament (MEDICAMENT_ACHAT)
+        // reste un achat, une sortie d'argent (TRANSACTION_SORTIE) ne peut pas en devenir un.
+        String[] natures = editingLocalId == null ? NATURES_SANTE
+                : editionMedicament ? new String[]{NATURE_MEDICAMENT} : new String[]{NATURE_SERVICE};
+        spinnerNatureSante.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, natures));
         spinnerNatureSante.setOnItemClickListener((parent, view, position, id) -> appliquerSante());
         spinnerFormeMedicament.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, FORMES_MEDICAMENT));
         spinnerFormeMedicament.setOnItemClickListener((parent, view, position, id) -> majUnitesMedicament(true));
-        if (editionMedicament) spinnerNatureSante.setEnabled(false);
+        if (editingLocalId != null) spinnerNatureSante.setEnabled(false);
+        if (editionMedicament) spinnerCategorie.setEnabled(false);
         etQuantiteSante = findViewById(R.id.etQuantiteSante);
         etPrixUnitaireSante = findViewById(R.id.etPrixUnitaireSante);
         // Montant total <-> prix unitaire, à partir de la quantité (Santé / Vétérinaire).
@@ -898,7 +929,7 @@ public class SaisieFormActivity extends AppCompatActivity {
             Double pu = parseDoubleOrNull(etPrixUnitaireSante.getText());
             if (q != null && q > 0 && pu != null && pu > 0) {
                 majSanteAuto = true;
-                etMontant.setText(formatSaisie(Math.round(q * pu * 100.0) / 100.0));
+                etMontant.setText(formatSaisie((double) Math.round(q * pu)));
                 majSanteAuto = false;
             }
         });
@@ -1004,7 +1035,7 @@ public class SaisieFormActivity extends AppCompatActivity {
     /** Stock de médicaments du projet : cache d'abord, puis réseau si possible. */
     private void loadStockMedicaments() {
         if (projetUniqueId == null || projetUniqueId.isEmpty()) return;
-        String cle = "stock_medicaments_" + projetUniqueId;
+        String cle = CachePrefetcher.CACHE_STOCK_MEDICAMENTS_PREFIX + projetUniqueId;
         appliquerStockMedicaments(lireListeCache(cle, com.mobile.diafarms.network.dto.StockMedicamentResponse.class), true);
         ApiClient.dataApi(this).getStockMedicaments(projetUniqueId).enqueue(new Callback<ApiEnvelope<List<com.mobile.diafarms.network.dto.StockMedicamentResponse>>>() {
             @Override
@@ -1025,7 +1056,8 @@ public class SaisieFormActivity extends AppCompatActivity {
 
     private void appliquerStockMedicaments(List<com.mobile.diafarms.network.dto.StockMedicamentResponse> liste, boolean premierAffichage) {
         boolean avaitStock = !stockMedicaments.isEmpty();
-        stockMedicaments = liste != null ? liste : new ArrayList<>();
+        stockMedicamentsServeur = liste != null ? liste : new ArrayList<>();
+        stockMedicaments = avecSaisiesEnAttente(stockMedicamentsServeur);
         List<String> labels = new ArrayList<>();
         for (com.mobile.diafarms.network.dto.StockMedicamentResponse m : stockMedicaments) labels.add(libelleStock(m));
         String avant = spinnerSoinStock.getText().toString();
@@ -1039,7 +1071,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         }
         if (soinStockEnAttente != null) {
             for (com.mobile.diafarms.network.dto.StockMedicamentResponse m : stockMedicaments) {
-                if (soinStockEnAttente.equalsIgnoreCase(m.nom + "|" + m.unite)) {
+                if (soinStockEnAttente.equals(cleMedicament(m.nom, m.unite))) {
                     spinnerSoinStock.setText(libelleStock(m), false);
                     soinStockEnAttente = null;
                     break;
@@ -1047,6 +1079,68 @@ public class SaisieFormActivity extends AppCompatActivity {
             }
         }
         if (type == SaisieType.SOINS) updateGroupSoinsSousType();
+    }
+
+    /** Même clé que MedicamentService.cle côté serveur : nom|unité, sans casse ni espaces autour. */
+    private static String cleMedicament(String nom, String unite) {
+        return (nom == null ? "" : nom.trim().toLowerCase(Locale.FRENCH)) + "|" + (unite == null ? "" : unite.trim().toLowerCase(Locale.FRENCH));
+    }
+
+    /** Stock hors ligne : stock serveur + achats de médicaments en attente du projet
+     * - soins pris dans le stock en attente (la saisie en cours de modification exclue).
+     * Un médicament acheté hors ligne apparaît donc dans la liste. */
+    private List<com.mobile.diafarms.network.dto.StockMedicamentResponse> avecSaisiesEnAttente(
+            List<com.mobile.diafarms.network.dto.StockMedicamentResponse> serveur) {
+        java.util.LinkedHashMap<String, com.mobile.diafarms.network.dto.StockMedicamentResponse> parCle = new java.util.LinkedHashMap<>();
+        for (com.mobile.diafarms.network.dto.StockMedicamentResponse m : serveur) {
+            com.mobile.diafarms.network.dto.StockMedicamentResponse c = new com.mobile.diafarms.network.dto.StockMedicamentResponse();
+            c.nom = m.nom;
+            c.forme = m.forme;
+            c.unite = m.unite;
+            c.achete = m.achete;
+            c.utilise = m.utilise;
+            c.restant = m.restant;
+            parCle.put(cleMedicament(m.nom, m.unite), c);
+        }
+        for (SaisieLocale s : saisiesEnAttente(SaisieType.MEDICAMENT_ACHAT)) {
+            if (!projetUniqueId.equals(s.getProjetUniqueId()) || s.estIncoherente()) continue;
+            com.mobile.diafarms.network.dto.AchatMedicamentCreateRequest a;
+            try {
+                a = gson.fromJson(s.getPayloadJson(), com.mobile.diafarms.network.dto.AchatMedicamentCreateRequest.class);
+            } catch (Exception e) {
+                continue;
+            }
+            if (a == null || a.nom == null || a.unite == null || a.quantite == null || a.quantite <= 0) continue;
+            String k = cleMedicament(a.nom, a.unite);
+            com.mobile.diafarms.network.dto.StockMedicamentResponse l = parCle.get(k);
+            if (l == null) {
+                l = new com.mobile.diafarms.network.dto.StockMedicamentResponse();
+                l.nom = a.nom.trim();
+                l.forme = a.forme;
+                l.unite = a.unite.trim();
+                parCle.put(k, l);
+            }
+            l.achete += a.quantite;
+            l.restant += a.quantite;
+        }
+        for (SaisieLocale s : saisiesEnAttente(SaisieType.SOINS)) {
+            SoinsCreateRequest r;
+            try {
+                r = gson.fromJson(s.getPayloadJson(), SoinsCreateRequest.class);
+            } catch (Exception e) {
+                continue;
+            }
+            if (r == null || !Boolean.TRUE.equals(r.depuisStock) || r.quantite == null) continue;
+            String projetSoin = r.projetUniqueId != null ? r.projetUniqueId : s.getProjetUniqueId();
+            if (!projetUniqueId.equals(projetSoin)) continue;
+            com.mobile.diafarms.network.dto.StockMedicamentResponse l = parCle.get(cleMedicament(r.produit, r.unite));
+            if (l == null) continue;
+            l.utilise += r.quantite;
+            l.restant -= r.quantite;
+        }
+        List<com.mobile.diafarms.network.dto.StockMedicamentResponse> res = new ArrayList<>(parCle.values());
+        for (com.mobile.diafarms.network.dto.StockMedicamentResponse m : res) m.restant = Math.max(0, m.restant);
+        return res;
     }
 
     private static String libelleStock(com.mobile.diafarms.network.dto.StockMedicamentResponse m) {
@@ -1485,6 +1579,8 @@ public class SaisieFormActivity extends AppCompatActivity {
         if (oeufs && editingLocalId == null && reste >= AlveoleUtils.OEUFS_PAR_ALVEOLE) {
             radioGroupUniteLivraison.check(R.id.radioUniteLivraisonAlveole);
         }
+        // Libellés selon l'unité réellement cochée (Alvéole par défaut ci-dessus).
+        appliquerLibellesLivraison();
         info.append("\nReste à livrer : ").append(formatQuantiteLivraison(Math.max(0, reste)));
         if (c.acompteReserve != null && c.acompteReserve > 0) {
             info.append(String.format(Locale.FRANCE, "\nAcompte réservé : %,.0f F (règle d'abord cette livraison)", c.acompteReserve));
@@ -1603,6 +1699,16 @@ public class SaisieFormActivity extends AppCompatActivity {
             checkboxesProjetsConcernes.add(cb);
         }
         updateToutSelectionnerLabel();
+    }
+
+    /** Libellé d'un projet de la ferme (cache des projets), celui de l'accueil par défaut. */
+    private String libelleProjet(String uid) {
+        if (uid == null) return null;
+        if (uid.equals(projetUniqueId) && projetLabel != null) return projetLabel;
+        for (ProjetSelectResponse p : lireListeCache(CachePrefetcher.CACHE_PROJETS_SELECT, ProjetSelectResponse.class)) {
+            if (uid.equals(p.getUniqueId())) return p.getLabel();
+        }
+        return uid.equals(projetUniqueId) ? projetLabel : null;
     }
 
     /** Ouvre la liste FACULTATIVE des projets concernés par une dépense commune. */
@@ -3240,6 +3346,7 @@ public class SaisieFormActivity extends AppCompatActivity {
     // ===================== VALIDATION + ENREGISTREMENT LOCAL =====================
 
     private void onValider() {
+        typeEnregistrement = null;
         String date = textOf(etDate);
         String heure = nullIfBlank(textOf(etHeure));
         String batimentUniqueId = getSelectedBatimentUniqueId();
@@ -4004,8 +4111,24 @@ public class SaisieFormActivity extends AppCompatActivity {
             projetColonne = null;
             projetLabelColonne = null;
         }
+        // « Commune » avec un seul projet coché = ce projet : la saisie est rangée sous ce projet
+        // (Mes saisies, réouverture en modification), même s'il n'est pas celui de l'accueil.
+        if (requestObject instanceof TransactionCreateRequest) {
+            TransactionCreateRequest t = (TransactionCreateRequest) requestObject;
+            if (!Boolean.TRUE.equals(t.commun) && t.projetUniqueId != null && !t.projetUniqueId.equals(projetColonne)) {
+                projetColonne = t.projetUniqueId;
+                projetLabelColonne = libelleProjet(t.projetUniqueId);
+            }
+        }
 
         if (editingLocalId != null) {
+            // Une modification ne change jamais la nature de la saisie (type enregistré).
+            SaisieLocale enregistree = localDatabase.getSaisieById(editingLocalId);
+            SaisieType typeConstruit = typeEnregistrement != null ? typeEnregistrement : type;
+            if (enregistree != null && enregistree.getType() != typeConstruit) {
+                toast("Cette modification changerait la nature de la saisie : supprimez-la et saisissez-la de nouveau");
+                return;
+            }
             // Revérifié ici : un envoi a pu être tenté pendant que le formulaire était ouvert.
             SaisieLocale actuelle = localDatabase.getSaisieById(editingLocalId);
             boolean refusee = actuelle == null || !actuelle.peutEtreModifiee()
@@ -4085,9 +4208,9 @@ public class SaisieFormActivity extends AppCompatActivity {
                 selectSpinnerValue(spinnerTypeSoin, TYPES_SOIN, soinsTypeFromWire(req.type));
                 if (Boolean.TRUE.equals(req.depuisStock)) {
                     checkSoinDepuisStock.setChecked(true);
-                    soinStockEnAttente = req.produit + "|" + req.unite;
+                    soinStockEnAttente = cleMedicament(req.produit, req.unite);
                     if (req.quantite != null) etQuantiteSoinStock.setText(formatSaisie(req.quantite));
-                    appliquerStockMedicaments(stockMedicaments, false);
+                    appliquerStockMedicaments(stockMedicamentsServeur, false);
                 }
                 updateGroupSoinsSousType();
                 etObservationsSoin.setText(req.observations);
@@ -4290,6 +4413,12 @@ public class SaisieFormActivity extends AppCompatActivity {
                 siteTransactionEnAttente = req.siteUniqueId;
                 batimentTransactionEnAttente = req.batimentUniqueId;
                 afficherRattachements();
+                if (type == SaisieType.TRANSACTION_SORTIE && CATEGORIE_SANTE.equals(req.categorie)) {
+                    // Une sortie d'argent Santé est un service (un achat de médicament est une autre saisie).
+                    spinnerNatureSante.setText(NATURE_SERVICE, false);
+                    appliquerSante();
+                    if (req.batimentUniqueId != null) selectBatimentByUniqueId(req.batimentUniqueId);
+                }
                 break;
             }
         }
