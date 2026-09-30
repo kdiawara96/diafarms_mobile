@@ -1480,6 +1480,11 @@ public class SaisieFormActivity extends AppCompatActivity {
         info.append(oeufs ? "œufs" : (kilo ? "réforme au kilo" : "réforme par tête"));
         if (c.magasinNom != null) info.append(", magasin ").append(c.magasinNom);
         int reste = resteLivrable();
+        // Œufs : à partir d'une alvéole restant à livrer, la saisie se fait en alvéoles
+        // (unité du marché) ; l'unité œuf reste au choix.
+        if (oeufs && editingLocalId == null && reste >= AlveoleUtils.OEUFS_PAR_ALVEOLE) {
+            radioGroupUniteLivraison.check(R.id.radioUniteLivraisonAlveole);
+        }
         info.append("\nReste à livrer : ").append(formatQuantiteLivraison(Math.max(0, reste)));
         if (c.acompteReserve != null && c.acompteReserve > 0) {
             info.append(String.format(Locale.FRANCE, "\nAcompte réservé : %,.0f F (règle d'abord cette livraison)", c.acompteReserve));
@@ -4231,6 +4236,8 @@ public class SaisieFormActivity extends AppCompatActivity {
                 LivraisonCommandeRequest req = gson.fromJson(json, LivraisonCommandeRequest.class);
                 setDateHeure(req.date, req.heure);
                 // Toujours rouverte en œufs (unité Œuf), comme une vente d'œufs.
+                // Quantité enregistrée en œufs : on la remontre en œufs.
+                radioGroupUniteLivraison.check(R.id.radioUniteLivraisonOeuf);
                 if (req.quantite != null) etQuantiteLivraison.setText(String.valueOf(req.quantite));
                 if (req.poidsTotalKg != null) etPoidsLivraison.setText(formatSaisie(req.poidsTotalKg));
                 if (req.prixKg != null) etPrixKgLivraison.setText(formatSaisie(req.prixKg));
