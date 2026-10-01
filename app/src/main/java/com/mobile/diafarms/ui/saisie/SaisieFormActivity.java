@@ -393,9 +393,28 @@ public class SaisieFormActivity extends AppCompatActivity {
     private static final String LABEL_COMMANDE_HORS_CACHE = "Commande d'origine (commande non disponible hors ligne)";
     private String commandeHorsCachePaiement;
 
+    // Vente diverse (VENTE_FIENTES / VENTE_AUTRE) : POST ventes-diverses/create.
+    private View groupVenteDiverse, groupSacsVenteDiverse;
+    private TextInputLayout tilDescriptionVenteDiverse;
+    private TextInputEditText etQuantiteVenteDiverse, etPrixUnitaireVenteDiverse, etMontantVenteDiverse, etDescriptionVenteDiverse;
+    private boolean majVenteDiverseAuto = false;
+
+    // Payer un salaire : montant estimé (taux de la dernière synchro) affiché dans le champ ;
+    // un montant différent saisi par l'utilisateur part en montantForce (prime, retenue).
+    private Double montantSalaireEstime;
+    private String employeSalaireAffiche;
+
+    // Livraison en alvéoles : œufs en plus (hors alvéole).
+    private View tilOeufsSuppLivraison;
+    private TextInputEditText etOeufsSuppLivraison;
+
     // Transaction
     private View groupTransaction;
     private AutoCompleteTextView spinnerCategorie;
+    // Catégorie « Autre » : précision obligatoire, envoyée en categoriePrecision.
+    private static final String CATEGORIE_AUTRE = "Autre";
+    private View tilCategoriePrecision;
+    private TextInputEditText etCategoriePrecision;
     private TextInputEditText etMontant, etDescriptionTransaction;
     private CheckBox checkCommun;
     private View layoutCommun, groupRattachementTransaction, groupSanteQuantite;
@@ -856,6 +875,31 @@ public class SaisieFormActivity extends AppCompatActivity {
         };
         etQuantiteSalaire.addTextChangedListener(quantiteSalaireWatcher);
 
+        groupVenteDiverse = findViewById(R.id.groupVenteDiverse);
+        groupSacsVenteDiverse = findViewById(R.id.groupSacsVenteDiverse);
+        tilDescriptionVenteDiverse = findViewById(R.id.tilDescriptionVenteDiverse);
+        etQuantiteVenteDiverse = findViewById(R.id.etQuantiteVenteDiverse);
+        etPrixUnitaireVenteDiverse = findViewById(R.id.etPrixUnitaireVenteDiverse);
+        etMontantVenteDiverse = findViewById(R.id.etMontantVenteDiverse);
+        etDescriptionVenteDiverse = findViewById(R.id.etDescriptionVenteDiverse);
+        // Fientes : montant = sacs x prix d'un sac, arrondi au franc (comme le serveur et le
+        // web) ; reste modifiable (prix négocié), seul le montant est obligatoire.
+        android.text.TextWatcher versMontantVenteDiverse = apresSaisie(() -> {
+            if (majVenteDiverseAuto) return;
+            Double q = parseDoubleOrNull(etQuantiteVenteDiverse.getText());
+            Double pu = parseDoubleOrNull(etPrixUnitaireVenteDiverse.getText());
+            if (q != null && q > 0 && pu != null && pu > 0) {
+                majVenteDiverseAuto = true;
+                etMontantVenteDiverse.setText(String.valueOf(Math.round(q * pu)));
+                majVenteDiverseAuto = false;
+            }
+        });
+        etQuantiteVenteDiverse.addTextChangedListener(versMontantVenteDiverse);
+        etPrixUnitaireVenteDiverse.addTextChangedListener(versMontantVenteDiverse);
+
+        tilOeufsSuppLivraison = findViewById(R.id.tilOeufsSuppLivraison);
+        etOeufsSuppLivraison = findViewById(R.id.etOeufsSuppLivraison);
+
         groupLivraison = findViewById(R.id.groupLivraison);
         groupUniteLivraison = findViewById(R.id.groupUniteLivraison);
         groupKiloLivraison = findViewById(R.id.groupKiloLivraison);
@@ -953,26 +997,21 @@ public class SaisieFormActivity extends AppCompatActivity {
         btnAfficherProjetsConcernes.setOnClickListener(v -> ouvrirProjetsConcernes());
         btnToutSelectionner.setOnClickListener(v -> toggleToutSelectionner());
 
+        tilCategoriePrecision = findViewById(R.id.tilCategoriePrecision);
+        etCategoriePrecision = findViewById(R.id.etCategoriePrecision);
         String[] categories = categoriesPourType();
         ArrayAdapter<String> categorieAdapter = new ArrayAdapter<>(this,
                 android.R.layout.simple_dropdown_item_1line, categories);
         spinnerCategorie.setAdapter(categorieAdapter);
-        // "Achat d'aliment" est en tête de liste (demande du propriétaire) mais n'est pas
-        // présélectionné : une sortie d'argent s'ouvre toujours en sortie simple, l'achat
-        // n'est choisi que volontairement.
-        if (categories.length > 0) {
-            String parDefaut = categories[0];
-            // Ni l'achat d'aliment ni la santé (qui exigent un projet) ne sont présélectionnés.
-            if (editingLocalId == null) {
-                for (String c : categories) {
-                    if (!CATEGORIE_ACHAT_ALIMENT.equals(c) && !CATEGORIE_SANTE.equals(c)) { parDefaut = c; break; }
-                }
-            }
-            spinnerCategorie.setText(parDefaut, false);
-        }
+        // Aucune catégorie présélectionnée (comme le web) : elle est obligatoire et choisie
+        // volontairement, sinon une dépense partait en « Logistique » sans que personne
+        // ne l'ait décidé. En modification, prefillFromExisting remet la catégorie
+        // enregistrée ; un achat de médicament garde « Santé / Vétérinaire ».
+        if (editingLocalId != null && categories.length == 1) spinnerCategorie.setText(categories[0], false);
         spinnerCategorie.setOnItemClickListener((parent, view, position, id) -> {
             basculerAchatAliment();
             appliquerSante();
+            majCategoriePrecision();
         });
 
         ArrayAdapter<String> typeSoinAdapter = new ArrayAdapter<>(this,
@@ -1261,10 +1300,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         }
     }
 
-    private static final String[] CATEGORIE_VENTE_FIENTES = {"Vente fientes"};
-
     private String[] categoriesPourType() {
-        if (type == SaisieType.VENTE_FIENTES) return CATEGORIE_VENTE_FIENTES;
         // En modification, une saisie garde son type (updateSaisie ne le change pas) : un
         // achat d'aliment reste un achat, une sortie ne peut pas devenir un achat.
         if (type == SaisieType.ALIMENTATION_ACHAT) {
@@ -1277,6 +1313,13 @@ public class SaisieFormActivity extends AppCompatActivity {
             return sansAchat.toArray(new String[0]);
         }
         return CATEGORIES_TRANSACTION_ENTREE;
+    }
+
+    /** Catégorie « Autre » (entrée ou sortie) : champ « Préciser la catégorie * » affiché. */
+    private void majCategoriePrecision() {
+        boolean autre = (type == SaisieType.TRANSACTION_ENTREE || type == SaisieType.TRANSACTION_SORTIE)
+                && CATEGORIE_AUTRE.equals(spinnerCategorie.getText().toString());
+        tilCategoriePrecision.setVisibility(autre ? View.VISIBLE : View.GONE);
     }
 
     /** Sortie d'argent : la catégorie "Achat d'aliment" bascule le formulaire en achat
@@ -1391,9 +1434,15 @@ public class SaisieFormActivity extends AppCompatActivity {
         groupLivraison.setVisibility(type == SaisieType.LIVRAISON_COMMANDE ? View.VISIBLE : View.GONE);
         groupPaiementClient.setVisibility(type == SaisieType.PAIEMENT_CLIENT ? View.VISIBLE : View.GONE);
         groupTransaction.setVisibility(
-                (type == SaisieType.TRANSACTION_ENTREE || type == SaisieType.TRANSACTION_SORTIE || type == SaisieType.VENTE_FIENTES
+                (type == SaisieType.TRANSACTION_ENTREE || type == SaisieType.TRANSACTION_SORTIE
                         || type == SaisieType.ALIMENTATION_ACHAT)
                         ? View.VISIBLE : View.GONE);
+        majCategoriePrecision();
+        // Vente de fientes : sacs, prix d'un sac, montant *, description facultative.
+        // Autre vente : montant * et commentaire * (comme le web).
+        groupVenteDiverse.setVisibility(estVenteDiverse() ? View.VISIBLE : View.GONE);
+        groupSacsVenteDiverse.setVisibility(type == SaisieType.VENTE_FIENTES ? View.VISIBLE : View.GONE);
+        tilDescriptionVenteDiverse.setHint(type == SaisieType.VENTE_AUTRE ? "Commentaire * (ce qui a été vendu)" : "Description (facultatif)");
 
         // Aucun de ces types n'a de notion de bâtiment (poulailler) — client, commande et
         // salaire sont farm-scopés (voir Client.java/Commande.java/Salaire.java côté
@@ -1409,6 +1458,10 @@ public class SaisieFormActivity extends AppCompatActivity {
         // occupés par le projet sélectionné, non pertinent ici.
         boolean sansBatiment = type == SaisieType.CLIENT_CREATE || type == SaisieType.COMMANDE_CREATE || type == SaisieType.SALAIRE_PAYER
                 || type == SaisieType.VENTE_OEUFS || type == SaisieType.VENTE_REFORME || type == SaisieType.VENTE_FIENTES
+                || type == SaisieType.VENTE_AUTRE
+                // Achat d'aliment : il entre dans le stock du projet, c'est la consommation qui
+                // se fait dans un poulailler (le serveur ignore le poulailler d'un achat).
+                || type == SaisieType.ALIMENTATION_ACHAT
                 || type == SaisieType.ENTRETIEN || type == SaisieType.LIVRAISON_COMMANDE || type == SaisieType.PAIEMENT_CLIENT
                 // Le poulailler d'une dépense se choisit dans "Rattachement (facultatif)" ; le champ du haut ne servait à rien pour une transaction.
                 || type == SaisieType.TRANSACTION_ENTREE || type == SaisieType.TRANSACTION_SORTIE;
@@ -1419,9 +1472,10 @@ public class SaisieFormActivity extends AppCompatActivity {
         // Autre — reprend le comportement de l'ancien écran Vaccination dédié, qui
         // n'avait tout simplement pas ce champ. Seuls Client/Salaire restent sans
         // aucune notion de date/heure de saisie.
-        groupDateHeureTop.setVisibility(
-                (type == SaisieType.CLIENT_CREATE || type == SaisieType.SALAIRE_PAYER)
-                        ? View.GONE : View.VISIBLE);
+        // Salaire : la date est celle du paiement (datePaiement), sans heure.
+        groupDateHeureTop.setVisibility(type == SaisieType.CLIENT_CREATE ? View.GONE : View.VISIBLE);
+        findViewById(R.id.groupHeureTop).setVisibility(
+                type == SaisieType.SALAIRE_PAYER || estVenteDiverse() ? View.INVISIBLE : View.VISIBLE);
         if (type == SaisieType.LIVRAISON_COMMANDE && commandeLivree != null) {
             tvProjetForm.setText(commandeLivree.clientNom);
         }
@@ -1596,6 +1650,7 @@ public class SaisieFormActivity extends AppCompatActivity {
             }
         };
         etQuantiteLivraison.addTextChangedListener(w);
+        etOeufsSuppLivraison.addTextChangedListener(w);
         etPoidsLivraison.addTextChangedListener(w);
         etPrixKgLivraison.addTextChangedListener(w);
         etMontantRecuLivraison.addTextChangedListener(new TextWatcher() {
@@ -1624,6 +1679,8 @@ public class SaisieFormActivity extends AppCompatActivity {
     private void appliquerLibellesLivraison() {
         if (commandeLivree.estOeufs()) {
             tilQuantiteLivraison.setHint(isLivraisonEnAlveoles() ? "Nombre d'alvéoles livrées *" : "Nombre d'œufs livrés *");
+            // En alvéoles : œufs en plus d'une alvéole pleine, comme à la collecte et au web.
+            tilOeufsSuppLivraison.setVisibility(isLivraisonEnAlveoles() ? View.VISIBLE : View.GONE);
         } else {
             tilQuantiteLivraison.setHint("Nombre de sujets livrés *");
         }
@@ -1632,7 +1689,9 @@ public class SaisieFormActivity extends AppCompatActivity {
     /** Quantité saisie, toujours en œufs (jamais en alvéoles) ou en sujets. */
     private int quantiteLivraison() {
         int saisie = parseIntSafe(etQuantiteLivraison.getText());
-        return isLivraisonEnAlveoles() ? AlveoleUtils.alveolesToOeufs(saisie) : saisie;
+        return isLivraisonEnAlveoles()
+                ? AlveoleUtils.alveolesToOeufs(saisie) + Math.max(0, parseIntSafe(etOeufsSuppLivraison.getText()))
+                : saisie;
     }
 
     /** Reste à livrer vu d'ici : reste serveur moins les autres livraisons en attente. */
@@ -1719,7 +1778,11 @@ public class SaisieFormActivity extends AppCompatActivity {
     }
 
     private boolean estTypeTransaction() {
-        return type == SaisieType.TRANSACTION_ENTREE || type == SaisieType.TRANSACTION_SORTIE || type == SaisieType.VENTE_FIENTES;
+        return type == SaisieType.TRANSACTION_ENTREE || type == SaisieType.TRANSACTION_SORTIE;
+    }
+
+    private boolean estVenteDiverse() {
+        return type == SaisieType.VENTE_FIENTES || type == SaisieType.VENTE_AUTRE;
     }
 
     private <T> List<T> lireListeCache(String cacheKey, Class<T> clazz) {
@@ -1921,7 +1984,7 @@ public class SaisieFormActivity extends AppCompatActivity {
     private void recalculerMontantVenteOeufs() {
         int saisie = parseIntSafe(etQuantiteOeufsVente.getText());
         Double prix = parseDoubleOrNull(etPrixUnitaireOeufs.getText());
-        String montant = (saisie > 0 && prix != null && prix > 0) ? String.format(Locale.FRANCE, "%.0f", saisie * prix) : "";
+        String montant = (saisie > 0 && prix != null && prix > 0) ? String.valueOf(Math.round(saisie * prix)) : "";
         etMontantVenteOeufs.setText(montant);
         if (!montantRapporteOeufsModifieManuel) {
             syncingMontantRapporte = true;
@@ -1971,7 +2034,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         double quantite = isTypeVenteReformeKilo()
                 ? (poidsTotal != null ? poidsTotal : 0.0)
                 : parseIntSafe(etNombreSujetsVente.getText());
-        String montant = (quantite > 0 && prix != null && prix > 0) ? String.format(Locale.FRANCE, "%.0f", quantite * prix) : "";
+        String montant = (quantite > 0 && prix != null && prix > 0) ? String.valueOf(Math.round(quantite * prix)) : "";
         etMontantVenteReforme.setText(montant);
         if (!montantRapporteReformeModifieManuel) {
             syncingMontantRapporte = true;
@@ -2017,7 +2080,7 @@ public class SaisieFormActivity extends AppCompatActivity {
             Double prixKg = parseDoubleOrNull(etPrixKgCommande.getText());
             Double poids = parseDoubleOrNull(etPoidsEstimeCommande.getText());
             boolean calcule = prixKg != null && prixKg > 0 && poids != null && poids > 0;
-            if (calcule) etMontantEstimeCommande.setText(String.format(Locale.FRANCE, "%.0f", poids * prixKg));
+            if (calcule) etMontantEstimeCommande.setText(String.valueOf(Math.round(poids * prixKg)));
             etMontantEstimeCommande.setEnabled(!calcule);
             tilMontantEstimeCommande.setHint(calcule ? "Montant estimé (FCFA) = poids x prix du kg" : "Montant estimé (FCFA)");
         } else {
@@ -2026,7 +2089,7 @@ public class SaisieFormActivity extends AppCompatActivity {
             int saisie = parseIntSafe(etQuantiteCommande.getText());
             Double prix = parseDoubleOrNull(etPrixUnitaireCommande.getText());
             if (saisie > 0 && prix != null && prix > 0) {
-                etMontantEstimeCommande.setText(String.format(Locale.FRANCE, "%.0f", saisie * prix));
+                etMontantEstimeCommande.setText(String.valueOf(Math.round(saisie * prix)));
             }
         }
         refreshEstimationPesee();
@@ -2371,20 +2434,25 @@ public class SaisieFormActivity extends AppCompatActivity {
         });
     }
 
+    /** Présélection seulement s'il n'y a qu'un magasin (comme le web) : avec plusieurs, le
+     * choix est obligatoire, sinon une vente pouvait puiser dans le mauvais magasin sans
+     * que personne ne l'ait choisi. Un choix déjà fait reste en place quand la liste est
+     * rechargée (cache puis réseau). */
     private void populateMagasinSpinners() {
         List<String> labels = new ArrayList<>();
         for (MagasinSelectResponse m : magasins) {
             labels.add(m.getNom());
         }
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, labels);
-        spinnerMagasinOeufs.setAdapter(adapter);
-        spinnerMagasinReforme.setAdapter(adapter);
-        spinnerMagasinCommande.setAdapter(adapter);
-        if (!labels.isEmpty()) {
-            spinnerMagasinOeufs.setText(labels.get(0), false);
-            spinnerMagasinReforme.setText(labels.get(0), false);
-            spinnerMagasinCommande.setText(labels.get(0), false);
+        AutoCompleteTextView[] spinners = {spinnerMagasinOeufs, spinnerMagasinReforme, spinnerMagasinCommande};
+        boolean changement = false;
+        for (AutoCompleteTextView sp : spinners) {
+            String avant = sp.getText().toString();
+            sp.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, labels));
+            String apres = labels.contains(avant) ? avant : (labels.size() == 1 ? labels.get(0) : "");
+            sp.setText(apres, false);
+            if (!apres.equals(avant)) changement = true;
         }
+        if (changement) loadStockPourMagasinSelectionne();
         applyPendingMagasinSelection();
     }
 
@@ -2658,8 +2726,11 @@ public class SaisieFormActivity extends AppCompatActivity {
         List<String> labels = new ArrayList<>();
         for (SalaireSelectResponse s : salaires) labels.add(s.getEmployeNom());
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, labels);
+        // Rechargement (cache puis réseau) : l'employé déjà choisi reste choisi.
+        String avant = spinnerEmployeSalaire.getText().toString();
         spinnerEmployeSalaire.setAdapter(adapter);
-        if (!labels.isEmpty()) spinnerEmployeSalaire.setText(labels.get(0), false);
+        if (labels.contains(avant)) spinnerEmployeSalaire.setText(avant, false);
+        else if (!labels.isEmpty()) spinnerEmployeSalaire.setText(labels.get(0), false);
         tvAucunSalaireEmploye.setVisibility(salaires.isEmpty() ? View.VISIBLE : View.GONE);
         spinnerEmployeSalaire.setEnabled(!salaires.isEmpty());
         applyPendingEmployeSalaireSelection();
@@ -2682,6 +2753,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         if (s == null) {
             tilQuantiteSalaire.setVisibility(View.GONE);
             tvTauxInfoSalaire.setText("");
+            employeSalaireAffiche = null;
             return;
         }
         boolean mensuel = "MENSUEL".equals(s.getModePaiement());
@@ -2689,21 +2761,35 @@ public class SaisieFormActivity extends AppCompatActivity {
         tilQuantiteSalaire.setHint("HORAIRE".equals(s.getModePaiement()) ? "Heures travaillées" : "Jours travaillés");
         Double taux = s.getTauxBase();
         String suffixe = "HORAIRE".equals(s.getModePaiement()) ? "/ heure" : ("JOURNALIER".equals(s.getModePaiement()) ? "/ jour" : "/ mois");
-        tvTauxInfoSalaire.setText(taux != null ? String.format(Locale.FRANCE, "Taux (dernière sync) : %,.0f FCFA %s", taux, suffixe) : "");
+        tvTauxInfoSalaire.setText(taux != null ? String.format(Locale.FRANCE, "Taux (dernière synchronisation) : %,.0f FCFA %s", taux, suffixe) : "");
+        // Même employé (liste rechargée) : rien à remettre à zéro, la saisie en cours reste.
+        if (s.getEmployeUniqueId() != null && s.getEmployeUniqueId().equals(employeSalaireAffiche)) return;
+        employeSalaireAffiche = s.getEmployeUniqueId();
         etQuantiteSalaire.setText("");
-        if (mensuel && taux != null) {
-            etMontantSalaire.setText(String.format(Locale.FRANCE, "%.0f", taux));
-        } else {
-            etMontantSalaire.setText("");
-        }
+        montantSalaireEstime = estimationSalaire(s, null);
+        etMontantSalaire.setText(montantSalaireEstime != null ? String.valueOf(Math.round(montantSalaireEstime)) : "");
     }
 
+    /** Montant estimé, arrondi au franc : taux de la dernière synchro (x quantité hors
+     * mensuel). Le serveur refait le calcul au taux de la période payée. */
+    private static Double estimationSalaire(SalaireSelectResponse s, Double quantite) {
+        if (s == null || s.getTauxBase() == null) return null;
+        if ("MENSUEL".equals(s.getModePaiement())) return (double) Math.round(s.getTauxBase());
+        if (quantite == null || quantite <= 0) return null;
+        return (double) Math.round(s.getTauxBase() * quantite);
+    }
+
+    /** Le montant suit l'estimation tant que l'utilisateur ne l'a pas changé lui-même. */
     private void recalculerMontantSalaire() {
         SalaireSelectResponse s = getSelectedSalaireEmploye();
-        if (s == null || s.getTauxBase() == null || "MENSUEL".equals(s.getModePaiement())) return;
-        Double quantite = parseDoubleOrNull(etQuantiteSalaire.getText());
-        if (quantite == null || quantite <= 0) return;
-        etMontantSalaire.setText(String.format(Locale.FRANCE, "%.0f", s.getTauxBase() * quantite));
+        if (s == null || "MENSUEL".equals(s.getModePaiement())) return;
+        Double avant = montantSalaireEstime;
+        Double saisi = parseDoubleOrNull(etMontantSalaire.getText());
+        boolean suitEstimation = saisi == null || (avant != null && Math.round(saisi) == Math.round(avant));
+        montantSalaireEstime = estimationSalaire(s, parseDoubleOrNull(etQuantiteSalaire.getText()));
+        if (suitEstimation) {
+            etMontantSalaire.setText(montantSalaireEstime != null ? String.valueOf(Math.round(montantSalaireEstime)) : "");
+        }
     }
 
     private void selectEmployeSalaireByUniqueId(String uniqueId) {
@@ -2763,9 +2849,13 @@ public class SaisieFormActivity extends AppCompatActivity {
         for (MagasinSelectResponse b : batimentsStockage) {
             labels.add(b.getNom());
         }
+        // Présélection seulement s'il n'y a qu'un magasin de stockage (voir populateMagasinSpinners).
+        String avant = spinnerBatimentStockage.getText().toString();
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, labels);
         spinnerBatimentStockage.setAdapter(adapter);
-        if (!labels.isEmpty()) spinnerBatimentStockage.setText(labels.get(0), false);
+        String apres = labels.contains(avant) ? avant : (labels.size() == 1 ? labels.get(0) : "");
+        spinnerBatimentStockage.setText(apres, false);
+        if (!apres.equals(avant)) loadStockBatimentStockageSelectionne();
         applyPendingBatimentStockageSelection();
     }
 
@@ -3343,6 +3433,30 @@ public class SaisieFormActivity extends AppCompatActivity {
         return (s == null || s.isEmpty()) ? null : s;
     }
 
+    /** Montant arrondi au franc entier, comme le serveur (Math.round, x,5 vers le haut). */
+    private static Double arrondiFranc(Double montant) {
+        return montant != null ? (double) Math.round(montant) : null;
+    }
+
+    /** Message si ce nom (sans tenir compte des majuscules) ou ce téléphone est déjà pris
+     * par un client connu du téléphone ou par un nouveau client pas encore envoyé ; null
+     * sinon. Mêmes règles que le serveur (ClientServiceImpl.create). */
+    private String clientDoublon(String nom, String telephone) {
+        String n = nom.trim();
+        String t = telephone.trim();
+        for (ClientSelectResponse c : lireListeCache(CachePrefetcher.CACHE_CLIENTS_SELECT, ClientSelectResponse.class)) {
+            if (c.getNom() != null && c.getNom().trim().equalsIgnoreCase(n)) return "Un client portant ce nom existe déjà";
+            if (c.getTelephone() != null && c.getTelephone().trim().equals(t)) return "Un client avec ce numéro de téléphone existe déjà (" + c.getNom() + ")";
+        }
+        for (SaisieLocale s : saisiesEnAttente(SaisieType.CLIENT_CREATE)) {
+            ClientCreateRequest r = gson.fromJson(s.getPayloadJson(), ClientCreateRequest.class);
+            if (r == null) continue;
+            if (r.nom != null && r.nom.trim().equalsIgnoreCase(n)) return "Un client portant ce nom attend déjà d'être envoyé";
+            if (r.telephone != null && r.telephone.trim().equals(t)) return "Un client avec ce numéro attend déjà d'être envoyé (" + r.nom + ")";
+        }
+        return null;
+    }
+
     // ===================== VALIDATION + ENREGISTREMENT LOCAL =====================
 
     private void onValider() {
@@ -3350,6 +3464,14 @@ public class SaisieFormActivity extends AppCompatActivity {
         String date = textOf(etDate);
         String heure = nullIfBlank(textOf(etHeure));
         String batimentUniqueId = getSelectedBatimentUniqueId();
+
+        // Même règle que le serveur (DateSaisie) : une saisie ne peut pas être datée dans le
+        // futur. Refusée ici plutôt qu'à l'envoi, parfois des jours plus tard. La date de
+        // livraison PRÉVUE d'une commande est un autre champ, elle peut être future.
+        if (type != SaisieType.CLIENT_CREATE && date.compareTo(isoDate.format(new java.util.Date())) > 0) {
+            toast("La date ne peut pas être dans le futur");
+            return;
+        }
 
         Object requestObject;
         String summary;
@@ -3555,10 +3677,16 @@ public class SaisieFormActivity extends AppCompatActivity {
                     return;
                 }
                 Double sacs = parseDoubleOrNull(etSac.getText());
-                if (sacs == null || sacs < 0) {
-                    toast("Veuillez saisir le nombre de sacs");
+                if (sacs != null && sacs < 0) {
+                    toast("Le nombre de sacs ne peut pas être négatif");
                     return;
                 }
+                // Sacs facultatifs si la quantité totale (kg) est saisie, comme le serveur.
+                if (sacs == null && parseDoubleOrNull(etQuantiteKgAchat.getText()) == null) {
+                    toast("Veuillez saisir le nombre de sacs ou la quantité totale (kg)");
+                    return;
+                }
+                if (sacs == null) sacs = 0d;
                 Double poidsSac = parseDoubleOrNull(etPoidsSac.getText());
                 Double quantiteKg = parseDoubleOrNull(etQuantiteKgAchat.getText());
                 if (quantiteKg == null && poidsSac != null && poidsSac > 0) quantiteKg = sacs * poidsSac;
@@ -3566,7 +3694,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                     toast("Veuillez préciser la quantité totale (kg)");
                     return;
                 }
-                Double coutAchat = parseDoubleOrNull(etMontant.getText());
+                Double coutAchat = arrondiFranc(parseDoubleOrNull(etMontant.getText()));
                 if (coutAchat == null || coutAchat <= 0) {
                     toast("Veuillez saisir le montant de l'achat");
                     return;
@@ -3585,7 +3713,8 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.heure = heure;
                 req.observations = nullIfBlank(textOf(etObservationsAchat));
                 req.fournisseur = nullIfBlank(textOf(etFournisseurAchat));
-                req.batimentUniqueId = batimentUniqueId;
+                // Poulailler non demandé pour un achat (ignoré par le serveur).
+                req.batimentUniqueId = null;
                 requestObject = req;
                 String libelleType = typeAlimentLibelle(typeAliment);
                 String quoi = libelleType != null ? "aliment " + libelleType.toLowerCase(Locale.FRANCE)
@@ -3636,8 +3765,9 @@ public class SaisieFormActivity extends AppCompatActivity {
                 int saisie = parseIntSafe(etQuantiteOeufsVente.getText());
                 int quantite = enAlveoles ? AlveoleUtils.alveolesToOeufs(saisie) : saisie;
                 Double prixSaisi = parseDoubleOrNull(etPrixUnitaireOeufs.getText());
-                Double montant = parseDoubleOrNull(etMontantVenteOeufs.getText());
-                Double montantRapporte = parseDoubleOrNull(etMontantRapporteVenteOeufs.getText());
+                Double montant = arrondiFranc(parseDoubleOrNull(etMontantVenteOeufs.getText()));
+                Double montantRapporte = arrondiFranc(parseDoubleOrNull(etMontantRapporteVenteOeufs.getText()));
+                boolean avecClientOeufs = getSelectedClientUniqueId(spinnerClientVenteOeufs, true) != null;
                 if (quantite <= 0) {
                     toast(enAlveoles ? "Veuillez saisir le nombre d'alvéoles vendues" : "Veuillez saisir le nombre d'œufs vendus");
                     return;
@@ -3650,7 +3780,13 @@ public class SaisieFormActivity extends AppCompatActivity {
                     toast("Veuillez saisir le montant de la vente");
                     return;
                 }
-                if (montantRapporte == null || montantRapporte < 0) {
+                // Avec un client, le montant reçu maintenant est facultatif (vide = rien reçu,
+                // la vente reste à régler), comme le web et le serveur.
+                if (montantRapporte != null && montantRapporte < 0) {
+                    toast("Le montant ne peut pas être négatif");
+                    return;
+                }
+                if (montantRapporte == null && !avecClientOeufs) {
                     toast("Veuillez indiquer le montant réellement rapporté (même égal au montant théorique)");
                     return;
                 }
@@ -3690,8 +3826,9 @@ public class SaisieFormActivity extends AppCompatActivity {
                 }
                 int nombreSujets = parseIntSafe(etNombreSujetsVente.getText());
                 Double prixReforme = parseDoubleOrNull(etPrixUnitaireReforme.getText());
-                Double montant = parseDoubleOrNull(etMontantVenteReforme.getText());
-                Double montantRapporteReforme = parseDoubleOrNull(etMontantRapporteVenteReforme.getText());
+                Double montant = arrondiFranc(parseDoubleOrNull(etMontantVenteReforme.getText()));
+                Double montantRapporteReforme = arrondiFranc(parseDoubleOrNull(etMontantRapporteVenteReforme.getText()));
+                boolean avecClientReforme = getSelectedClientUniqueId(spinnerClientVenteReforme, true) != null;
                 if (nombreSujets <= 0) {
                     toast("Veuillez saisir le nombre de sujets vendus");
                     return;
@@ -3704,7 +3841,11 @@ public class SaisieFormActivity extends AppCompatActivity {
                     toast("Veuillez saisir le montant de la vente");
                     return;
                 }
-                if (montantRapporteReforme == null || montantRapporteReforme < 0) {
+                if (montantRapporteReforme != null && montantRapporteReforme < 0) {
+                    toast("Le montant ne peut pas être négatif");
+                    return;
+                }
+                if (montantRapporteReforme == null && !avecClientReforme) {
                     toast("Veuillez indiquer le montant réellement rapporté (même égal au montant théorique)");
                     return;
                 }
@@ -3738,9 +3879,57 @@ public class SaisieFormActivity extends AppCompatActivity {
                         : String.format(Locale.FRANCE, "Vente réforme de %d sujet(s) (%,.0f FCFA)", nombreSujets, montant);
                 break;
             }
+            case VENTE_FIENTES:
+            case VENTE_AUTRE: {
+                boolean fientes = type == SaisieType.VENTE_FIENTES;
+                Double sacsVendus = fientes ? parseDoubleOrNull(etQuantiteVenteDiverse.getText()) : null;
+                Double prixSac = fientes ? parseDoubleOrNull(etPrixUnitaireVenteDiverse.getText()) : null;
+                if ((sacsVendus != null && sacsVendus < 0) || (prixSac != null && prixSac < 0)) {
+                    toast("Le nombre de sacs et le prix ne peuvent pas être négatifs");
+                    return;
+                }
+                Double montantVente = arrondiFranc(parseDoubleOrNull(etMontantVenteDiverse.getText()));
+                if (montantVente == null && sacsVendus != null && sacsVendus > 0 && prixSac != null && prixSac > 0) {
+                    montantVente = (double) Math.round(sacsVendus * prixSac);
+                }
+                if (montantVente == null || montantVente <= 0) {
+                    toast("Veuillez saisir le montant (positif) de la vente");
+                    return;
+                }
+                String descriptionVente = nullIfBlank(textOf(etDescriptionVenteDiverse));
+                if (!fientes && descriptionVente == null) {
+                    toast("Veuillez préciser ce qui a été vendu (commentaire)");
+                    return;
+                }
+                com.mobile.diafarms.network.dto.VenteDiverseCreateRequest req = new com.mobile.diafarms.network.dto.VenteDiverseCreateRequest();
+                req.produit = fientes ? com.mobile.diafarms.network.dto.VenteDiverseCreateRequest.PRODUIT_FIENTES
+                        : com.mobile.diafarms.network.dto.VenteDiverseCreateRequest.PRODUIT_AUTRE;
+                req.date = date;
+                req.quantite = sacsVendus != null && sacsVendus > 0 ? sacsVendus : null;
+                req.prixUnitaire = prixSac != null && prixSac > 0 ? prixSac : null;
+                req.montant = montantVente;
+                req.description = descriptionVente;
+                requestObject = req;
+                summary = fientes
+                        ? (req.quantite != null
+                            ? String.format(Locale.FRANCE, "Vente de fientes : %s sac(s) (+%,.0f FCFA)", formatNombre(req.quantite, 2), montantVente)
+                            : String.format(Locale.FRANCE, "Vente de fientes (+%,.0f FCFA)", montantVente))
+                          + (descriptionVente != null ? " : " + descriptionVente : "")
+                        : String.format(Locale.FRANCE, "Autre vente : %s (+%,.0f FCFA)", descriptionVente, montantVente);
+                break;
+            }
             case TRANSACTION_ENTREE:
-            case TRANSACTION_SORTIE:
-            case VENTE_FIENTES: {
+            case TRANSACTION_SORTIE: {
+                String categorieChoisie = spinnerCategorie.getText().toString().trim();
+                if (categorieChoisie.isEmpty()) {
+                    toast("Veuillez choisir la catégorie");
+                    return;
+                }
+                String precisionCategorie = CATEGORIE_AUTRE.equals(categorieChoisie) ? nullIfBlank(textOf(etCategoriePrecision)) : null;
+                if (CATEGORIE_AUTRE.equals(categorieChoisie) && precisionCategorie == null) {
+                    toast("Veuillez préciser la catégorie");
+                    return;
+                }
                 if (type == SaisieType.TRANSACTION_SORTIE && estSante() && spinnerNatureSante.getText().length() == 0) {
                     toast("Précisez ce que vous avez payé : achat de médicament ou service");
                     return;
@@ -3754,7 +3943,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                     int iForme = java.util.Arrays.asList(FORMES_MEDICAMENT).indexOf(spinnerFormeMedicament.getText().toString());
                     String unite = spinnerUniteMedicament.getText().toString().trim();
                     Double qMed = parseDoubleOrNull(etQuantiteSante.getText());
-                    Double montantMed = parseDoubleOrNull(etMontant.getText());
+                    Double montantMed = arrondiFranc(parseDoubleOrNull(etMontant.getText()));
                     if (nomMed.isEmpty() || iForme < 0 || unite.isEmpty()) {
                         toast("Indiquez le médicament, sa forme et son unité");
                         return;
@@ -3785,15 +3974,17 @@ public class SaisieFormActivity extends AppCompatActivity {
                             formatSaisie(qMed), unite, nomMed, montantMed);
                     break;
                 }
-                Double montant = parseDoubleOrNull(etMontant.getText());
+                // Arrondi au franc comme le serveur : 0,4 F devient 0, donc refusé ici.
+                Double montant = arrondiFranc(parseDoubleOrNull(etMontant.getText()));
                 String description = textOf(etDescriptionTransaction);
-                if (montant == null || montant <= 0 || description.isEmpty()) {
-                    toast("Veuillez saisir le montant et une description");
+                if (montant == null || montant <= 0) {
+                    toast("Veuillez saisir un montant positif");
                     return;
                 }
-                // Vente de fientes : toujours commune (acte Finance à l'échelle de la
-                // ferme, comme sur web — voir CreateVenteFienteDialog), la case à cocher
-                // ne s'affiche même pas pour ce type.
+                if (description.isEmpty()) {
+                    toast("Veuillez saisir une description");
+                    return;
+                }
                 boolean sante = estSante();
                 if (sante && (projetUniqueId == null || projetUniqueId.isEmpty())) {
                     toast("Un soin concerne un projet : choisissez d'abord le projet à l'accueil");
@@ -3802,7 +3993,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 // Service de santé : nombre de jours facultatif.
                 Double quantiteSante = sante ? parseDoubleOrNull(etQuantiteSante.getText()) : null;
                 if (quantiteSante != null && quantiteSante <= 0) quantiteSante = null;
-                boolean commun = !sante && ((type == SaisieType.VENTE_FIENTES) || checkCommun.isChecked());
+                boolean commun = !sante && checkCommun.isChecked();
                 if (!commun && (projetUniqueId == null || projetUniqueId.isEmpty())) {
                     toast("Aucun projet sélectionné à l'accueil : laissez \"Commune\" coché, ou choisissez un projet depuis l'accueil");
                     return;
@@ -3817,7 +4008,8 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.date = date;
                 req.description = description;
                 req.montant = montant;
-                req.categorie = spinnerCategorie.getText().toString();
+                req.categorie = categorieChoisie;
+                req.categoriePrecision = precisionCategorie;
                 req.siteUniqueId = sante ? null : getSelectedSiteTransaction();
                 if (sante) {
                     req.quantite = quantiteSante;
@@ -3835,7 +4027,8 @@ public class SaisieFormActivity extends AppCompatActivity {
                 }
                 requestObject = req;
                 summary = String.format(Locale.FRANCE, "%s %,.0f FCFA : %s",
-                        type == SaisieType.TRANSACTION_SORTIE ? "-" : "+", montant, description);
+                        type == SaisieType.TRANSACTION_SORTIE ? "-" : "+", montant, description)
+                        + (precisionCategorie != null ? " [" + precisionCategorie + "]" : "");
                 if (req.siteUniqueId != null || req.batimentUniqueId != null) {
                     String s1 = req.siteUniqueId != null ? spinnerSiteTransaction.getText().toString() : null;
                     String b1 = req.batimentUniqueId != null ? (sante ? spinnerBatiment : spinnerBatimentTransaction).getText().toString() : null;
@@ -3852,6 +4045,13 @@ public class SaisieFormActivity extends AppCompatActivity {
                 String telephoneClient = textOf(etClientTelephone);
                 if (telephoneClient.isEmpty()) {
                     toast("Veuillez saisir le numéro de téléphone du client");
+                    return;
+                }
+                // Le serveur refuse un nom ou un téléphone déjà utilisé : vérifié ici sur les
+                // clients connus du téléphone et les nouveaux clients pas encore envoyés.
+                String doublon = clientDoublon(nom, telephoneClient);
+                if (doublon != null) {
+                    toast(doublon);
                     return;
                 }
                 ClientCreateRequest req = new ClientCreateRequest();
@@ -3884,7 +4084,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 // Toujours reconverti en œufs pour l'API/la base — voir Commande.quantite
                 // côté back, qui ne connaît jamais l'alvéole (même principe que VenteOeufs).
                 int quantite = (!estReforme && enAlveoles) ? AlveoleUtils.alveolesToOeufs(saisie) : saisie;
-                Double montantEstime = parseDoubleOrNull(etMontantEstimeCommande.getText());
+                Double montantEstime = arrondiFranc(parseDoubleOrNull(etMontantEstimeCommande.getText()));
                 boolean kiloCommande = isCommandeKilo();
                 Double prixKgCommande = kiloCommande ? parseDoubleOrNull(etPrixKgCommande.getText()) : null;
                 Double poidsEstimeCommande = kiloCommande ? parseDoubleOrNull(etPoidsEstimeCommande.getText()) : null;
@@ -3932,7 +4132,11 @@ public class SaisieFormActivity extends AppCompatActivity {
                     req.prixKgEstime = prixKgCommande;
                     req.poidsEstimeKg = poidsEstimeCommande;
                 }
-                req.montantAcompte = parseDoubleOrNull(etAcompteCommande.getText());
+                req.montantAcompte = arrondiFranc(parseDoubleOrNull(etAcompteCommande.getText()));
+                if (req.montantAcompte != null && req.montantAcompte < 0) {
+                    toast("L'acompte ne peut pas être négatif");
+                    return;
+                }
                 // Seulement pertinent s'il y a réellement un acompte — voir
                 // refreshModePaiementCommande/CommandeCreateRequest.modePaiement.
                 req.modePaiement = (req.montantAcompte != null && req.montantAcompte > 0)
@@ -3957,7 +4161,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                     toast("Veuillez choisir le client");
                     return;
                 }
-                Double montantPaye = parseDoubleOrNull(etMontantPaiement.getText());
+                Double montantPaye = arrondiFranc(parseDoubleOrNull(etMontantPaiement.getText()));
                 if (montantPaye == null || montantPaye <= 0) {
                     toast("Veuillez saisir le montant reçu");
                     return;
@@ -4020,7 +4224,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                     req.poidsTotalKg = Math.round(poids * 1000.0) / 1000.0;
                     req.prixKg = prixKg;
                 }
-                Double recu = parseDoubleOrNull(etMontantRecuLivraison.getText());
+                Double recu = arrondiFranc(parseDoubleOrNull(etMontantRecuLivraison.getText()));
                 if (recu != null && recu < 0) {
                     toast("Le montant reçu ne peut pas être négatif");
                     return;
@@ -4080,19 +4284,28 @@ public class SaisieFormActivity extends AppCompatActivity {
                     toast("HORAIRE".equals(employe.getModePaiement()) ? "Indiquez le nombre d'heures travaillées" : "Indiquez le nombre de jours travaillés");
                     return;
                 }
-                Double montantSalaire = parseDoubleOrNull(etMontantSalaire.getText());
-                if (montantSalaire == null || montantSalaire <= 0) {
-                    toast("Montant invalide");
+                // Le serveur calcule toujours le montant au taux de la période payée. Seul un
+                // montant CHANGÉ par l'utilisateur (prime, retenue) part, en montantForce.
+                Double estime = estimationSalaire(employe, quantiteSalaire);
+                Double montantSaisi = arrondiFranc(parseDoubleOrNull(etMontantSalaire.getText()));
+                if (montantSaisi != null && montantSaisi <= 0) {
+                    toast("Le montant doit être positif (ou laissez le montant estimé)");
                     return;
                 }
+                boolean montantChange = montantSaisi != null && (estime == null || Math.round(montantSaisi) != Math.round(estime));
                 SalairePayerRequest req = new SalairePayerRequest();
                 req.employeUniqueId = employe.getEmployeUniqueId();
                 req.periode = periode;
                 req.quantite = quantiteSalaire;
-                req.montant = montantSalaire;
+                req.montantForce = montantChange ? montantSaisi : null;
+                req.datePaiement = date;
                 req.description = nullIfBlank(textOf(etDescriptionSalaire));
                 requestObject = req;
-                summary = String.format(Locale.FRANCE, "Salaire de %s, %s (%,.0f FCFA)", employe.getEmployeNom(), periode, montantSalaire);
+                Double affiche = montantChange ? montantSaisi : estime;
+                summary = affiche == null
+                        ? String.format(Locale.FRANCE, "Salaire de %s, %s (montant calculé par le serveur)", employe.getEmployeNom(), periode)
+                        : String.format(Locale.FRANCE, "Salaire de %s, %s (%,.0f FCFA%s)", employe.getEmployeNom(), periode, affiche,
+                                montantChange ? ", montant modifié" : " estimé");
                 break;
             }
             default:
@@ -4286,8 +4499,13 @@ public class SaisieFormActivity extends AppCompatActivity {
                 setDateHeure(req.date, req.heure);
                 if (req.quantiteOeufs != null) etQuantiteOeufsVente.setText(String.valueOf(req.quantiteOeufs));
                 if (req.prixUnitaire != null) etPrixUnitaireOeufs.setText(String.valueOf(req.prixUnitaire));
-                if (req.montant != null) etMontantVenteOeufs.setText(String.valueOf(req.montant));
-                if (req.montantRapporte != null) etMontantRapporteVenteOeufs.setText(String.valueOf(req.montantRapporte));
+                if (req.montant != null) etMontantVenteOeufs.setText(formatSaisie(req.montant));
+                if (req.montantRapporte != null) etMontantRapporteVenteOeufs.setText(formatSaisie(req.montantRapporte));
+                else if (req.clientUniqueId != null) {
+                    // Vente à un client sans argent reçu : le champ reste vide.
+                    etMontantRapporteVenteOeufs.setText("");
+                    montantRapporteOeufsModifieManuel = true;
+                }
                 if ("CASSE".equals(req.typeOeuf)) radioGroupTypeOeufVente.check(R.id.radioTypeOeufCasse);
                 selectModePaiementByValue(spinnerModePaiementVenteOeufs, req.modePaiement);
                 selectMagasinByUniqueId(req.magasinUniqueId);
@@ -4299,8 +4517,12 @@ public class SaisieFormActivity extends AppCompatActivity {
                 setDateHeure(req.date, req.heure);
                 if (req.nombreSujets != null) etNombreSujetsVente.setText(String.valueOf(req.nombreSujets));
                 if (req.prixUnitaire != null) etPrixUnitaireReforme.setText(String.valueOf(req.prixUnitaire));
-                if (req.montant != null) etMontantVenteReforme.setText(String.valueOf(req.montant));
-                if (req.montantRapporte != null) etMontantRapporteVenteReforme.setText(String.valueOf(req.montantRapporte));
+                if (req.montant != null) etMontantVenteReforme.setText(formatSaisie(req.montant));
+                if (req.montantRapporte != null) etMontantRapporteVenteReforme.setText(formatSaisie(req.montantRapporte));
+                else if (req.clientUniqueId != null) {
+                    etMontantRapporteVenteReforme.setText("");
+                    montantRapporteReformeModifieManuel = true;
+                }
                 if ("KILO".equals(req.typeVente)) radioGroupTypeVenteReforme.check(R.id.radioTypeVenteReformeKilo);
                 if (req.poidsTotalKg != null) etPoidsTotalReforme.setText(String.valueOf(req.poidsTotalKg));
                 refreshTypeVenteReformeUi();
@@ -4335,8 +4557,8 @@ public class SaisieFormActivity extends AppCompatActivity {
                 if (req.prixUnitaireEstime != null) etPrixUnitaireCommande.setText(String.valueOf(req.prixUnitaireEstime));
                 if (req.prixKgEstime != null) etPrixKgCommande.setText(formatSaisie(req.prixKgEstime));
                 if (req.poidsEstimeKg != null) etPoidsEstimeCommande.setText(formatSaisie(req.poidsEstimeKg));
-                if (req.montantEstime != null) etMontantEstimeCommande.setText(String.valueOf(req.montantEstime));
-                if (req.montantAcompte != null) etAcompteCommande.setText(String.valueOf(req.montantAcompte));
+                if (req.montantEstime != null) etMontantEstimeCommande.setText(formatSaisie(req.montantEstime));
+                if (req.montantAcompte != null) etAcompteCommande.setText(formatSaisie(req.montantAcompte));
                 selectModePaiementByValue(spinnerModePaiementCommande, req.modePaiement);
                 if (req.dateLivraisonPrevue != null) etDateLivraisonCommande.setText(req.dateLivraisonPrevue);
                 selectMagasinByUniqueId(req.magasinUniqueId);
@@ -4383,19 +4605,42 @@ public class SaisieFormActivity extends AppCompatActivity {
                         spinnerAnneeSalaire.setText(String.valueOf(annee), false);
                     }
                 }
-                if (req.quantite != null) etQuantiteSalaire.setText(String.valueOf(req.quantite));
-                if (req.montant != null) etMontantSalaire.setText(String.valueOf(req.montant));
+                setDateHeure(req.datePaiement, null);
+                if (req.quantite != null) etQuantiteSalaire.setText(formatSaisie(req.quantite));
+                // Montant changé à la main (prime, retenue) : remis tel quel ; sinon le champ
+                // garde l'estimation (le montant d'une version antérieure est ignoré par le
+                // serveur, qui calcule au taux de la période).
+                if (req.montantForce != null) etMontantSalaire.setText(formatSaisie(req.montantForce));
                 etDescriptionSalaire.setText(req.description);
                 break;
             }
+            case VENTE_FIENTES:
+            case VENTE_AUTRE: {
+                com.mobile.diafarms.network.dto.VenteDiverseCreateRequest req =
+                        gson.fromJson(json, com.mobile.diafarms.network.dto.VenteDiverseCreateRequest.class);
+                // Ancien format (Entrée d'argent « Vente fientes ») : date, montant et
+                // description sont aux mêmes noms ; repart en vente diverse une fois modifiée.
+                setDateHeure(req.date, null);
+                majVenteDiverseAuto = true;
+                if (req.quantite != null) etQuantiteVenteDiverse.setText(formatSaisie(req.quantite));
+                if (req.prixUnitaire != null) etPrixUnitaireVenteDiverse.setText(formatSaisie(req.prixUnitaire));
+                if (req.montant != null) etMontantVenteDiverse.setText(formatSaisie(req.montant));
+                majVenteDiverseAuto = false;
+                etDescriptionVenteDiverse.setText(req.description);
+                break;
+            }
             case TRANSACTION_ENTREE:
-            case TRANSACTION_SORTIE:
-            case VENTE_FIENTES: {
+            case TRANSACTION_SORTIE: {
                 TransactionCreateRequest req = gson.fromJson(json, TransactionCreateRequest.class);
                 setDateHeure(req.date, null);
-                if (req.montant != null) etMontant.setText(String.valueOf(req.montant));
+                if (req.montant != null) etMontant.setText(formatSaisie(req.montant));
                 etDescriptionTransaction.setText(req.description);
                 selectSpinnerValue(spinnerCategorie, categoriesPourType(), req.categorie);
+                // Catégorie d'une version antérieure absente de la liste (ex. « Transport ») :
+                // gardée telle quelle plutôt que remplacée en silence.
+                if (req.categorie != null && spinnerCategorie.getText().length() == 0) spinnerCategorie.setText(req.categorie, false);
+                etCategoriePrecision.setText(req.categoriePrecision);
+                majCategoriePrecision();
                 majSanteAuto = true;
                 if (req.quantite != null) etQuantiteSante.setText(formatSaisie(req.quantite));
                 if (req.prixUnitaire != null) etPrixUnitaireSante.setText(formatSaisie(req.prixUnitaire));

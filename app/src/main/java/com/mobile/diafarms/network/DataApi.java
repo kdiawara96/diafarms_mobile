@@ -265,6 +265,11 @@ public interface DataApi {
     @GET("pesees/sessions/{uniqueId}")
     Call<ApiEnvelope<SessionPeseeServeur>> getSessionPesee(@Path("uniqueId") String uniqueId);
 
+    // ============== VENTES DIVERSES (fientes, autre vente) ==============
+    @POST("ventes-diverses/create")
+    Call<ApiEnvelope<CreatedEntityResponse>> createVenteDiverse(@Header("Idempotency-Key") String idempotencyKey,
+                                                                @Body com.mobile.diafarms.network.dto.VenteDiverseCreateRequest request);
+
     // ============== TRANSACTIONS (finance) ==============
     @POST("transactions/create")
     Call<ApiEnvelope<CreatedEntityResponse>> createTransaction(@Header("Idempotency-Key") String idempotencyKey, @Body TransactionCreateRequest request);

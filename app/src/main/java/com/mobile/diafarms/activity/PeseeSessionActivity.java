@@ -73,7 +73,8 @@ public class PeseeSessionActivity extends AppCompatActivity {
     // Bornes de saisie (fautes de frappe : "63" au lieu de "6,3" reste possible, mais
     // plus "630000").
     private static final int NOMBRE_MAX = 10000;
-    private static final double POIDS_MAX_KG = 10000d;
+    // Même plafond que le serveur et le web (100 000 kg par pesée).
+    private static final double POIDS_MAX_KG = 100000d;
 
     private static final SimpleDateFormat ISO_LOCAL = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US);
     private static final SimpleDateFormat ISO_LOCAL_MINUTES = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm", Locale.US);
@@ -781,7 +782,7 @@ public class PeseeSessionActivity extends AppCompatActivity {
             return null;
         }
         if (poidsArrondi > POIDS_MAX_KG) {
-            til.setError("Au plus " + (int) POIDS_MAX_KG + " kg par pesée");
+            til.setError(String.format(java.util.Locale.FRANCE, "Au plus %,d kg par pesée", (int) POIDS_MAX_KG));
             return null;
         }
         til.setError(null);

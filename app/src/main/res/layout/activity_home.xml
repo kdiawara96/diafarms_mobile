@@ -1302,8 +1302,8 @@
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 
-                <!-- Vente de fientes : simple transaction manuelle (pas de stock côté
-                     serveur, contrairement à œufs/réforme) — visible seulement si l'admin
+                <!-- Vente de fientes : vente diverse FIENTES (sacs, prix, montant), sans stock
+                     côté serveur, contrairement à œufs/réforme — visible seulement si l'admin
                      l'a activée pour ce financier (voir HomeActivity.applyFarmAppSettings). -->
                 <androidx.cardview.widget.CardView
                     android:id="@+id/btnVenteFientes"
@@ -1346,7 +1346,57 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Transaction manuelle"
+                            android:text="Sacs, prix, montant"
+                            android:textColor="@color/gray_text_soft"
+                            android:textSize="11sp"
+                            android:gravity="center"/>
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <!-- Autre vente (vieux grillage, matériel...) : vente diverse AUTRE, comme
+                     « Autre vente » du web. Même réglage admin que les autres cartes Vente. -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/btnAutreVente"
+                    android:layout_width="0dp"
+                    android:layout_height="120dp"
+                    android:layout_columnWeight="1"
+                    android:layout_margin="6dp"
+                    app:cardCornerRadius="16dp"
+                    app:cardBackgroundColor="@color/gray_bg"
+                    app:cardElevation="6dp"
+                    android:outlineSpotShadowColor="@color/shadow_vente_fientes"
+                    android:outlineAmbientShadowColor="@color/shadow_vente_fientes"
+                    tools:targetApi="28"
+                    android:foreground="?attr/selectableItemBackground"
+                    android:clickable="true">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="8dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="🏷️"
+                            android:textSize="28sp"/>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:text="Autre vente"
+                            android:textColor="@color/gray_text_dark"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:gravity="center"/>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Montant et commentaire"
                             android:textColor="@color/gray_text_soft"
                             android:textSize="11sp"
                             android:gravity="center"/>

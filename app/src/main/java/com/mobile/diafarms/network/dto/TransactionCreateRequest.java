@@ -12,6 +12,9 @@ public class TransactionCreateRequest {
     public String description;
     public Double montant;
     public String categorie;
+    // Catégorie « Autre » : précision libre (ex. « Gardiennage »), enregistrée par le
+    // serveur comme catégorie (même résultat que « Préciser la catégorie » du web).
+    public String categoriePrecision;
     // Santé / Vétérinaire : quantité (obligatoire) et prix unitaire (facultatif).
     public Double quantite;
     public Double prixUnitaire;

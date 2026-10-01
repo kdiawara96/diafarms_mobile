@@ -48,9 +48,13 @@ public enum SaisieType {
     VENTE_OEUFS("Vente d'œufs", Categorie.FINANCE),
     VENTE_REFORME("Vente réforme", Categorie.FINANCE),
     // Contrairement à VENTE_OEUFS/VENTE_REFORME, pas de stock/plafond serveur dédié :
-    // une simple transaction "entrée" commune, catégorie fixe "Vente fientes" — voir
-    // diafarms_back TransactionServiceImpl.create (même endpoint que TRANSACTION_ENTREE).
+    // vente diverse FIENTES (POST /ventes-diverses/create : sacs, prix unitaire, montant,
+    // description facultative), comme « Vente de fientes » du web. Les saisies d'une
+    // version 1.35 antérieure (Entrée d'argent « Vente fientes ») partent encore par
+    // transactions/create, voir VenteDiverseCreateRequest.estAncienFormat.
     VENTE_FIENTES("Vente de fientes", Categorie.FINANCE),
+    // Vente diverse AUTRE (montant + commentaire obligatoires), comme « Autre vente » du web.
+    VENTE_AUTRE("Autre vente", Categorie.FINANCE),
     TRANSACTION_ENTREE("Entrée d'argent", Categorie.FINANCE),
     TRANSACTION_SORTIE("Sortie d'argent", Categorie.FINANCE),
     // Un client créé ici n'est utilisable dans une vente/commande qu'une fois

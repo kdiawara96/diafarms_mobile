@@ -115,6 +115,7 @@
                 </LinearLayout>
 
                 <LinearLayout
+                    android:id="@+id/groupHeureTop"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
@@ -989,7 +990,7 @@
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Nom du client">
+                    android:hint="Nom du client *">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etClientNom"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -1374,6 +1375,19 @@
                         android:inputType="number" />
                 </com.google.android.material.textfield.TextInputLayout>
 
+                <!-- En alvéoles : œufs qui ne remplissent pas une alvéole, comme à la collecte. -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilOeufsSuppLivraison"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:hint="+ Œufs (hors alvéole)"
+                    android:visibility="gone">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etOeufsSuppLivraison"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="number" />
+                </com.google.android.material.textfield.TextInputLayout>
+
                 <!-- Commande de réformes au kilo : poids pesé obligatoire, prix du kg
                      prérempli avec celui de la commande. -->
                 <LinearLayout
@@ -1674,8 +1688,9 @@
                     android:textColor="@android:color/darker_gray" />
 
                 <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilMontantSalaire"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Montant (FCFA)">
+                    android:hint="Montant estimé (FCFA)">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etMontantSalaire"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -1697,9 +1712,71 @@
 
                 <TextView
                     android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:text="Le taux affiché vient de la dernière synchronisation. Le serveur applique le taux réellement en vigueur pour cette période au moment de l'envoi."
+                    android:text="Montant estimé avec le taux de la dernière synchronisation. Le serveur calcule le montant réel au taux de la période payée. Ne changez le montant que pour une prime ou une retenue : il sera alors appliqué tel quel."
                     android:textSize="12sp"
                     android:textColor="@android:color/darker_gray" />
+            </LinearLayout>
+
+            <!-- ===================== VENTE DIVERSE (fientes, autre vente) =====================
+                 POST ventes-diverses/create, commune à la ferme (ni projet, ni site, ni poulailler). -->
+            <LinearLayout
+                android:id="@+id/groupVenteDiverse"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:id="@+id/groupSacsVenteDiverse"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="12dp">
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="8dp"
+                        android:hint="Nombre de sacs">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etQuantiteVenteDiverse"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:inputType="numberDecimal" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="8dp"
+                        android:hint="Prix d'un sac (FCFA)">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etPrixUnitaireVenteDiverse"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:inputType="numberDecimal" />
+                    </com.google.android.material.textfield.TextInputLayout>
+                </LinearLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilMontantVenteDiverse"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Montant total (FCFA) *">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etMontantVenteDiverse"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="numberDecimal" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilDescriptionVenteDiverse"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Description (facultatif)">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etDescriptionVenteDiverse"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="textCapSentences" />
+                </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
             <!-- ===================== TRANSACTION (finance) ===================== -->
@@ -1713,7 +1790,7 @@
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="Catégorie"
+                    android:hint="Catégorie *"
                     style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                     app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
                     app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
@@ -1725,6 +1802,20 @@
                         android:inputType="none"
                         android:editable="false" />
 
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <!-- Catégorie « Autre » : précision obligatoire (categoriePrecision), comme
+                     « Préciser la catégorie » du web. -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilCategoriePrecision"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:hint="Préciser la catégorie * (ex. Gardiennage)"
+                    android:visibility="gone">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etCategoriePrecision"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="textCapSentences" />
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <!-- Catégorie "Achat d'aliment" : l'achat d'aliment n'est plus un formulaire à part.

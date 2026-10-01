@@ -136,7 +136,7 @@ public class HomeActivity extends AppCompatActivity {
     private CardView btnSortieArgent;
     private CardView btnVenteOeufs;
     private CardView btnVenteReforme;
-    private CardView btnVenteFientes;
+    private CardView btnVenteFientes, btnAutreVente;
     private CardView btnNouveauClient;
     private CardView btnNouvelleCommande;
     private CardView btnCommandes;
@@ -273,6 +273,7 @@ public class HomeActivity extends AppCompatActivity {
         btnVenteOeufs = findViewById(R.id.btnVenteOeufs);
         btnVenteReforme = findViewById(R.id.btnVenteReforme);
         btnVenteFientes = findViewById(R.id.btnVenteFientes);
+        btnAutreVente = findViewById(R.id.btnAutreVente);
         btnNouveauClient = findViewById(R.id.btnNouveauClient);
         btnNouvelleCommande = findViewById(R.id.btnNouvelleCommande);
         btnCommandes = findViewById(R.id.btnCommandes);
@@ -395,6 +396,7 @@ public class HomeActivity extends AppCompatActivity {
             btnVenteOeufs.setVisibility(View.GONE);
             btnVenteReforme.setVisibility(View.GONE);
             btnVenteFientes.setVisibility(View.GONE);
+            btnAutreVente.setVisibility(View.GONE);
             btnNouveauClient.setVisibility(View.GONE);
             btnNouvelleCommande.setVisibility(View.GONE);
         }
@@ -416,6 +418,7 @@ public class HomeActivity extends AppCompatActivity {
             btnVenteOeufs.setVisibility(View.GONE);
             btnVenteReforme.setVisibility(View.GONE);
             btnVenteFientes.setVisibility(View.GONE);
+            btnAutreVente.setVisibility(View.GONE);
             btnNouveauClient.setVisibility(View.GONE);
             btnNouvelleCommande.setVisibility(View.GONE);
         }
@@ -474,6 +477,7 @@ public class HomeActivity extends AppCompatActivity {
             btnVenteOeufs.setVisibility(s.isVenteMobileEnabled() ? View.VISIBLE : View.GONE);
             btnVenteReforme.setVisibility(s.isVenteMobileEnabled() ? View.VISIBLE : View.GONE);
             btnVenteFientes.setVisibility(s.isVenteMobileEnabled() ? View.VISIBLE : View.GONE);
+            btnAutreVente.setVisibility(s.isVenteMobileEnabled() ? View.VISIBLE : View.GONE);
             btnNouveauClient.setVisibility(s.isVenteMobileEnabled() ? View.VISIBLE : View.GONE);
             btnNouvelleCommande.setVisibility(s.isVenteMobileEnabled() ? View.VISIBLE : View.GONE);
             if (!currentUser.isResponsable() && !currentUser.isAdmin()) {
@@ -495,7 +499,7 @@ public class HomeActivity extends AppCompatActivity {
         gridProduction.setVisibility(View.GONE);
         tvSectionComptable.setVisibility(View.GONE);
         gridComptable.setVisibility(View.GONE);
-        CardView[] saisiesVente = {btnEncaissement, btnVenteOeufs, btnVenteReforme, btnVenteFientes,
+        CardView[] saisiesVente = {btnEncaissement, btnVenteOeufs, btnVenteReforme, btnVenteFientes, btnAutreVente,
                 btnNouveauClient, btnNouvelleCommande};
         for (CardView c : saisiesVente) c.setVisibility(View.GONE);
         boolean commandes = btnCommandes.getVisibility() == View.VISIBLE;
@@ -857,6 +861,7 @@ public class HomeActivity extends AppCompatActivity {
         btnVenteOeufs.setOnClickListener(v -> openSaisie(SaisieType.VENTE_OEUFS));
         btnVenteReforme.setOnClickListener(v -> openSaisie(SaisieType.VENTE_REFORME));
         btnVenteFientes.setOnClickListener(v -> openSaisie(SaisieType.VENTE_FIENTES));
+        btnAutreVente.setOnClickListener(v -> openSaisie(SaisieType.VENTE_AUTRE));
         btnNouveauClient.setOnClickListener(v -> openSaisie(SaisieType.CLIENT_CREATE));
         btnNouvelleCommande.setOnClickListener(v -> openSaisie(SaisieType.COMMANDE_CREATE));
         btnCommandes.setOnClickListener(v -> startActivity(new Intent(this, CommandesActivity.class)));
@@ -892,7 +897,7 @@ public class HomeActivity extends AppCompatActivity {
         // Commande.java côté back : farm-scopés, pas projet-scopés). Entretien non plus
         // (voir Entretien.java) : un poulailler peut être entretenu même vide.
         boolean needsProjet = type != SaisieType.TRANSACTION_ENTREE && type != SaisieType.TRANSACTION_SORTIE
-                && type != SaisieType.VENTE_OEUFS && type != SaisieType.VENTE_REFORME && type != SaisieType.VENTE_FIENTES
+                && type != SaisieType.VENTE_OEUFS && type != SaisieType.VENTE_REFORME && type != SaisieType.VENTE_FIENTES && type != SaisieType.VENTE_AUTRE
                 && type != SaisieType.CLIENT_CREATE && type != SaisieType.COMMANDE_CREATE && type != SaisieType.SALAIRE_PAYER
                 && type != SaisieType.ENTRETIEN && type != SaisieType.PAIEMENT_CLIENT && type != SaisieType.LIVRAISON_COMMANDE;
         if (needsProjet && currentProjet == null) {

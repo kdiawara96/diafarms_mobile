@@ -375,11 +375,21 @@ public class SyncManager {
                 break;
             case TRANSACTION_ENTREE:
             case TRANSACTION_SORTIE:
-            // Vente de fientes = simple transaction "entrée" commune, catégorie fixe (voir
-            // SaisieType.VENTE_FIENTES) : même endpoint et même payload que les deux ci-dessus.
-            case VENTE_FIENTES:
                 api.createTransaction(cle, gson.fromJson(json, TransactionCreateRequest.class)).enqueue(callback);
                 break;
+            case VENTE_FIENTES:
+            case VENTE_AUTRE: {
+                com.mobile.diafarms.network.dto.VenteDiverseCreateRequest v =
+                        gson.fromJson(json, com.mobile.diafarms.network.dto.VenteDiverseCreateRequest.class);
+                if (v != null && v.estAncienFormat()) {
+                    // Vente de fientes saisie avec une version antérieure : Entrée d'argent
+                    // « Vente fientes », toujours acceptée par le serveur.
+                    api.createTransaction(cle, gson.fromJson(json, TransactionCreateRequest.class)).enqueue(callback);
+                } else {
+                    api.createVenteDiverse(cle, v).enqueue(callback);
+                }
+                break;
+            }
             case CLIENT_CREATE:
                 api.createClient(cle, gson.fromJson(json, ClientCreateRequest.class)).enqueue(callback);
                 break;
