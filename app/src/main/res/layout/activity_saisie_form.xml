@@ -577,6 +577,27 @@
                         android:layout_width="match_parent" android:layout_height="wrap_content"
                         android:inputType="text" />
                 </com.google.android.material.textfield.TextInputLayout>
+
+                <!-- Point de vente où les sujets réformés sont placés (transfert automatique
+                     côté serveur) : masqué s'il n'y a qu'un point de vente. -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilPointDeVenteReforme"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:hint="Point de vente des réformés"
+                    android:visibility="gone"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
+
+                    <AutoCompleteTextView
+                        android:id="@+id/spinnerPointDeVenteReforme"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none"
+                        android:editable="false" />
+                </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
             <!-- ===================== ALIMENTATION — CONSOMMATION (sortie) ===================== -->

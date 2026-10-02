@@ -385,6 +385,20 @@ public class LocalDatabase {
                         SaisieLocale.STATUT_SYNCED});
     }
 
+    /** « Renvoyer » une saisie refusée (ERROR) : elle redevient EN ATTENTE, même clé et même
+     * contenu (le serveur ne mémorise que les succès : un refus n'a rien écrit, le renvoi
+     * est ré-exécuté et peut passer si la cause, ex. stock, a été corrigée entre-temps). */
+    public void remettreEnAttente(String localId) {
+        ContentValues values = new ContentValues();
+        values.put(COL_SYNC_STATUS, SaisieLocale.STATUT_LOCAL);
+        values.putNull(COL_ERROR_MESSAGE);
+        values.putNull(COL_HTTP_CODE);
+        values.putNull(COL_NB_ESSAIS);
+        values.putNull(COL_PREMIER_ECHEC);
+        getWritableDatabase().update(TABLE_SAISIES, values, COL_LOCAL_ID + "=? AND " + COL_SYNC_STATUS + "=?",
+                new String[]{localId, SaisieLocale.STATUT_ERROR});
+    }
+
     /** Saisies du compte courant déjà enregistrées sur le serveur avec une autre version (422). */
     public int countDejaEnregistrees() {
         return compter(COL_SYNC_STATUS + "=? AND " + filtreCompte(),

@@ -191,8 +191,11 @@ public class SyncManager {
      *   inutile d'attendre le délai pour chacune des suivantes ;
      * - 401/403 : la session n'est plus acceptée, rien n'est perdu, l'envoi s'arrête et
      *   l'utilisateur est invité à se reconnecter ;
-     * - autre 4xx (400 métier, 422 clé déjà utilisée...) : refus définitif, ERREUR avec le
-     *   message du serveur ; il faut corriger la saisie (une nouvelle clé sera alors créée).
+     * - autre 4xx (400 métier, 422 clé déjà utilisée...) : refus, ERREUR avec le message du
+     *   serveur ; il faut corriger la saisie (une nouvelle clé sera alors créée), ou la
+     *   « Renvoyer » telle quelle depuis Mes saisies si la cause a été corrigée ailleurs
+     *   (stock du point de vente...) : le serveur ne mémorise que les succès (2xx), un refus
+     *   n'a rien écrit et le renvoi avec la même clé est ré-exécuté.
      */
     private void traiterEchec(int index, SaisieLocale saisie, int code, String message) {
         if (code == 0 || code == 408 || code == 409 || code == 429 || code >= 500) {

@@ -241,6 +241,13 @@ public class SaisieFormActivity extends AppCompatActivity {
     private TextView tvEffectifReformeInfo;
     private TextInputEditText etNombreSujetsReforme, etCauseReforme;
     private Integer effectifReformeDisponible;
+    // Point de vente où la réforme place ses sujets (transfert automatique côté serveur,
+    // voir PointDeVenteReformes) : masqué s'il n'y a qu'un point de vente, présélectionné
+    // sur le point de vente par défaut sinon.
+    private com.google.android.material.textfield.TextInputLayout tilPointDeVenteReforme;
+    private AutoCompleteTextView spinnerPointDeVenteReforme;
+    private List<MagasinSelectResponse> pointsDeVenteReforme = new ArrayList<>();
+    private String pendingPointDeVenteReforme;
 
     // Alimentation - achat
     // Affiché dans le formulaire Sortie d'argent, catégorie "Achat d'aliment" (le montant
@@ -563,6 +570,9 @@ public class SaisieFormActivity extends AppCompatActivity {
         if (type == SaisieType.REFORME && projetUniqueId != null) {
             loadEffectifReforme();
         }
+        if (type == SaisieType.REFORME) {
+            loadPointsDeVenteReforme();
+        }
         // Vente œufs/réforme (VENTE) : magasin de vente obligatoire — le stock qui
         // plafonne la vente est désormais celui DE CE MAGASIN précis (vrai stock
         // séparé par magasin), plus jamais un stock unique pour toute la ferme comme
@@ -674,6 +684,8 @@ public class SaisieFormActivity extends AppCompatActivity {
         tvEffectifReformeInfo = findViewById(R.id.tvEffectifReformeInfo);
         etNombreSujetsReforme = findViewById(R.id.etNombreSujetsReforme);
         etCauseReforme = findViewById(R.id.etCauseReforme);
+        tilPointDeVenteReforme = findViewById(R.id.tilPointDeVenteReforme);
+        spinnerPointDeVenteReforme = findViewById(R.id.spinnerPointDeVenteReforme);
 
         groupAlimentationAchat = findViewById(R.id.groupAlimentationAchat);
         groupAlimentationAchatFin = findViewById(R.id.groupAlimentationAchatFin);
@@ -3019,7 +3031,7 @@ public class SaisieFormActivity extends AppCompatActivity {
             if (stockLivraisonDisponible != null) {
                 int dispo = stockLivraisonDisponible - (oeufs
                         ? ventesOeufsEnAttente(commandeLivree.magasinUniqueId, false)
-                        : ventesReformeEnAttente(commandeLivree.magasinUniqueId));
+                        : ventesReformeEnAttente(commandeLivree.magasinUniqueId) - reformesEnAttenteVers(commandeLivree.magasinUniqueId));
                 tvStockLivraison.setText("Disponible dans le magasin : " + formatQuantiteLivraison(Math.max(0, dispo))
                         + (fromCache ? " (dernière donnée connue, hors ligne)" : ""));
             } else {
@@ -3239,6 +3251,97 @@ public class SaisieFormActivity extends AppCompatActivity {
         return total;
     }
 
+    /** Sujets des réformes pas encore envoyées qui iront dans ce point de vente (choisi
+     * dans la réforme, ou point de vente par défaut pour une réforme sans choix). */
+    private int reformesEnAttenteVers(String magasin) {
+        if (magasin == null) return 0;
+        int total = 0;
+        for (SaisieLocale s : saisiesEnAttente(SaisieType.REFORME)) {
+            ReformeCreateRequest r = gson.fromJson(s.getPayloadJson(), ReformeCreateRequest.class);
+            if (r == null || r.nombreSujets == null) continue;
+            if (magasin.equals(PointDeVenteReformes.destination(r.magasinVenteUniqueId, localDatabase))) total += r.nombreSujets;
+        }
+        return total;
+    }
+
+    /** Stock de réformés du point de vente vu du téléphone : dernier stock connu du serveur
+     * + réformes en attente vers ce point de vente - ventes et livraisons en attente depuis
+     * lui. null si le stock du point de vente n'a jamais été chargé (rien à contrôler). */
+    private Integer stockReformeAuPointDeVente(String magasin) {
+        if (stockReformeDisponible == null || magasin == null) return null;
+        return stockReformeDisponible + reformesEnAttenteVers(magasin) - ventesReformeEnAttente(magasin);
+    }
+
+    private static String messageStockReformeInsuffisant(int stock) {
+        return "Stock de réformés insuffisant au point de vente : " + Math.max(0, stock) + " sujet(s)";
+    }
+
+    /** Points de vente (cache puis réseau) pour le sélecteur de la saisie Réforme ; les
+     * magasins de stockage servent seulement à déduire le point de vente par défaut. */
+    private void loadPointsDeVenteReforme() {
+        pointsDeVenteReforme = PointDeVenteReformes.pointsDeVente(localDatabase);
+        populatePointsDeVenteReforme();
+        ApiClient.dataApi(this).getMagasinsSelect("STOCKAGE").enqueue(new Callback<ApiEnvelope<List<MagasinSelectResponse>>>() {
+            @Override
+            public void onResponse(Call<ApiEnvelope<List<MagasinSelectResponse>>> call, Response<ApiEnvelope<List<MagasinSelectResponse>>> response) {
+                List<MagasinSelectResponse> data = response.isSuccessful() && response.body() != null ? response.body().getData() : null;
+                if (data != null) {
+                    localDatabase.putCache(CachePrefetcher.CACHE_MAGASINS_STOCKAGE_SELECT, gson.toJson(data));
+                    populatePointsDeVenteReforme();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiEnvelope<List<MagasinSelectResponse>>> call, Throwable t) { }
+        });
+        ApiClient.dataApi(this).getMagasinsSelect("VENTE").enqueue(new Callback<ApiEnvelope<List<MagasinSelectResponse>>>() {
+            @Override
+            public void onResponse(Call<ApiEnvelope<List<MagasinSelectResponse>>> call, Response<ApiEnvelope<List<MagasinSelectResponse>>> response) {
+                List<MagasinSelectResponse> data = response.isSuccessful() && response.body() != null ? response.body().getData() : null;
+                if (data != null) {
+                    localDatabase.putCache(CachePrefetcher.CACHE_MAGASINS_SELECT, gson.toJson(data));
+                    pointsDeVenteReforme = data;
+                    populatePointsDeVenteReforme();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiEnvelope<List<MagasinSelectResponse>>> call, Throwable t) { }
+        });
+    }
+
+    /** Sélecteur masqué avec zéro ou un point de vente ; sinon visible, choix déjà fait
+     * gardé, sinon celui de la saisie modifiée, sinon le point de vente par défaut. */
+    private void populatePointsDeVenteReforme() {
+        if (spinnerPointDeVenteReforme == null) return;
+        List<String> labels = new ArrayList<>();
+        for (MagasinSelectResponse m : pointsDeVenteReforme) labels.add(m.getNom());
+        tilPointDeVenteReforme.setVisibility(labels.size() > 1 ? View.VISIBLE : View.GONE);
+        String avant = spinnerPointDeVenteReforme.getText().toString();
+        spinnerPointDeVenteReforme.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, labels));
+        String voulu = pendingPointDeVenteReforme != null ? pendingPointDeVenteReforme
+                : PointDeVenteReformes.parDefaut(pointsDeVenteReforme, PointDeVenteReformes.stockages(localDatabase));
+        String apres = labels.contains(avant) && pendingPointDeVenteReforme == null ? avant : "";
+        if (apres.isEmpty() && voulu != null) {
+            for (MagasinSelectResponse m : pointsDeVenteReforme) {
+                if (voulu.equals(m.getUniqueId())) { apres = m.getNom(); pendingPointDeVenteReforme = null; break; }
+            }
+        }
+        spinnerPointDeVenteReforme.setText(apres, false);
+    }
+
+    /** Point de vente envoyé avec la réforme (null : aucun point de vente connu, le
+     * serveur applique sa règle par défaut). */
+    private String pointDeVenteReformeChoisi() {
+        if (pointsDeVenteReforme.size() == 1) return pointsDeVenteReforme.get(0).getUniqueId();
+        String selected = spinnerPointDeVenteReforme.getText().toString();
+        for (MagasinSelectResponse m : pointsDeVenteReforme) {
+            if (m.getNom().equals(selected)) return m.getUniqueId();
+        }
+        // Liste pas encore chargée mais saisie modifiée qui avait un point de vente.
+        return pointsDeVenteReforme.isEmpty() ? pendingPointDeVenteReforme : null;
+    }
+
     /** Marque un champ en erreur (contour rouge) sans texte : le message complet est dans
      * tvAlerteCoherence, un demi-champ étant trop étroit pour le porter. */
     private void marquerChamp(TextInputEditText et, boolean enErreur) {
@@ -3358,14 +3461,10 @@ public class SaisieFormActivity extends AppCompatActivity {
             }
             case VENTE_REFORME: {
                 int nombre = parseIntSafe(etNombreSujetsVente.getText());
-                if (stockReformeDisponible != null && nombre > 0) {
-                    int stock = stockReformeDisponible - ventesReformeEnAttente(getSelectedMagasinUniqueId(spinnerMagasinReforme));
-                    if (nombre > stock) {
-                        message = String.format(Locale.FRANCE,
-                                "Impossible : %d sujets saisis, alors que le stock de réforme de ce magasin n'est que de %d.",
-                                nombre, Math.max(0, stock));
-                        fautifs = new TextInputEditText[]{etNombreSujetsVente};
-                    }
+                Integer stock = stockReformeAuPointDeVente(getSelectedMagasinUniqueId(spinnerMagasinReforme));
+                if (stock != null && nombre > 0 && nombre > stock) {
+                    message = messageStockReformeInsuffisant(stock);
+                    fautifs = new TextInputEditText[]{etNombreSujetsVente};
                 }
                 break;
             }
@@ -3666,6 +3765,11 @@ public class SaisieFormActivity extends AppCompatActivity {
                     toast("Quantité supérieure à l'effectif vivant (" + effectifReformeDisponible + " sujet(s))");
                     return;
                 }
+                String pointDeVente = pointDeVenteReformeChoisi();
+                if (pointsDeVenteReforme.size() > 1 && pointDeVente == null) {
+                    toast("Choisissez le point de vente des réformés");
+                    return;
+                }
                 ReformeCreateRequest req = new ReformeCreateRequest();
                 req.projetUniqueId = projetUniqueId;
                 req.batimentUniqueId = batimentUniqueId;
@@ -3673,6 +3777,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.heure = heure;
                 req.nombreSujets = nombreSujets;
                 req.cause = nullIfBlank(textOf(etCauseReforme));
+                req.magasinVenteUniqueId = pointDeVente;
                 requestObject = req;
                 summary = nombreSujets + " sujet(s) réformé(s)" + (req.cause != null ? " : " + req.cause : "");
                 break;
@@ -3864,8 +3969,9 @@ public class SaisieFormActivity extends AppCompatActivity {
                     toast("Veuillez indiquer le montant réellement rapporté (même égal au montant théorique)");
                     return;
                 }
-                if (stockReformeDisponible != null && nombreSujets > stockReformeDisponible) {
-                    toast("Quantité supérieure au stock disponible dans ce magasin (" + stockReformeDisponible + " sujet(s))");
+                Integer stockPdv = stockReformeAuPointDeVente(magasinUniqueIdReforme);
+                if (stockPdv != null && nombreSujets > stockPdv) {
+                    toast(messageStockReformeInsuffisant(stockPdv));
                     return;
                 }
                 boolean kiloReforme = isTypeVenteReformeKilo();
@@ -4511,6 +4617,10 @@ public class SaisieFormActivity extends AppCompatActivity {
                 if (req.nombreSujets != null) etNombreSujetsReforme.setText(String.valueOf(req.nombreSujets));
                 etCauseReforme.setText(req.cause);
                 selectBatimentByUniqueId(req.batimentUniqueId);
+                if (req.magasinVenteUniqueId != null) {
+                    pendingPointDeVenteReforme = req.magasinVenteUniqueId;
+                    populatePointsDeVenteReforme();
+                }
                 break;
             }
             case ALIMENTATION_ACHAT: {

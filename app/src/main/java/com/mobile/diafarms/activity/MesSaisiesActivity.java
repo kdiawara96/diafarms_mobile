@@ -196,6 +196,44 @@ public class MesSaisiesActivity extends AppCompatActivity {
                 .show();
     }
 
+    private boolean envoiEnCours = false;
+
+    /** Remet la saisie refusée en attente puis lance un envoi (toutes les saisies en
+     * attente partent, celle-ci comprise). */
+    private void renvoyer(SaisieLocale saisie) {
+        if (envoiEnCours) return;
+        envoiEnCours = true;
+        localDatabase.remettreEnAttente(saisie.getLocalId());
+        refreshList();
+        Toast.makeText(this, "Envoi en cours...", Toast.LENGTH_SHORT).show();
+        new com.mobile.diafarms.data.SyncManager(this).syncAll(new com.mobile.diafarms.data.SyncManager.SyncCallback() {
+            @Override
+            public void onComplete(int success, int failed) { }
+
+            @Override
+            public void onBilan(com.mobile.diafarms.data.SyncManager.Bilan b) {
+                runOnUiThread(() -> {
+                    envoiEnCours = false;
+                    SaisieLocale apres = localDatabase.getSaisieById(saisie.getLocalId());
+                    String message;
+                    if (b.consultationSeule) {
+                        message = com.mobile.diafarms.data.SyncManager.MESSAGE_CONSULTATION_SEULE;
+                    } else if (b.authMessage != null) {
+                        message = "Reconnexion nécessaire : scannez de nouveau votre QR code depuis l'accueil";
+                    } else if (apres == null || SaisieLocale.STATUT_SYNCED.equals(apres.getSyncStatus())) {
+                        message = "Saisie envoyée";
+                    } else if (SaisieLocale.STATUT_ERROR.equals(apres.getSyncStatus())) {
+                        message = "Toujours refusée : " + (apres.getErrorMessage() != null ? apres.getErrorMessage() : "envoi échoué");
+                    } else {
+                        message = "Pas encore envoyée : nouvel essai au prochain envoi";
+                    }
+                    Toast.makeText(MesSaisiesActivity.this, message, Toast.LENGTH_LONG).show();
+                    refreshList();
+                });
+            }
+        });
+    }
+
     private class SaisieAdapter extends BaseAdapter {
         private List<SaisieLocale> items;
         private final Gson gson = new Gson();
@@ -298,6 +336,13 @@ public class MesSaisiesActivity extends AppCompatActivity {
                 view.setOnClickListener(null);
                 view.setClickable(false);
             }
+            // Refusée par le serveur : renvoi possible tel quel (même clé), la cause du refus
+            // a pu être corrigée ailleurs (stock du point de vente, réglage de la ferme...).
+            android.view.View btnRenvoyer = view.findViewById(R.id.btnItemRenvoyer);
+            boolean renvoyable = SaisieLocale.STATUT_ERROR.equals(saisie.getSyncStatus())
+                    && saisie.getType() != SaisieType.PESEE_SESSION && !saisie.estIncoherente();
+            btnRenvoyer.setVisibility(renvoyable ? View.VISIBLE : View.GONE);
+            btnRenvoyer.setOnClickListener(v -> renvoyer(saisie));
             btnEdit.setVisibility(editable ? View.VISIBLE : View.GONE);
             btnDelete.setVisibility(deletable ? View.VISIBLE : View.GONE);
             btnEdit.setOnClickListener(v -> openEdit(saisie));

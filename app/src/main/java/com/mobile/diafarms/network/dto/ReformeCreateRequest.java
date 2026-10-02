@@ -12,4 +12,7 @@ public class ReformeCreateRequest {
     public String heure;     // "HH:mm", optionnel
     public Integer nombreSujets;
     public String cause;     // optionnel
+    // Point de vente où placer les réformés (1.35) ; absent = point de vente par défaut
+    // côté serveur (le seul, ou celui désigné par les magasins de stockage).
+    public String magasinVenteUniqueId;
 }
