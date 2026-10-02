@@ -233,7 +233,10 @@ public class MesSaisiesActivity extends AppCompatActivity {
             tvType.setText(saisie.getType().getLabel());
             tvSummary.setText(saisie.getDisplaySummary());
 
-            String projet = saisie.getProjetLabel() != null ? saisie.getProjetLabel() : "Commun";
+            // Sortie / entrée d'argent, vente diverse : ce que concerne la saisie
+            // (« Projet X », « Site Y » ou « Ferme »).
+            String projet = com.mobile.diafarms.ui.saisie.RattachementSaisie.libelle(saisie, localDatabase, gson);
+            if (projet == null) projet = saisie.getProjetLabel() != null ? saisie.getProjetLabel() : "Commun";
             tvMeta.setText(projet + " · " + displayFormat.format(saisie.getCreatedAt()));
 
             switch (saisie.getSyncStatus()) {

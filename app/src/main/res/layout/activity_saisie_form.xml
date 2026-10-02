@@ -1718,7 +1718,7 @@
             </LinearLayout>
 
             <!-- ===================== VENTE DIVERSE (fientes, autre vente) =====================
-                 POST ventes-diverses/create, commune à la ferme (ni projet, ni site, ni poulailler). -->
+                 POST ventes-diverses/create : le projet de l'accueil ou toute la ferme (voir groupConcerne). -->
             <LinearLayout
                 android:id="@+id/groupVenteDiverse"
                 android:layout_width="match_parent"
@@ -2046,130 +2046,74 @@
                         android:inputType="text" />
                 </com.google.android.material.textfield.TextInputLayout>
 
-                <View android:layout_width="match_parent" android:layout_height="12dp" />
-
-                <LinearLayout
-                    android:id="@+id/layoutCommun"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-                    <CheckBox
-                        android:id="@+id/checkCommun"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Commune à la ferme (décochez pour la lier au projet sélectionné)"
-                        android:textSize="13sp"
-                        android:textColor="@android:color/darker_gray" />
                 </LinearLayout>
+            </LinearLayout>
+            <!-- ===================== CETTE DÉPENSE / VENTE CONCERNE =====================
+                 Un seul choix (contrat back e4e249d) : le projet de l'accueil (poulailler de ce
+                 projet facultatif), un site, ou toute la ferme. Sortie / entrée d'argent (hors
+                 Santé, toujours le projet) et ventes diverses (projet ou ferme seulement). -->
+            <LinearLayout
+                android:id="@+id/groupConcerne"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginTop="14dp"
+                android:visibility="gone">
 
-                <!-- Visible seulement si "commune" est coché : ouvre la liste FACULTATIVE des projets
-                     concernés (fermée par défaut : une dépense de toute la ferme n'a besoin d'aucun). -->
                 <TextView
-                    android:id="@+id/btnAfficherProjetsConcernes"
+                    android:id="@+id/tvTitreConcerne"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:padding="6dp"
-                    android:text="+ Préciser les projets concernés (facultatif)"
-                    android:textSize="13sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/primary"
-                    android:visibility="gone" />
-
-                <!-- Visible seulement si "commune" est coché : répartit la dépense/rentrée
-                     sur les projets actifs sélectionnés (voir SaisieFormActivity, qui
-                     peuple ce conteneur dynamiquement à partir des projets en cache). -->
-                <LinearLayout
-                    android:id="@+id/groupProjetsConcernes"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:layout_marginTop="8dp"
-                    android:visibility="gone">
-
-                    <View android:layout_width="match_parent" android:layout_height="1dp"
-                        android:background="#E5E7EB" android:layout_marginBottom="8dp" />
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical">
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:text="Projets concernés (facultatif)"
-                            android:textSize="14sp"
-                            android:textStyle="bold"
-                            android:textColor="@android:color/black" />
-                        <TextView
-                            android:id="@+id/btnToutSelectionner"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Tout désélectionner"
-                            android:textSize="12sp"
-                            android:textStyle="bold"
-                            android:textColor="@color/primary"
-                            android:padding="4dp" />
-                    </LinearLayout>
-
-                    <LinearLayout
-                        android:id="@+id/containerProjetsConcernes"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical" />
-                </LinearLayout>
-
-                <!-- Rattachement FACULTATIF à un site et/ou un poulailler précis (suivi des dépenses
-                     par site / par poulailler). Rien de choisi = ferme entière. Indépendant du projet. -->
-                <LinearLayout
-                    android:id="@+id/groupRattachementTransaction"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical">
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
-                    android:text="Rattachement (facultatif)"
+                    android:text="Cette dépense concerne :"
                     android:textSize="14sp"
                     android:textStyle="bold"
                     android:textColor="@android:color/black" />
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="6dp"
-                    android:text="Sans choix, la dépense concerne la ferme entière."
-                    android:textSize="12sp"
-                    android:textColor="@android:color/darker_gray" />
-
-                <com.google.android.material.textfield.TextInputLayout
+                <RadioGroup
+                    android:id="@+id/rgConcerne"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="Site (facultatif)"
-                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
-                    app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
-                    app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
-                    <AutoCompleteTextView
-                        android:id="@+id/spinnerSiteTransaction"
+                    android:orientation="vertical">
+                    <RadioButton
+                        android:id="@+id/rbConcerneProjet"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:inputType="none"
-                        android:editable="false" />
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <View android:layout_width="match_parent" android:layout_height="10dp" />
+                        android:text="Le Projet" />
+                    <TextView
+                        android:id="@+id/tvConcerneSansProjet"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="32dp"
+                        android:text="Aucun projet choisi à l'accueil : choisissez d'abord un projet pour lier à un projet."
+                        android:textSize="12sp"
+                        android:textColor="@android:color/darker_gray"
+                        android:visibility="gone" />
+                    <RadioButton
+                        android:id="@+id/rbConcerneSite"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Un site" />
+                    <RadioButton
+                        android:id="@+id/rbConcerneFerme"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Toute la ferme" />
+                    <!-- Saisie en attente d'une version antérieure impossible à ramener à un
+                         seul choix (plusieurs projets...) : renvoyée telle quelle si gardée. -->
+                    <RadioButton
+                        android:id="@+id/rbConcerneAncien"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:visibility="gone" />
+                </RadioGroup>
 
                 <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilBatimentTransaction"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
                     android:hint="Poulailler (facultatif)"
+                    android:visibility="gone"
                     style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                     app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
                     app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
@@ -2180,8 +2124,24 @@
                         android:inputType="none"
                         android:editable="false" />
                 </com.google.android.material.textfield.TextInputLayout>
-                </LinearLayout>
-                </LinearLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilSiteTransaction"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:hint="Site *"
+                    android:visibility="gone"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
+                    <AutoCompleteTextView
+                        android:id="@+id/spinnerSiteTransaction"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none"
+                        android:editable="false" />
+                </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
             <!-- Alerte de cohérence EN DIRECT (valeur saisie au-delà de l'effectif vivant ou du

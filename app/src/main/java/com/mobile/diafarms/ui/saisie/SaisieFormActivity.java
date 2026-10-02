@@ -9,6 +9,7 @@ import android.widget.AutoCompleteTextView;
 import android.widget.CheckBox;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
+import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -416,8 +417,7 @@ public class SaisieFormActivity extends AppCompatActivity {
     private View tilCategoriePrecision;
     private TextInputEditText etCategoriePrecision;
     private TextInputEditText etMontant, etDescriptionTransaction;
-    private CheckBox checkCommun;
-    private View layoutCommun, groupRattachementTransaction, groupSanteQuantite;
+    private View groupSanteQuantite;
     // Santé / Vétérinaire : achat de médicament (dépense + stock, saisie MEDICAMENT_ACHAT)
     // ou service (transaction simple).
     private View groupNatureSante, groupMedicamentAchat;
@@ -443,18 +443,22 @@ public class SaisieFormActivity extends AppCompatActivity {
     private String soinStockEnAttente;
     private TextInputEditText etQuantiteSante, etPrixUnitaireSante;
     private boolean majSanteAuto = false;
-    // Rattachement FACULTATIF d'une dépense à un site et/ou un poulailler (voir afficherRattachements).
-    private TextView btnAfficherProjetsConcernes;
+    // « Cette dépense concerne » (sortie / entrée d'argent hors Santé, ventes diverses) :
+    // le projet de l'accueil (poulailler de ce projet facultatif), un site, ou toute la ferme.
+    // Voir majConcerne / afficherRattachements.
+    private View groupConcerne, tilBatimentTransaction, tilSiteTransaction;
+    private TextView tvTitreConcerne, tvConcerneSansProjet;
+    private RadioGroup rgConcerne;
+    private RadioButton rbConcerneProjet, rbConcerneSite, rbConcerneFerme, rbConcerneAncien;
+    // Saisie en attente d'une version antérieure qui ne se ramène à aucun choix unique
+    // (plusieurs projets concernés, poulailler seul) : renvoyée telle quelle si gardée.
+    private RattachementSaisie rattachementAncien;
     private AutoCompleteTextView spinnerSiteTransaction, spinnerBatimentTransaction;
     private List<SiteSelectResponse> sitesTransaction = new ArrayList<>();
     private List<BatimentSelectResponse> batimentsTransaction = new ArrayList<>();
+    // Poulaillers proposés pour « Le Projet » : {uniqueId, nom}, ceux occupés par le projet.
+    private final List<String[]> poulaillersProjet = new ArrayList<>();
     private String siteTransactionEnAttente, batimentTransactionEnAttente; // sélection à réappliquer (édition)
-    private static final String LIBELLE_AUCUN_SITE = "Aucun (ferme entière)";
-    private static final String LIBELLE_AUCUN_BATIMENT = "Aucun";
-    private View groupProjetsConcernes;
-    private LinearLayout containerProjetsConcernes;
-    private TextView btnToutSelectionner;
-    private final List<CheckBox> checkboxesProjetsConcernes = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -523,6 +527,15 @@ public class SaisieFormActivity extends AppCompatActivity {
                     }
                 }
             }
+            // Dépense / vente liée à un projet (y compris l'ancien « commune » avec un seul
+            // projet concerné) : le formulaire s'ouvre sur ce projet (poulaillers, libellé).
+            RattachementSaisie enregistre = aModifier != null ? RattachementSaisie.depuis(aModifier, gson) : null;
+            if (enregistre != null && RattachementSaisie.PROJET.equals(enregistre.choix)
+                    && enregistre.projetUniqueId != null && !enregistre.projetUniqueId.equals(projetUniqueId)) {
+                String libelle = libelleProjet(enregistre.projetUniqueId);
+                projetUniqueId = enregistre.projetUniqueId;
+                projetLabel = libelle;
+            }
         }
 
         if (type == SaisieType.LIVRAISON_COMMANDE && !chargerCommandeLivree()) {
@@ -536,10 +549,12 @@ public class SaisieFormActivity extends AppCompatActivity {
         loadBatiments();
         if (type == SaisieType.SOINS) loadStockMedicaments();
         setupCoherenceChecks();
-        if (estTypeTransaction()) {
+        if (estTypeTransaction() || estVenteDiverse()) {
             loadRattachementsTransaction();
-            // Nouvelle dépense/rentrée : "commune" (ferme entière) par défaut, rien d'autre à choisir.
-            if (editingLocalId == null) checkCommun.setChecked(true);
+            // Nouvelle saisie : le projet de l'accueil présélectionné (s'il y en a un).
+            rgConcerne.setOnCheckedChangeListener((g, id) -> majConcerne());
+            if (editingLocalId == null && projetUniqueId != null && !projetUniqueId.isEmpty()) rbConcerneProjet.setChecked(true);
+            majConcerne();
         }
 
         if (type == SaisieType.ALIMENTATION_CONSOMMATION && projetUniqueId != null) {
@@ -933,9 +948,6 @@ public class SaisieFormActivity extends AppCompatActivity {
         spinnerCategorie = findViewById(R.id.spinnerCategorie);
         etMontant = findViewById(R.id.etMontant);
         etDescriptionTransaction = findViewById(R.id.etDescriptionTransaction);
-        checkCommun = findViewById(R.id.checkCommun);
-        layoutCommun = findViewById(R.id.layoutCommun);
-        groupRattachementTransaction = findViewById(R.id.groupRattachementTransaction);
         groupSanteQuantite = findViewById(R.id.groupSanteQuantite);
         groupNatureSante = findViewById(R.id.groupNatureSante);
         groupMedicamentAchat = findViewById(R.id.groupMedicamentAchat);
@@ -979,23 +991,18 @@ public class SaisieFormActivity extends AppCompatActivity {
         });
         etQuantiteSante.addTextChangedListener(versMontant);
         etPrixUnitaireSante.addTextChangedListener(versMontant);
-        groupProjetsConcernes = findViewById(R.id.groupProjetsConcernes);
-        containerProjetsConcernes = findViewById(R.id.containerProjetsConcernes);
-        btnToutSelectionner = findViewById(R.id.btnToutSelectionner);
-
-        btnAfficherProjetsConcernes = findViewById(R.id.btnAfficherProjetsConcernes);
+        groupConcerne = findViewById(R.id.groupConcerne);
+        tvTitreConcerne = findViewById(R.id.tvTitreConcerne);
+        tvConcerneSansProjet = findViewById(R.id.tvConcerneSansProjet);
+        rgConcerne = findViewById(R.id.rgConcerne);
+        rbConcerneProjet = findViewById(R.id.rbConcerneProjet);
+        rbConcerneSite = findViewById(R.id.rbConcerneSite);
+        rbConcerneFerme = findViewById(R.id.rbConcerneFerme);
+        rbConcerneAncien = findViewById(R.id.rbConcerneAncien);
+        tilBatimentTransaction = findViewById(R.id.tilBatimentTransaction);
+        tilSiteTransaction = findViewById(R.id.tilSiteTransaction);
         spinnerSiteTransaction = findViewById(R.id.spinnerSiteTransaction);
         spinnerBatimentTransaction = findViewById(R.id.spinnerBatimentTransaction);
-        // "Commune" = ferme entière, sans rien d'autre à choisir. La liste des projets concernés
-        // est FACULTATIVE et repliée (aucun projet coché par défaut) : avant, il fallait en cocher
-        // au moins un, ce qui obligeait à rattacher une facture d'électricité à un projet.
-        checkCommun.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            btnAfficherProjetsConcernes.setVisibility(isChecked && groupProjetsConcernes.getVisibility() != View.VISIBLE
-                    ? View.VISIBLE : View.GONE);
-            if (!isChecked) groupProjetsConcernes.setVisibility(View.GONE);
-        });
-        btnAfficherProjetsConcernes.setOnClickListener(v -> ouvrirProjetsConcernes());
-        btnToutSelectionner.setOnClickListener(v -> toggleToutSelectionner());
 
         tilCategoriePrecision = findViewById(R.id.tilCategoriePrecision);
         etCategoriePrecision = findViewById(R.id.etCategoriePrecision);
@@ -1358,22 +1365,15 @@ public class SaisieFormActivity extends AppCompatActivity {
                 && CATEGORIE_SANTE.equals(spinnerCategorie.getText().toString());
     }
 
-    /** Santé / Vétérinaire : pas de « commune » ni de site ; poulailler du projet
-     * (facultatif) seulement si le projet en occupe plusieurs. */
+    /** Santé / Vétérinaire : toujours le projet (choix « concerne » masqué), jamais un site
+     * ni la ferme ; poulailler du projet (facultatif) seulement s'il en occupe plusieurs. */
     private void appliquerSante() {
         if (type != SaisieType.TRANSACTION_SORTIE) return;
         boolean sante = estSante();
-        if (sante) {
-            checkCommun.setChecked(false);
-            groupProjetsConcernes.setVisibility(View.GONE);
-            btnAfficherProjetsConcernes.setVisibility(View.GONE);
-            if (projetUniqueId == null || projetUniqueId.isEmpty()) {
-                toast("Un soin concerne un projet : choisissez d'abord le projet à l'accueil");
-            }
-        } else if (editingLocalId == null && layoutCommun.getVisibility() != View.VISIBLE) {
-            checkCommun.setChecked(true);
+        if (sante && (projetUniqueId == null || projetUniqueId.isEmpty())) {
+            toast("Un soin concerne un projet : choisissez d'abord le projet à l'accueil");
         }
-        layoutCommun.setVisibility(sante ? View.GONE : View.VISIBLE);
+        majConcerne();
         boolean natureChoisie = sante && spinnerNatureSante.getText().length() > 0;
         boolean medicament = sante && NATURE_MEDICAMENT.equals(spinnerNatureSante.getText().toString());
         groupNatureSante.setVisibility(sante ? View.VISIBLE : View.GONE);
@@ -1384,7 +1384,6 @@ public class SaisieFormActivity extends AppCompatActivity {
         setHintParent(etDescriptionTransaction, !sante ? "Description" : medicament ? "Observations (facultatif)" : "Nature du service *");
         com.google.android.material.textfield.TextInputLayout tilMontant = findViewById(R.id.tilMontant);
         if (tilMontant != null) tilMontant.setHint(sante ? "Montant total (FCFA) *" : "Montant (FCFA)");
-        groupRattachementTransaction.setVisibility(sante ? View.GONE : View.VISIBLE);
         groupBatimentTop.setVisibility(sante && batiments.size() > 1 ? View.VISIBLE : View.GONE);
         if (sante) populateBatimentSpinner();
     }
@@ -1479,7 +1478,8 @@ public class SaisieFormActivity extends AppCompatActivity {
         if (type == SaisieType.LIVRAISON_COMMANDE && commandeLivree != null) {
             tvProjetForm.setText(commandeLivree.clientNom);
         }
-        if (type == SaisieType.TRANSACTION_SORTIE && layoutCommun != null) appliquerSante();
+        if (type == SaisieType.TRANSACTION_SORTIE && groupConcerne != null) appliquerSante();
+        majConcerne();
     }
 
     // ===================== ENCAISSEMENT CLIENT =====================
@@ -1723,43 +1723,6 @@ public class SaisieFormActivity extends AppCompatActivity {
         tvMontantLivraison.setVisibility(m != null ? View.VISIBLE : View.GONE);
     }
 
-    /**
-     * Remplit la case à cocher "Projets concernés" à partir des projets actifs en
-     * cache local (voir CachePrefetcher.CACHE_PROJETS_SELECT — fonctionne donc aussi
-     * hors ligne, comme le reste de l'app). Coché par défaut = toute la ferme, à
-     * décocher un par un ou via "Tout désélectionner" — c'est l'utilisateur qui
-     * précise ensuite quels projets sont réellement concernés par cette dépense/
-     * rentrée commune.
-     *
-     * @param preselectionnesUniqueIds si non null (édition d'une saisie existante),
-     *                                 seuls ces projets sont cochés au départ.
-     */
-    private void populateProjetsConcernesCheckboxes(List<String> preselectionnesUniqueIds) {
-        containerProjetsConcernes.removeAllViews();
-        checkboxesProjetsConcernes.clear();
-
-        String json = localDatabase.getCache(CachePrefetcher.CACHE_PROJETS_SELECT);
-        List<ProjetSelectResponse> projets = new ArrayList<>();
-        if (json != null) {
-            Type listType = new TypeToken<List<ProjetSelectResponse>>() {}.getType();
-            List<ProjetSelectResponse> parsed = gson.fromJson(json, listType);
-            if (parsed != null) projets = parsed;
-        }
-
-        for (ProjetSelectResponse projet : projets) {
-            if (!projet.isActive()) continue;
-            CheckBox cb = new CheckBox(this);
-            cb.setText(projet.getLabel());
-            cb.setTag(projet.getUniqueId());
-            // Rien de coché par défaut (rattachement facultatif) ; seuls les projets déjà enregistrés
-            // sur une saisie en cours d'édition sont présélectionnés.
-            cb.setChecked(preselectionnesUniqueIds != null && preselectionnesUniqueIds.contains(projet.getUniqueId()));
-            containerProjetsConcernes.addView(cb);
-            checkboxesProjetsConcernes.add(cb);
-        }
-        updateToutSelectionnerLabel();
-    }
-
     /** Libellé d'un projet de la ferme (cache des projets), celui de l'accueil par défaut. */
     private String libelleProjet(String uid) {
         if (uid == null) return null;
@@ -1768,13 +1731,6 @@ public class SaisieFormActivity extends AppCompatActivity {
             if (uid.equals(p.getUniqueId())) return p.getLabel();
         }
         return uid.equals(projetUniqueId) ? projetLabel : null;
-    }
-
-    /** Ouvre la liste FACULTATIVE des projets concernés par une dépense commune. */
-    private void ouvrirProjetsConcernes() {
-        if (checkboxesProjetsConcernes.isEmpty()) populateProjetsConcernesCheckboxes(null);
-        groupProjetsConcernes.setVisibility(View.VISIBLE);
-        btnAfficherProjetsConcernes.setVisibility(View.GONE);
     }
 
     private boolean estTypeTransaction() {
@@ -1832,33 +1788,113 @@ public class SaisieFormActivity extends AppCompatActivity {
         });
     }
 
-    /** (Re)remplit les deux listes en conservant le choix courant ou celui à réappliquer (édition). */
+    private boolean projetChoisi() {
+        return projetUniqueId != null && !projetUniqueId.isEmpty();
+    }
+
+    /** Choix « Cette dépense concerne » visible : sortie / entrée d'argent hors Santé (toujours
+     * le projet) et hors achat d'aliment, ventes diverses (projet ou ferme, jamais un site). */
+    private void majConcerne() {
+        if (groupConcerne == null) return;
+        boolean vente = estVenteDiverse();
+        boolean visible = (estTypeTransaction() && !estSante()) || vente;
+        groupConcerne.setVisibility(visible ? View.VISIBLE : View.GONE);
+        if (!visible) return;
+        tvTitreConcerne.setText(vente ? "Cette vente concerne :"
+                : type == SaisieType.TRANSACTION_ENTREE ? "Cette entrée d'argent concerne :" : "Cette dépense concerne :");
+        boolean projet = projetChoisi();
+        rbConcerneProjet.setText(projet ? "Le Projet (" + (projetLabel != null ? projetLabel : "projet de l'accueil") + ")" : "Le Projet");
+        rbConcerneProjet.setEnabled(projet);
+        tvConcerneSansProjet.setVisibility(projet ? View.GONE : View.VISIBLE);
+        rbConcerneSite.setVisibility(vente ? View.GONE : View.VISIBLE);
+        if ((vente && rbConcerneSite.isChecked()) || (!projet && rbConcerneProjet.isChecked())) {
+            rgConcerne.clearCheck();
+            return; // clearCheck rappelle majConcerne
+        }
+        tilBatimentTransaction.setVisibility(!vente && rbConcerneProjet.isChecked() && !poulaillersProjet.isEmpty()
+                ? View.VISIBLE : View.GONE);
+        tilSiteTransaction.setVisibility(!vente && rbConcerneSite.isChecked() ? View.VISIBLE : View.GONE);
+    }
+
+    /** Coche le choix enregistré sur une saisie en attente (ancien format ramené au plus proche). */
+    private void appliquerRattachementEnregistre(RattachementSaisie r) {
+        if (r == null || rgConcerne == null) return;
+        switch (r.choix) {
+            case RattachementSaisie.PROJET:
+                // Le projet de la saisie est celui du formulaire (voir onCreate).
+                if (projetChoisi()) rbConcerneProjet.setChecked(true);
+                batimentTransactionEnAttente = r.batimentUniqueId;
+                break;
+            case RattachementSaisie.SITE:
+                rbConcerneSite.setChecked(true);
+                siteTransactionEnAttente = r.siteUniqueId;
+                break;
+            case RattachementSaisie.ANCIEN: {
+                rattachementAncien = r;
+                String detail;
+                if (r.projetsConcernes.size() > 1) {
+                    detail = r.projetsConcernes.size() + " projets";
+                } else {
+                    String nom = null;
+                    for (BatimentSelectResponse x : lireListeCache(CachePrefetcher.CACHE_BATIMENTS_TOUS, BatimentSelectResponse.class)) {
+                        if (x.getUniqueId() != null && x.getUniqueId().equals(r.batimentUniqueId)) nom = x.getNom();
+                    }
+                    detail = "poulailler" + (nom != null ? " " + nom : "");
+                }
+                rbConcerneAncien.setText("Comme enregistrée (" + detail + ")");
+                rbConcerneAncien.setVisibility(View.VISIBLE);
+                rbConcerneAncien.setChecked(true);
+                break;
+            }
+            default:
+                rbConcerneFerme.setChecked(true);
+        }
+        afficherRattachements();
+    }
+
+    /** (Re)remplit la liste des sites et celle des poulaillers du projet en conservant le choix
+     * courant ou celui à réappliquer (édition). Un poulailler enregistré que le projet n'occupe
+     * plus est gardé dans la liste (le serveur l'accepte s'il l'a occupé). */
     private void afficherRattachements() {
+        if (spinnerSiteTransaction == null) return;
         String siteId = siteTransactionEnAttente != null ? siteTransactionEnAttente : getSelectedSiteTransaction();
         String batimentId = batimentTransactionEnAttente != null ? batimentTransactionEnAttente : getSelectedBatimentTransaction();
 
         List<String> siteLabels = new ArrayList<>();
-        siteLabels.add(LIBELLE_AUCUN_SITE);
-        String siteChoisi = LIBELLE_AUCUN_SITE;
+        String siteChoisi = "";
         for (SiteSelectResponse x : sitesTransaction) {
             siteLabels.add(x.getNom());
             if (x.getUniqueId() != null && x.getUniqueId().equals(siteId)) siteChoisi = x.getNom();
         }
+        if (siteChoisi.isEmpty() && sitesTransaction.size() == 1) siteChoisi = sitesTransaction.get(0).getNom();
         spinnerSiteTransaction.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, siteLabels));
         spinnerSiteTransaction.setText(siteChoisi, false);
+        if (!sitesTransaction.isEmpty()) siteTransactionEnAttente = null;
 
+        poulaillersProjet.clear();
+        boolean trouve = false;
+        for (OccupationBatimentResponse b : batiments) {
+            poulaillersProjet.add(new String[]{b.getBatimentUniqueId(), b.getNomBatiment()});
+            if (b.getBatimentUniqueId() != null && b.getBatimentUniqueId().equals(batimentId)) trouve = true;
+        }
+        if (batimentId != null && !trouve) {
+            String nom = "Poulailler enregistré";
+            for (BatimentSelectResponse x : batimentsTransaction) {
+                if (batimentId.equals(x.getUniqueId())) nom = x.getNom();
+            }
+            poulaillersProjet.add(new String[]{batimentId, nom});
+        }
         List<String> batLabels = new ArrayList<>();
-        batLabels.add(LIBELLE_AUCUN_BATIMENT);
-        String batChoisi = LIBELLE_AUCUN_BATIMENT;
-        for (BatimentSelectResponse x : batimentsTransaction) {
-            batLabels.add(x.getNom());
-            if (x.getUniqueId() != null && x.getUniqueId().equals(batimentId)) batChoisi = x.getNom();
+        batLabels.add(LIBELLE_TOUT_LE_PROJET);
+        String batChoisi = LIBELLE_TOUT_LE_PROJET;
+        for (String[] b : poulaillersProjet) {
+            batLabels.add(b[1]);
+            if (b[0] != null && b[0].equals(batimentId)) batChoisi = b[1];
         }
         spinnerBatimentTransaction.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, batLabels));
         spinnerBatimentTransaction.setText(batChoisi, false);
-        // Une sélection à réappliquer ne l'est qu'une fois les listes réellement connues.
-        if (!sitesTransaction.isEmpty()) siteTransactionEnAttente = null;
-        if (!batimentsTransaction.isEmpty()) batimentTransactionEnAttente = null;
+        batimentTransactionEnAttente = null;
+        majConcerne();
     }
 
     private String getSelectedSiteTransaction() {
@@ -1867,33 +1903,11 @@ public class SaisieFormActivity extends AppCompatActivity {
         return null;
     }
 
+    /** Poulailler choisi pour « Le Projet », null = tout le projet. */
     private String getSelectedBatimentTransaction() {
         String choisi = spinnerBatimentTransaction.getText().toString();
-        for (BatimentSelectResponse x : batimentsTransaction) if (x.getNom().equals(choisi)) return x.getUniqueId();
+        for (String[] b : poulaillersProjet) if (b[1].equals(choisi)) return b[0];
         return null;
-    }
-
-    private void toggleToutSelectionner() {
-        boolean toutEstCoche = checkboxesProjetsConcernes.stream().allMatch(CheckBox::isChecked);
-        boolean nouvelEtat = !toutEstCoche;
-        for (CheckBox cb : checkboxesProjetsConcernes) {
-            cb.setChecked(nouvelEtat);
-        }
-        updateToutSelectionnerLabel();
-    }
-
-    private void updateToutSelectionnerLabel() {
-        boolean toutEstCoche = !checkboxesProjetsConcernes.isEmpty()
-                && checkboxesProjetsConcernes.stream().allMatch(CheckBox::isChecked);
-        btnToutSelectionner.setText(toutEstCoche ? "Tout désélectionner" : "Tout sélectionner");
-    }
-
-    private List<String> getSelectedProjetsConcernesUniqueIds() {
-        List<String> result = new ArrayList<>();
-        for (CheckBox cb : checkboxesProjetsConcernes) {
-            if (cb.isChecked()) result.add((String) cb.getTag());
-        }
-        return result;
     }
 
     private void setupDateHeurePickers() {
@@ -2272,6 +2286,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         }
         populateBatimentSpinner();
         if (estSante()) groupBatimentTop.setVisibility(batiments.size() > 1 ? View.VISIBLE : View.GONE);
+        if (estTypeTransaction()) afficherRattachements();
     }
 
     // Collecte, sortie d'aliment, soins (vaccination comprise), mortalité et réforme se
@@ -3909,6 +3924,20 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.prixUnitaire = prixSac != null && prixSac > 0 ? prixSac : null;
                 req.montant = montantVente;
                 req.description = descriptionVente;
+                // Cette vente concerne : le projet de l'accueil ou toute la ferme.
+                if (rbConcerneProjet.isChecked()) {
+                    if (!projetChoisi()) {
+                        toast("Aucun projet choisi à l'accueil : choisissez « Toute la ferme » ou un projet depuis l'accueil");
+                        return;
+                    }
+                    req.rattachement = RattachementSaisie.PROJET;
+                    req.projetUniqueId = projetUniqueId;
+                } else if (rbConcerneFerme.isChecked()) {
+                    req.rattachement = RattachementSaisie.FERME;
+                } else {
+                    toast("Précisez ce que concerne cette vente : le projet ou toute la ferme");
+                    return;
+                }
                 requestObject = req;
                 summary = fientes
                         ? (req.quantite != null
@@ -3993,47 +4022,63 @@ public class SaisieFormActivity extends AppCompatActivity {
                 // Service de santé : nombre de jours facultatif.
                 Double quantiteSante = sante ? parseDoubleOrNull(etQuantiteSante.getText()) : null;
                 if (quantiteSante != null && quantiteSante <= 0) quantiteSante = null;
-                boolean commun = !sante && checkCommun.isChecked();
-                if (!commun && (projetUniqueId == null || projetUniqueId.isEmpty())) {
-                    toast("Aucun projet sélectionné à l'accueil : laissez \"Commune\" coché, ou choisissez un projet depuis l'accueil");
-                    return;
-                }
-                // Les projets concernés sont FACULTATIFS (liste vide = ferme entière).
-                List<String> projetsConcernes = commun ? getSelectedProjetsConcernesUniqueIds() : null;
                 TransactionCreateRequest req = new TransactionCreateRequest();
                 req.type = (type == SaisieType.TRANSACTION_SORTIE) ? "SORTIE" : "ENTREE";
-                req.commun = commun;
-                req.projetUniqueId = commun ? null : projetUniqueId;
-                req.projetsConcernesUniqueIds = projetsConcernes;
                 req.date = date;
                 req.description = description;
                 req.montant = montant;
                 req.categorie = categorieChoisie;
                 req.categoriePrecision = precisionCategorie;
-                req.siteUniqueId = sante ? null : getSelectedSiteTransaction();
+                String nomPoulailler = null;
                 if (sante) {
+                    // Santé / Vétérinaire : toujours le projet de l'accueil (choix masqué).
+                    req.rattachement = RattachementSaisie.PROJET;
+                    req.projetUniqueId = projetUniqueId;
                     req.quantite = quantiteSante;
                     Double pu = parseDoubleOrNull(etPrixUnitaireSante.getText());
                     req.prixUnitaire = pu != null && pu > 0 ? pu : null;
-                }
-                req.batimentUniqueId = sante
-                        ? (batiments.size() > 1 ? getSelectedBatimentUniqueId() : null)
-                        : getSelectedBatimentTransaction();
-                // « Commune » avec un seul projet coché = ce projet (même règle que le web).
-                if (req.commun && projetsConcernes != null && projetsConcernes.size() == 1) {
-                    req.commun = false;
-                    req.projetUniqueId = projetsConcernes.get(0);
-                    req.projetsConcernesUniqueIds = null;
+                    req.batimentUniqueId = batiments.size() > 1 ? getSelectedBatimentUniqueId() : null;
+                    if (req.batimentUniqueId != null) nomPoulailler = spinnerBatiment.getText().toString();
+                } else if (rbConcerneAncien.isChecked() && rattachementAncien != null) {
+                    // Saisie d'une version antérieure gardée telle quelle : le serveur la normalise.
+                    req.commun = true;
+                    req.projetsConcernesUniqueIds = rattachementAncien.projetsConcernes.isEmpty() ? null : rattachementAncien.projetsConcernes;
+                    req.siteUniqueId = rattachementAncien.siteUniqueId;
+                    req.batimentUniqueId = rattachementAncien.batimentUniqueId;
+                } else if (rbConcerneProjet.isChecked()) {
+                    if (!projetChoisi()) {
+                        toast("Aucun projet choisi à l'accueil : choisissez un site, toute la ferme, ou un projet depuis l'accueil");
+                        return;
+                    }
+                    req.rattachement = RattachementSaisie.PROJET;
+                    req.projetUniqueId = projetUniqueId;
+                    req.batimentUniqueId = getSelectedBatimentTransaction();
+                    if (req.batimentUniqueId != null) nomPoulailler = spinnerBatimentTransaction.getText().toString();
+                } else if (rbConcerneSite.isChecked()) {
+                    String site = getSelectedSiteTransaction();
+                    // Site enregistré pas encore dans la liste (cache vide) : gardé tel quel.
+                    if (site == null) site = siteTransactionEnAttente;
+                    if (site == null) {
+                        toast(sitesTransaction.isEmpty()
+                                ? "Aucun site connu sur ce téléphone : synchronisez, ou choisissez une autre option"
+                                : "Veuillez choisir le site");
+                        return;
+                    }
+                    req.rattachement = RattachementSaisie.SITE;
+                    req.siteUniqueId = site;
+                } else if (rbConcerneFerme.isChecked()) {
+                    req.rattachement = RattachementSaisie.FERME;
+                } else {
+                    toast(type == SaisieType.TRANSACTION_ENTREE
+                            ? "Précisez ce que concerne cette entrée d'argent : le projet, un site ou toute la ferme"
+                            : "Précisez ce que concerne cette dépense : le projet, un site ou toute la ferme");
+                    return;
                 }
                 requestObject = req;
                 summary = String.format(Locale.FRANCE, "%s %,.0f FCFA : %s",
                         type == SaisieType.TRANSACTION_SORTIE ? "-" : "+", montant, description)
-                        + (precisionCategorie != null ? " [" + precisionCategorie + "]" : "");
-                if (req.siteUniqueId != null || req.batimentUniqueId != null) {
-                    String s1 = req.siteUniqueId != null ? spinnerSiteTransaction.getText().toString() : null;
-                    String b1 = req.batimentUniqueId != null ? (sante ? spinnerBatiment : spinnerBatimentTransaction).getText().toString() : null;
-                    summary += " (" + (s1 != null ? s1 : "") + (s1 != null && b1 != null ? " · " : "") + (b1 != null ? b1 : "") + ")";
-                }
+                        + (precisionCategorie != null ? " [" + precisionCategorie + "]" : "")
+                        + (nomPoulailler != null ? " (" + nomPoulailler + ")" : "");
                 break;
             }
             case CLIENT_CREATE: {
@@ -4319,19 +4364,21 @@ public class SaisieFormActivity extends AppCompatActivity {
         // comme liée à ce projet, et l'édition la rattacherait par erreur).
         String projetColonne = projetUniqueId;
         String projetLabelColonne = projetLabel;
-        if (requestObject instanceof LivraisonCommandeRequest || requestObject instanceof PaiementClientRequest
-                || (requestObject instanceof TransactionCreateRequest && Boolean.TRUE.equals(((TransactionCreateRequest) requestObject).commun))) {
+        if (requestObject instanceof LivraisonCommandeRequest || requestObject instanceof PaiementClientRequest) {
             projetColonne = null;
             projetLabelColonne = null;
         }
-        // « Commune » avec un seul projet coché = ce projet : la saisie est rangée sous ce projet
-        // (Mes saisies, réouverture en modification), même s'il n'est pas celui de l'accueil.
-        if (requestObject instanceof TransactionCreateRequest) {
-            TransactionCreateRequest t = (TransactionCreateRequest) requestObject;
-            if (!Boolean.TRUE.equals(t.commun) && t.projetUniqueId != null && !t.projetUniqueId.equals(projetColonne)) {
-                projetColonne = t.projetUniqueId;
-                projetLabelColonne = libelleProjet(t.projetUniqueId);
-            }
+        // Dépense / vente : rangée sous le projet seulement si elle concerne le projet (un site,
+        // la ferme ou plusieurs projets n'appartiennent à aucun projet).
+        RattachementSaisie rattachement = requestObject instanceof TransactionCreateRequest
+                ? RattachementSaisie.depuis((TransactionCreateRequest) requestObject)
+                : requestObject instanceof com.mobile.diafarms.network.dto.VenteDiverseCreateRequest
+                ? RattachementSaisie.depuis((com.mobile.diafarms.network.dto.VenteDiverseCreateRequest) requestObject)
+                : null;
+        if (rattachement != null) {
+            boolean projet = RattachementSaisie.PROJET.equals(rattachement.choix) && rattachement.projetUniqueId != null;
+            projetColonne = projet ? rattachement.projetUniqueId : null;
+            projetLabelColonne = projet ? libelleProjet(rattachement.projetUniqueId) : null;
         }
 
         if (editingLocalId != null) {
@@ -4627,6 +4674,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 if (req.montant != null) etMontantVenteDiverse.setText(formatSaisie(req.montant));
                 majVenteDiverseAuto = false;
                 etDescriptionVenteDiverse.setText(req.description);
+                appliquerRattachementEnregistre(RattachementSaisie.depuis(req));
                 break;
             }
             case TRANSACTION_ENTREE:
@@ -4645,19 +4693,9 @@ public class SaisieFormActivity extends AppCompatActivity {
                 if (req.quantite != null) etQuantiteSante.setText(formatSaisie(req.quantite));
                 if (req.prixUnitaire != null) etPrixUnitaireSante.setText(formatSaisie(req.prixUnitaire));
                 majSanteAuto = false;
-                // commun absent (payload d'une autre version) = commune, comme le serveur.
-                boolean communPrefill = req.commun == null || Boolean.TRUE.equals(req.commun);
-                checkCommun.setChecked(communPrefill);
-                if (communPrefill && req.projetsConcernesUniqueIds != null && !req.projetsConcernesUniqueIds.isEmpty()) {
-                    // Rouvre la liste avec les projets réellement enregistrés sur cette saisie.
-                    populateProjetsConcernesCheckboxes(req.projetsConcernesUniqueIds);
-                    groupProjetsConcernes.setVisibility(View.VISIBLE);
-                    btnAfficherProjetsConcernes.setVisibility(View.GONE);
-                }
-                // Rattachements facultatifs enregistrés (absents pour une saisie d'une ancienne version).
-                siteTransactionEnAttente = req.siteUniqueId;
-                batimentTransactionEnAttente = req.batimentUniqueId;
-                afficherRattachements();
+                // Ce que concerne la saisie ; une saisie d'une version antérieure (commune,
+                // projets concernés) est ramenée au choix le plus proche, sans rien perdre.
+                appliquerRattachementEnregistre(RattachementSaisie.depuis(req));
                 if (type == SaisieType.TRANSACTION_SORTIE && CATEGORIE_SANTE.equals(req.categorie)) {
                     // Une sortie d'argent Santé est un service (un achat de médicament est une autre saisie).
                     spinnerNatureSante.setText(NATURE_SERVICE, false);
