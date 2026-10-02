@@ -3039,8 +3039,11 @@ public class SaisieFormActivity extends AppCompatActivity {
             }
         } else if (type == SaisieType.VENTE_REFORME) {
             stockReformeDisponible = stock != null ? stock.getReformeDisponible() : null;
-            if (stockReformeDisponible != null) {
-                tvStockReformeInfo.setText(String.format(Locale.FRANCE, "Disponible dans ce magasin : %d sujet(s)%s", stockReformeDisponible, suffix));
+            // Même règle que le contrôle (refreshCoherence, enregistrement) : stock connu du
+            // serveur + réformes en attente vers ce point de vente - ventes en attente depuis lui.
+            Integer stockPdv = stockReformeAuPointDeVente(getSelectedMagasinUniqueId(spinnerMagasinReforme));
+            if (stockPdv != null) {
+                tvStockReformeInfo.setText(String.format(Locale.FRANCE, "Disponible au point de vente : %d sujet(s)%s", Math.max(0, stockPdv), suffix));
             } else {
                 tvStockReformeInfo.setText(fromCache ? "Stock non disponible (hors ligne)" : "Stock non disponible");
             }
