@@ -12,7 +12,8 @@ public class ReformeCreateRequest {
     public String heure;     // "HH:mm", optionnel
     public Integer nombreSujets;
     public String cause;     // optionnel
-    // Point de vente où placer les réformés (1.35) ; absent = point de vente par défaut
-    // côté serveur (le seul, ou celui désigné par les magasins de stockage).
-    public String magasinVenteUniqueId;
+    // Magasin de stockage des réformés (1.35), comme une collecte ; les réformés passent
+    // au point de vente par défaut de ce magasin s'il en a un. Absent (ancien téléphone) :
+    // le seul magasin de stockage de la ferme, sinon celui de la dernière collecte du projet.
+    public String magasinStockageUniqueId;
 }

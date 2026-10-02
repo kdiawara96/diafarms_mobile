@@ -14,12 +14,14 @@ public class MagasinSelectResponse {
     private Integer seuilAlerteAlveoles;
     private List<Object> vendeurs;
     // Magasin de STOCKAGE : point de vente qui reçoit automatiquement ses collectes ;
-    // sert aussi à déduire le point de vente par défaut des réformés (PointDeVenteReformes).
+    // et ses réformés (MagasinStockageReformes).
     private String magasinVenteParDefautUniqueId;
+    private String magasinVenteParDefautNom;
 
     public String getUniqueId() { return uniqueId; }
     public String getNom() { return nom; }
     public String getType() { return type; }
     public Integer getSeuilAlerteAlveoles() { return seuilAlerteAlveoles; }
     public String getMagasinVenteParDefautUniqueId() { return magasinVenteParDefautUniqueId; }
+    public String getMagasinVenteParDefautNom() { return magasinVenteParDefautNom; }
 }
