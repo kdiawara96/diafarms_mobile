@@ -1138,7 +1138,7 @@ public class HomeActivity extends AppCompatActivity {
     }
 
     private String formatMontant(double montant) {
-        return String.format(Locale.FRANCE, "%,.0f FCFA", montant);
+        return com.mobile.diafarms.util.Monnaie.de(localDatabase).montant(montant);
     }
 
     private void forceSync() {

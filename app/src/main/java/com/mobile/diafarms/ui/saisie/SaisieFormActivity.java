@@ -149,6 +149,10 @@ public class SaisieFormActivity extends AppCompatActivity {
     private String editingLocalId; // null = nouvelle saisie
 
     private LocalDatabase localDatabase;
+    // Devise de la ferme (affichage, arrondi) et modes de paiement cochés, lus du cache du
+    // compte (voir util.Monnaie, data.ModesPaiement) ; repli FCFA / liste historique.
+    private com.mobile.diafarms.util.Monnaie monnaie = com.mobile.diafarms.util.Monnaie.defaut();
+    private com.mobile.diafarms.data.ModesPaiement modesPaiement;
     private final Gson gson = new Gson();
     private final SimpleDateFormat isoDate = new SimpleDateFormat("yyyy-MM-dd", Locale.FRANCE);
     private final SimpleDateFormat isoTime = new SimpleDateFormat("HH:mm", Locale.FRANCE);
@@ -493,6 +497,8 @@ public class SaisieFormActivity extends AppCompatActivity {
         editingLocalId = getIntent().getStringExtra(EXTRA_LOCAL_ID);
 
         localDatabase = new LocalDatabase(this).figee();
+        monnaie = com.mobile.diafarms.util.Monnaie.de(localDatabase);
+        modesPaiement = com.mobile.diafarms.data.ModesPaiement.de(localDatabase);
 
         // Compte de démonstration : le serveur refuse toute écriture, rien à saisir ici.
         com.mobile.diafarms.models.User utilisateur = new com.mobile.diafarms.data.SessionManager(this).getCurrentUser();
@@ -551,6 +557,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         }
 
         bindViews();
+        appliquerDevise();
         applyTypeVisibility();
         setupDateHeurePickers();
         loadBatiments();
@@ -741,7 +748,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         radioGroupUniteVenteOeufs.setOnCheckedChangeListener((group, checkedId) -> {
             boolean enAlveoles = isVenteOeufsEnAlveoles();
             tilQuantiteOeufsVente.setHint(enAlveoles ? "Nombre d'alvéoles vendues" : "Nombre d'œufs vendus");
-            tilPrixUnitaireOeufs.setHint(enAlveoles ? "Prix par alvéole (FCFA)" : "Prix unitaire (FCFA)");
+            tilPrixUnitaireOeufs.setHint(monnaie.libelle(enAlveoles ? "Prix par alvéole (FCFA)" : "Prix unitaire (FCFA)"));
             recalculerMontantVenteOeufs();
             refreshCoherence();
         });
@@ -918,7 +925,7 @@ public class SaisieFormActivity extends AppCompatActivity {
             Double pu = parseDoubleOrNull(etPrixUnitaireVenteDiverse.getText());
             if (q != null && q > 0 && pu != null && pu > 0) {
                 majVenteDiverseAuto = true;
-                etMontantVenteDiverse.setText(String.valueOf(Math.round(q * pu)));
+                etMontantVenteDiverse.setText(monnaie.saisie(q * pu));
                 majVenteDiverseAuto = false;
             }
         });
@@ -954,7 +961,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         // Mode obligatoire et jamais présélectionné : l'utilisateur doit dire comment il a
         // été payé (espèces, Orange Money...).
         spinnerModePaiementClient.setAdapter(new ArrayAdapter<>(this,
-                android.R.layout.simple_dropdown_item_1line, MODE_PAIEMENT_LABELS));
+                android.R.layout.simple_dropdown_item_1line, modesPaiement.libelles()));
         spinnerClientPaiement.setOnItemClickListener((parent, view, position, id) -> surClientPaiementChoisi(true));
 
         groupTransaction = findViewById(R.id.groupTransaction);
@@ -998,7 +1005,7 @@ public class SaisieFormActivity extends AppCompatActivity {
             Double pu = parseDoubleOrNull(etPrixUnitaireSante.getText());
             if (q != null && q > 0 && pu != null && pu > 0) {
                 majSanteAuto = true;
-                etMontant.setText(formatSaisie((double) Math.round(q * pu)));
+                etMontant.setText(monnaie.saisie(q * pu));
                 majSanteAuto = false;
             }
         });
@@ -1050,22 +1057,49 @@ public class SaisieFormActivity extends AppCompatActivity {
         spinnerTypeEntretien.setText(TYPES_ENTRETIEN[0], false);
         updateGroupEntretienNiveau();
 
-        // Mode de paiement — liste statique (miroir de l'enum ModePaiement côté back),
-        // Espèces par défaut. Visibilité/pertinence pilotées séparément (voir
+        // Mode de paiement : modes cochés par la ferme (cache, repli liste historique),
+        // le premier par défaut. Visibilité/pertinence pilotées séparément (voir
         // refreshModePaiementVenteOeufs/Reforme/Commande) : un adaptateur distinct par
         // sélecteur, même si la liste est identique, pour éviter de partager l'état de
         // filtre d'un ArrayAdapter entre plusieurs AutoCompleteTextView actifs en même
         // temps (VenteOeufs/VenteReforme + Commande ne sont jamais affichés ensemble,
         // mais autant rester prudent).
         spinnerModePaiementVenteOeufs.setAdapter(new ArrayAdapter<>(this,
-                android.R.layout.simple_dropdown_item_1line, MODE_PAIEMENT_LABELS));
+                android.R.layout.simple_dropdown_item_1line, modesPaiement.libelles()));
         spinnerModePaiementVenteReforme.setAdapter(new ArrayAdapter<>(this,
-                android.R.layout.simple_dropdown_item_1line, MODE_PAIEMENT_LABELS));
+                android.R.layout.simple_dropdown_item_1line, modesPaiement.libelles()));
         spinnerModePaiementCommande.setAdapter(new ArrayAdapter<>(this,
-                android.R.layout.simple_dropdown_item_1line, MODE_PAIEMENT_LABELS));
-        spinnerModePaiementVenteOeufs.setText(MODE_PAIEMENT_LABELS[0], false);
-        spinnerModePaiementVenteReforme.setText(MODE_PAIEMENT_LABELS[0], false);
-        spinnerModePaiementCommande.setText(MODE_PAIEMENT_LABELS[0], false);
+                android.R.layout.simple_dropdown_item_1line, modesPaiement.libelles()));
+        spinnerModePaiementVenteOeufs.setText(modesPaiement.premierLibelle(), false);
+        spinnerModePaiementVenteReforme.setText(modesPaiement.premierLibelle(), false);
+        spinnerModePaiementCommande.setText(modesPaiement.premierLibelle(), false);
+    }
+
+    /** Devise de la ferme sur les libellés du layout (« Montant (FCFA) » devient
+     * « Montant (€) ») et, pour une devise sans décimale, montants en chiffres entiers
+     * seulement (les prix unitaires gardent la virgule : 62,5 FCFA). */
+    private void appliquerDevise() {
+        remplacerDeviseDansLibelles(findViewById(R.id.main_saisie_form));
+        int type = monnaie.accepteDecimales()
+                ? android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+                : android.text.InputType.TYPE_CLASS_NUMBER;
+        TextInputEditText[] montants = {etMontantVenteOeufs, etMontantRapporteVenteOeufs, etMontantVenteReforme,
+                etMontantRapporteVenteReforme, etMontantEstimeCommande, etAcompteCommande, etMontantRecuLivraison,
+                etMontantPaiement, etMontantSalaire, etMontantVenteDiverse, etMontant};
+        for (TextInputEditText e : montants) {
+            if (e != null) e.setInputType(type);
+        }
+    }
+
+    private void remplacerDeviseDansLibelles(View v) {
+        if (v instanceof TextInputLayout) {
+            CharSequence h = ((TextInputLayout) v).getHint();
+            if (h != null && h.toString().contains("FCFA")) ((TextInputLayout) v).setHint(monnaie.libelle(h.toString()));
+        }
+        if (v instanceof android.view.ViewGroup) {
+            android.view.ViewGroup g = (android.view.ViewGroup) v;
+            for (int i = 0; i < g.getChildCount(); i++) remplacerDeviseDansLibelles(g.getChildAt(i));
+        }
     }
 
     private boolean isTypeSoinVaccination() {
@@ -1396,7 +1430,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         setHintParent(etPrixUnitaireSante, medicament ? "Prix unitaire (facultatif)" : "Prix par jour (facultatif)");
         setHintParent(etDescriptionTransaction, !sante ? "Description" : medicament ? "Observations (facultatif)" : "Nature du service *");
         com.google.android.material.textfield.TextInputLayout tilMontant = findViewById(R.id.tilMontant);
-        if (tilMontant != null) tilMontant.setHint(sante ? "Montant total (FCFA) *" : "Montant (FCFA)");
+        if (tilMontant != null) tilMontant.setHint(monnaie.libelle(sante ? "Montant total (FCFA) *" : "Montant (FCFA)"));
         groupBatimentTop.setVisibility(sante && batiments.size() > 1 ? View.VISIBLE : View.GONE);
         if (sante) populateBatimentSpinner();
     }
@@ -1585,9 +1619,9 @@ public class SaisieFormActivity extends AppCompatActivity {
         }
         StringBuilder t = new StringBuilder();
         if (compte != null) {
-            t.append(String.format(Locale.FRANCE, "Reste à payer : %,.0f F", compte.resteAPayer));
-            t.append(String.format(Locale.FRANCE, "\nAvance libre : %,.0f F", compte.avanceLibre));
-            t.append(String.format(Locale.FRANCE, "\nAvance réservée aux commandes : %,.0f F", compte.avanceReservee));
+            t.append("Reste à payer : ").append(monnaie.montant(compte.resteAPayer));
+            t.append("\nAvance libre : ").append(monnaie.montant(compte.avanceLibre));
+            t.append("\nAvance réservée aux commandes : ").append(monnaie.montant(compte.avanceReservee));
             long maj = localDatabase.getCacheUpdatedAt(key);
             if (maj > 0) {
                 t.append("\nDonnées du ").append(new SimpleDateFormat("dd/MM à HH:mm", Locale.FRANCE).format(new java.util.Date(maj)));
@@ -1596,7 +1630,7 @@ public class SaisieFormActivity extends AppCompatActivity {
             t.append("Solde du client inconnu sur ce téléphone (jamais chargé en ligne).");
         }
         if (enAttente > 0) {
-            t.append(String.format(Locale.FRANCE, "\nEncaissements pas encore envoyés : %,.0f F", enAttente));
+            t.append("\nEncaissements pas encore envoyés : ").append(monnaie.montant(enAttente));
         }
         tvSoldeClient.setText(t.toString());
         tvSoldeClient.setVisibility(View.VISIBLE);
@@ -1632,8 +1666,8 @@ public class SaisieFormActivity extends AppCompatActivity {
         groupKiloLivraison.setVisibility(kilo ? View.VISIBLE : View.GONE);
         if (kilo && c.prixKgEstime != null) etPrixKgLivraison.setText(formatSaisie(c.prixKgEstime));
         spinnerModePaiementLivraison.setAdapter(new ArrayAdapter<>(this,
-                android.R.layout.simple_dropdown_item_1line, MODE_PAIEMENT_LABELS));
-        spinnerModePaiementLivraison.setText(MODE_PAIEMENT_LABELS[0], false);
+                android.R.layout.simple_dropdown_item_1line, modesPaiement.libelles()));
+        spinnerModePaiementLivraison.setText(modesPaiement.premierLibelle(), false);
         appliquerLibellesLivraison();
 
         StringBuilder info = new StringBuilder();
@@ -1650,7 +1684,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         appliquerLibellesLivraison();
         info.append("\nReste à livrer : ").append(formatQuantiteLivraison(Math.max(0, reste)));
         if (c.acompteReserve != null && c.acompteReserve > 0) {
-            info.append(String.format(Locale.FRANCE, "\nAcompte réservé : %,.0f F (règle d'abord cette livraison)", c.acompteReserve));
+            info.append("\nAcompte réservé : ").append(monnaie.montant(c.acompteReserve)).append(" (règle d'abord cette livraison)");
         }
         tvLivraisonCommande.setText(info.toString());
 
@@ -1723,16 +1757,16 @@ public class SaisieFormActivity extends AppCompatActivity {
             Double poids = parseDoubleOrNull(etPoidsLivraison.getText());
             Double prixKg = parseDoubleOrNull(etPrixKgLivraison.getText());
             if (prixKg == null) prixKg = commandeLivree.prixKgEstime;
-            return poids != null && poids > 0 && prixKg != null && prixKg > 0 ? (double) Math.round(poids * prixKg) : null;
+            return poids != null && poids > 0 && prixKg != null && prixKg > 0 ? monnaie.arrondi(poids * prixKg) : null;
         }
         Double pu = commandeLivree.prixUnitaireLivraison();
         int q = quantiteLivraison();
-        return pu != null && q > 0 ? (double) Math.round(pu * q) : null;
+        return pu != null && q > 0 ? monnaie.arrondi(pu * q) : null;
     }
 
     private void recalculerMontantLivraison() {
         Double m = montantLivraison();
-        tvMontantLivraison.setText(m != null ? String.format(Locale.FRANCE, "Montant de cette livraison : %,.0f F", m) : "");
+        tvMontantLivraison.setText(m != null ? "Montant de cette livraison : " + monnaie.montant(m) : "");
         tvMontantLivraison.setVisibility(m != null ? View.VISIBLE : View.GONE);
     }
 
@@ -2011,7 +2045,7 @@ public class SaisieFormActivity extends AppCompatActivity {
     private void recalculerMontantVenteOeufs() {
         int saisie = parseIntSafe(etQuantiteOeufsVente.getText());
         Double prix = parseDoubleOrNull(etPrixUnitaireOeufs.getText());
-        String montant = (saisie > 0 && prix != null && prix > 0) ? String.valueOf(Math.round(saisie * prix)) : "";
+        String montant = (saisie > 0 && prix != null && prix > 0) ? monnaie.saisie(saisie * prix) : "";
         etMontantVenteOeufs.setText(montant);
         if (!montantRapporteOeufsModifieManuel) {
             syncingMontantRapporte = true;
@@ -2033,7 +2067,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         int visibility = kilo ? View.VISIBLE : View.GONE;
         tilPoidsTotalReforme.setVisibility(visibility);
         spacerPoidsTotalReforme.setVisibility(visibility);
-        tilPrixUnitaireReforme.setHint(kilo ? "Prix du kg (FCFA)" : "Prix unitaire (FCFA)");
+        tilPrixUnitaireReforme.setHint(monnaie.libelle(kilo ? "Prix du kg (FCFA)" : "Prix unitaire (FCFA)"));
         refreshPoidsMoyenReforme();
         refreshEstimationPesee();
     }
@@ -2061,7 +2095,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         double quantite = isTypeVenteReformeKilo()
                 ? (poidsTotal != null ? poidsTotal : 0.0)
                 : parseIntSafe(etNombreSujetsVente.getText());
-        String montant = (quantite > 0 && prix != null && prix > 0) ? String.valueOf(Math.round(quantite * prix)) : "";
+        String montant = (quantite > 0 && prix != null && prix > 0) ? monnaie.saisie(quantite * prix) : "";
         etMontantVenteReforme.setText(montant);
         if (!montantRapporteReformeModifieManuel) {
             syncingMontantRapporte = true;
@@ -2086,11 +2120,11 @@ public class SaisieFormActivity extends AppCompatActivity {
     private void applyLabelsQuantiteCommande() {
         if (isCommandeReforme()) {
             tilQuantiteCommande.setHint("Nombre de sujets");
-            tilPrixUnitaireCommande.setHint("Prix unitaire estimé (FCFA, optionnel)");
+            tilPrixUnitaireCommande.setHint(monnaie.libelle("Prix unitaire estimé (FCFA, optionnel)"));
         } else {
             boolean enAlveoles = isCommandeEnAlveoles();
             tilQuantiteCommande.setHint(enAlveoles ? "Nombre d'alvéoles commandées" : "Nombre d'œufs commandés");
-            tilPrixUnitaireCommande.setHint(enAlveoles ? "Prix par alvéole (FCFA, optionnel)" : "Prix unitaire (FCFA, optionnel)");
+            tilPrixUnitaireCommande.setHint(monnaie.libelle(enAlveoles ? "Prix par alvéole (FCFA, optionnel)" : "Prix unitaire (FCFA, optionnel)"));
         }
     }
 
@@ -2107,16 +2141,16 @@ public class SaisieFormActivity extends AppCompatActivity {
             Double prixKg = parseDoubleOrNull(etPrixKgCommande.getText());
             Double poids = parseDoubleOrNull(etPoidsEstimeCommande.getText());
             boolean calcule = prixKg != null && prixKg > 0 && poids != null && poids > 0;
-            if (calcule) etMontantEstimeCommande.setText(String.valueOf(Math.round(poids * prixKg)));
+            if (calcule) etMontantEstimeCommande.setText(monnaie.saisie(poids * prixKg));
             etMontantEstimeCommande.setEnabled(!calcule);
-            tilMontantEstimeCommande.setHint(calcule ? "Montant estimé (FCFA) = poids x prix du kg" : "Montant estimé (FCFA)");
+            tilMontantEstimeCommande.setHint(monnaie.libelle(calcule ? "Montant estimé (FCFA) = poids x prix du kg" : "Montant estimé (FCFA)"));
         } else {
             etMontantEstimeCommande.setEnabled(true);
-            tilMontantEstimeCommande.setHint("Montant estimé (FCFA)");
+            tilMontantEstimeCommande.setHint(monnaie.libelle("Montant estimé (FCFA)"));
             int saisie = parseIntSafe(etQuantiteCommande.getText());
             Double prix = parseDoubleOrNull(etPrixUnitaireCommande.getText());
             if (saisie > 0 && prix != null && prix > 0) {
-                etMontantEstimeCommande.setText(String.valueOf(Math.round(saisie * prix)));
+                etMontantEstimeCommande.setText(monnaie.saisie(saisie * prix));
             }
         }
         refreshEstimationPesee();
@@ -2164,7 +2198,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         });
     }
 
-    /** "Dernière pesée : 1,86 kg/sujet (25/09) → estimation 37,2 kg ≈ 74 400 F", pour
+    /** "Dernière pesée : 1,86 kg/sujet (25/09) → estimation 37,2 kg ≈ 74 400 FCFA", pour
      * Vente réforme au kilo et Commande de réformes au kilo seulement. */
     private void refreshEstimationPesee() {
         if (groupEstimationPeseeReforme == null || groupEstimationPeseeCommande == null) return;
@@ -2184,7 +2218,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         if (estimation != null) {
             texte.append(" → estimation ").append(formatNombre(estimation, 1)).append(" kg");
             if (prixKg != null && prixKg > 0) {
-                texte.append(" ≈ ").append(String.format(Locale.FRANCE, "%,.0f", estimation * prixKg)).append(" F");
+                texte.append(" ≈ ").append(monnaie.montant(monnaie.arrondi(estimation * prixKg)));
             }
         } else {
             texte.append(". Indiquez le nombre de sujets pour estimer le poids.");
@@ -2635,30 +2669,21 @@ public class SaisieFormActivity extends AppCompatActivity {
 
     // ===================== MODE DE PAIEMENT (acompte commande, vente à un client) =====================
 
-    // Miroir de l'enum ModePaiement côté back — Espèces en position 0 = défaut.
-    private static final String[] MODE_PAIEMENT_VALEURS =
-            {"ESPECES", "ORANGE_MONEY", "MOOV_MONEY", "WAVE", "VIREMENT", "CHEQUE", "AUTRE"};
-    private static final String[] MODE_PAIEMENT_LABELS =
-            {"Espèces", "Orange Money", "Moov Money", "Wave", "Virement", "Chèque", "Autre"};
+    // Liste : modes cochés par la ferme (voir data.ModesPaiement). On envoie le code du mode
+    // (valeur historique telle quelle, sinon code que le serveur range en AUTRE + libellé).
 
     private String getSelectedModePaiement(AutoCompleteTextView spinner) {
-        String selected = spinner.getText().toString();
-        for (int i = 0; i < MODE_PAIEMENT_LABELS.length; i++) {
-            if (MODE_PAIEMENT_LABELS[i].equals(selected)) return MODE_PAIEMENT_VALEURS[i];
-        }
-        return null;
+        return modesPaiement.codePour(spinner.getText().toString());
     }
 
-    /** Espèces par défaut si value est null/inconnue (saisie hors ligne antérieure à ce
-     * champ, ou toujours pas de valeur en édition) — cohérent avec le défaut serveur. */
+    /** Premier mode de la ferme si value est null (saisie hors ligne antérieure à ce champ).
+     * Un mode décoché depuis la saisie reste affiché et repart avec son code d'origine. */
     private void selectModePaiementByValue(AutoCompleteTextView spinner, String value) {
-        for (int i = 0; i < MODE_PAIEMENT_VALEURS.length; i++) {
-            if (MODE_PAIEMENT_VALEURS[i].equals(value)) {
-                spinner.setText(MODE_PAIEMENT_LABELS[i], false);
-                return;
-            }
+        if (value == null || value.isEmpty()) {
+            spinner.setText(modesPaiement.premierLibelle(), false);
+            return;
         }
-        spinner.setText(MODE_PAIEMENT_LABELS[0], false);
+        spinner.setText(modesPaiement.retenir(value), false);
     }
 
     /** Un mode de paiement n'a de sens que si le montant rapporté devient un paiement
@@ -2667,14 +2692,14 @@ public class SaisieFormActivity extends AppCompatActivity {
      * null (voir onValider). */
     private void refreshModePaiementVenteOeufs() {
         boolean hasClient = getSelectedClientUniqueId(spinnerClientVenteOeufs, true) != null;
-        tilMontantRapporteVenteOeufs.setHint(hasClient ? "Montant reçu maintenant (FCFA)" : "Montant rapporté (FCFA)");
+        tilMontantRapporteVenteOeufs.setHint(monnaie.libelle(hasClient ? "Montant reçu maintenant (FCFA)" : "Montant rapporté (FCFA)"));
         tilModePaiementVenteOeufs.setVisibility(hasClient ? View.VISIBLE : View.GONE);
     }
 
     /** Même raisonnement que refreshModePaiementVenteOeufs. */
     private void refreshModePaiementVenteReforme() {
         boolean hasClient = getSelectedClientUniqueId(spinnerClientVenteReforme, true) != null;
-        tilMontantRapporteVenteReforme.setHint(hasClient ? "Montant reçu maintenant (FCFA)" : "Montant rapporté (FCFA)");
+        tilMontantRapporteVenteReforme.setHint(monnaie.libelle(hasClient ? "Montant reçu maintenant (FCFA)" : "Montant rapporté (FCFA)"));
         tilModePaiementVenteReforme.setVisibility(hasClient ? View.VISIBLE : View.GONE);
     }
 
@@ -2789,22 +2814,22 @@ public class SaisieFormActivity extends AppCompatActivity {
         tilQuantiteSalaire.setHint("HORAIRE".equals(s.getModePaiement()) ? "Heures travaillées" : "Jours travaillés");
         Double taux = s.getTauxBase();
         String suffixe = "HORAIRE".equals(s.getModePaiement()) ? "/ heure" : ("JOURNALIER".equals(s.getModePaiement()) ? "/ jour" : "/ mois");
-        tvTauxInfoSalaire.setText(taux != null ? String.format(Locale.FRANCE, "Taux (dernière synchronisation) : %,.0f FCFA %s", taux, suffixe) : "");
+        tvTauxInfoSalaire.setText(taux != null ? "Taux (dernière synchronisation) : " + monnaie.prixUnitaire(taux) + " " + suffixe : "");
         // Même employé (liste rechargée) : rien à remettre à zéro, la saisie en cours reste.
         if (s.getEmployeUniqueId() != null && s.getEmployeUniqueId().equals(employeSalaireAffiche)) return;
         employeSalaireAffiche = s.getEmployeUniqueId();
         etQuantiteSalaire.setText("");
         montantSalaireEstime = estimationSalaire(s, null);
-        etMontantSalaire.setText(montantSalaireEstime != null ? String.valueOf(Math.round(montantSalaireEstime)) : "");
+        etMontantSalaire.setText(montantSalaireEstime != null ? monnaie.saisie(montantSalaireEstime) : "");
     }
 
-    /** Montant estimé, arrondi au franc : taux de la dernière synchro (x quantité hors
+    /** Montant estimé, arrondi selon la devise : taux de la dernière synchro (x quantité hors
      * mensuel). Le serveur refait le calcul au taux de la période payée. */
-    private static Double estimationSalaire(SalaireSelectResponse s, Double quantite) {
+    private Double estimationSalaire(SalaireSelectResponse s, Double quantite) {
         if (s == null || s.getTauxBase() == null) return null;
-        if ("MENSUEL".equals(s.getModePaiement())) return (double) Math.round(s.getTauxBase());
+        if ("MENSUEL".equals(s.getModePaiement())) return monnaie.arrondi(s.getTauxBase());
         if (quantite == null || quantite <= 0) return null;
-        return (double) Math.round(s.getTauxBase() * quantite);
+        return monnaie.arrondi(s.getTauxBase() * quantite);
     }
 
     /** Le montant suit l'estimation tant que l'utilisateur ne l'a pas changé lui-même. */
@@ -2813,10 +2838,10 @@ public class SaisieFormActivity extends AppCompatActivity {
         if (s == null || "MENSUEL".equals(s.getModePaiement())) return;
         Double avant = montantSalaireEstime;
         Double saisi = parseDoubleOrNull(etMontantSalaire.getText());
-        boolean suitEstimation = saisi == null || (avant != null && Math.round(saisi) == Math.round(avant));
+        boolean suitEstimation = saisi == null || (avant != null && monnaie.arrondi(saisi.doubleValue()) == monnaie.arrondi(avant.doubleValue()));
         montantSalaireEstime = estimationSalaire(s, parseDoubleOrNull(etQuantiteSalaire.getText()));
         if (suitEstimation) {
-            etMontantSalaire.setText(montantSalaireEstime != null ? String.valueOf(Math.round(montantSalaireEstime)) : "");
+            etMontantSalaire.setText(montantSalaireEstime != null ? monnaie.saisie(montantSalaireEstime) : "");
         }
     }
 
@@ -3552,9 +3577,10 @@ public class SaisieFormActivity extends AppCompatActivity {
         return (s == null || s.isEmpty()) ? null : s;
     }
 
-    /** Montant arrondi au franc entier, comme le serveur (Math.round, x,5 vers le haut). */
-    private static Double arrondiFranc(Double montant) {
-        return montant != null ? (double) Math.round(montant) : null;
+    /** Montant arrondi aux décimales de la devise de la ferme, comme le serveur (demi vers
+     * le haut ; 0 décimale = Math.round, au franc). */
+    private Double arrondiFranc(Double montant) {
+        return monnaie.arrondi(montant);
     }
 
     /** Message si ce nom (sans tenir compte des majuscules) ou ce téléphone est déjà pris
@@ -3844,8 +3870,8 @@ public class SaisieFormActivity extends AppCompatActivity {
                 String libelleType = typeAlimentLibelle(typeAliment);
                 String quoi = libelleType != null ? "aliment " + libelleType.toLowerCase(Locale.FRANCE)
                         : (nomAlimentExistant != null ? nomAlimentExistant : "aliment");
-                summary = String.format(Locale.FRANCE, "Achat %s : %s sac(s), %s kg (-%,.0f FCFA)",
-                        quoi, formatNombre(sacs, 2), formatNombre(quantiteKg, 1), coutAchat);
+                summary = String.format(Locale.FRANCE, "Achat %s : %s sac(s), %s kg (-%s)",
+                        quoi, formatNombre(sacs, 2), formatNombre(quantiteKg, 1), monnaie.montant(coutAchat));
                 break;
             }
             case ALIMENTATION_CONSOMMATION: {
@@ -3939,8 +3965,8 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.typeOeuf = casse ? "CASSE" : "BON";
                 requestObject = req;
                 summary = enAlveoles
-                        ? String.format(Locale.FRANCE, "Vente de %d alvéole(s), %d œufs (%,.0f FCFA)", saisie, quantite, montant)
-                        : String.format(Locale.FRANCE, "Vente de %d œufs (%,.0f FCFA)", quantite, montant);
+                        ? String.format(Locale.FRANCE, "Vente de %d alvéole(s), %d œufs (%s)", saisie, quantite, monnaie.montant(montant))
+                        : String.format(Locale.FRANCE, "Vente de %d œufs (%s)", quantite, monnaie.montant(montant));
                 break;
             }
             case VENTE_REFORME: {
@@ -4000,9 +4026,9 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.poidsTotalKg = kiloReforme ? poidsTotalReforme : null;
                 requestObject = req;
                 summary = kiloReforme
-                        ? String.format(Locale.FRANCE, "Vente réforme : %d %s, %s kg, %,.0f F/kg",
-                                nombreSujets, nombreSujets > 1 ? "sujets" : "sujet", formatNombre(poidsTotalReforme, 3), prixReforme)
-                        : String.format(Locale.FRANCE, "Vente réforme de %d sujet(s) (%,.0f FCFA)", nombreSujets, montant);
+                        ? String.format(Locale.FRANCE, "Vente réforme : %d %s, %s kg, %s/kg",
+                                nombreSujets, nombreSujets > 1 ? "sujets" : "sujet", formatNombre(poidsTotalReforme, 3), monnaie.prixUnitaire(prixReforme))
+                        : String.format(Locale.FRANCE, "Vente réforme de %d sujet(s) (%s)", nombreSujets, monnaie.montant(montant));
                 break;
             }
             case VENTE_FIENTES:
@@ -4016,7 +4042,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 }
                 Double montantVente = arrondiFranc(parseDoubleOrNull(etMontantVenteDiverse.getText()));
                 if (montantVente == null && sacsVendus != null && sacsVendus > 0 && prixSac != null && prixSac > 0) {
-                    montantVente = (double) Math.round(sacsVendus * prixSac);
+                    montantVente = monnaie.arrondi(sacsVendus * prixSac);
                 }
                 if (montantVente == null || montantVente <= 0) {
                     toast("Veuillez saisir le montant (positif) de la vente");
@@ -4052,10 +4078,10 @@ public class SaisieFormActivity extends AppCompatActivity {
                 requestObject = req;
                 summary = fientes
                         ? (req.quantite != null
-                            ? String.format(Locale.FRANCE, "Vente de fientes : %s sac(s) (+%,.0f FCFA)", formatNombre(req.quantite, 2), montantVente)
-                            : String.format(Locale.FRANCE, "Vente de fientes (+%,.0f FCFA)", montantVente))
+                            ? String.format(Locale.FRANCE, "Vente de fientes : %s sac(s) (+%s)", formatNombre(req.quantite, 2), monnaie.montant(montantVente))
+                            : String.format(Locale.FRANCE, "Vente de fientes (+%s)", monnaie.montant(montantVente)))
                           + (descriptionVente != null ? " : " + descriptionVente : "")
-                        : String.format(Locale.FRANCE, "Autre vente : %s (+%,.0f FCFA)", descriptionVente, montantVente);
+                        : String.format(Locale.FRANCE, "Autre vente : %s (+%s)", descriptionVente, monnaie.montant(montantVente));
                 break;
             }
             case TRANSACTION_ENTREE:
@@ -4110,11 +4136,11 @@ public class SaisieFormActivity extends AppCompatActivity {
                     achatMed.batimentUniqueId = batiments.size() > 1 ? getSelectedBatimentUniqueId() : null;
                     requestObject = achatMed;
                     typeEnregistrement = SaisieType.MEDICAMENT_ACHAT;
-                    summary = String.format(Locale.FRANCE, "Achat médicament : %s %s de %s (%,.0f FCFA)",
-                            formatSaisie(qMed), unite, nomMed, montantMed);
+                    summary = String.format(Locale.FRANCE, "Achat médicament : %s %s de %s (%s)",
+                            formatSaisie(qMed), unite, nomMed, monnaie.montant(montantMed));
                     break;
                 }
-                // Arrondi au franc comme le serveur : 0,4 F devient 0, donc refusé ici.
+                // Arrondi selon la devise comme le serveur : 0,4 FCFA devient 0, donc refusé ici.
                 Double montant = arrondiFranc(parseDoubleOrNull(etMontant.getText()));
                 String description = textOf(etDescriptionTransaction);
                 if (montant == null || montant <= 0) {
@@ -4186,8 +4212,8 @@ public class SaisieFormActivity extends AppCompatActivity {
                     return;
                 }
                 requestObject = req;
-                summary = String.format(Locale.FRANCE, "%s %,.0f FCFA : %s",
-                        type == SaisieType.TRANSACTION_SORTIE ? "-" : "+", montant, description)
+                summary = String.format(Locale.FRANCE, "%s %s : %s",
+                        type == SaisieType.TRANSACTION_SORTIE ? "-" : "+", monnaie.montant(montant), description)
                         + (precisionCategorie != null ? " [" + precisionCategorie + "]" : "")
                         + (nomPoulailler != null ? " (" + nomPoulailler + ")" : "");
                 break;
@@ -4259,7 +4285,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                         return;
                     }
                     // Même calcul que le serveur quand le poids estimé est connu.
-                    if (poidsEstimeCommande != null) montantEstime = (double) Math.round(poidsEstimeCommande * prixKgCommande);
+                    if (poidsEstimeCommande != null) montantEstime = monnaie.arrondi(poidsEstimeCommande * prixKgCommande);
                 }
                 if (montantEstime == null || montantEstime <= 0) {
                     toast("Veuillez saisir le montant estimé");
@@ -4301,10 +4327,10 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.dateLivraisonPrevue = nullIfBlank(textOf(etDateLivraisonCommande));
                 requestObject = req;
                 summary = kiloCommande
-                        ? String.format(Locale.FRANCE, "Commande de %d sujet(s) au kilo (%,.0f F/kg) pour %s (%,.0f FCFA estimés)",
-                                quantite, prixKgCommande, clientNomCommande, montantEstime)
-                        : String.format(Locale.FRANCE, "Commande de %d %s pour %s (%,.0f FCFA)",
-                                quantite, estReforme ? "sujet(s)" : "œuf(s)", clientNomCommande, montantEstime);
+                        ? String.format(Locale.FRANCE, "Commande de %d sujet(s) au kilo (%s/kg) pour %s (%s estimés)",
+                                quantite, monnaie.prixUnitaire(prixKgCommande), clientNomCommande, monnaie.montant(montantEstime))
+                        : String.format(Locale.FRANCE, "Commande de %d %s pour %s (%s)",
+                                quantite, estReforme ? "sujet(s)" : "œuf(s)", clientNomCommande, monnaie.montant(montantEstime));
                 break;
             }
             case PAIEMENT_CLIENT: {
@@ -4335,7 +4361,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.commandeUniqueId = getSelectedCommandePaiement();
                 req.observations = nullIfBlank(textOf(etObservationsPaiement));
                 requestObject = req;
-                summary = String.format(Locale.FRANCE, "Encaissement de %,.0f F de %s (%s)%s", montantPaye,
+                summary = String.format(Locale.FRANCE, "Encaissement de %s de %s (%s)%s", monnaie.montant(montantPaye),
                         spinnerClientPaiement.getText().toString(), spinnerModePaiementClient.getText().toString(),
                         req.commandeUniqueId != null ? ", réservé à sa commande" : "");
                 break;
@@ -4397,7 +4423,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 StringBuilder resume = new StringBuilder("Livraison à ").append(c.clientNom).append(" : ")
                         .append(formatQuantiteLivraison(q));
                 if (req.poidsTotalKg != null) resume.append(", ").append(formatNombre(req.poidsTotalKg, 3)).append(" kg");
-                if (req.montantRecu != null) resume.append(String.format(Locale.FRANCE, " (%,.0f F reçus)", req.montantRecu));
+                if (req.montantRecu != null) resume.append(" (").append(monnaie.montant(req.montantRecu)).append(" reçus)");
                 summary = resume.toString();
                 break;
             }
@@ -4448,7 +4474,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                     toast("Le montant doit être positif (ou laissez le montant estimé)");
                     return;
                 }
-                boolean montantChange = montantSaisi != null && (estime == null || Math.round(montantSaisi) != Math.round(estime));
+                boolean montantChange = montantSaisi != null && (estime == null || monnaie.arrondi(montantSaisi.doubleValue()) != monnaie.arrondi(estime.doubleValue()));
                 SalairePayerRequest req = new SalairePayerRequest();
                 req.employeUniqueId = employe.getEmployeUniqueId();
                 req.periode = periode;
@@ -4460,7 +4486,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 Double affiche = montantChange ? montantSaisi : estime;
                 summary = affiche == null
                         ? String.format(Locale.FRANCE, "Salaire de %s, %s (montant calculé par le serveur)", employe.getEmployeNom(), periode)
-                        : String.format(Locale.FRANCE, "Salaire de %s, %s (%,.0f FCFA%s)", employe.getEmployeNom(), periode, affiche,
+                        : String.format(Locale.FRANCE, "Salaire de %s, %s (%s%s)", employe.getEmployeNom(), periode, monnaie.montant(affiche),
                                 montantChange ? ", montant modifié" : " estimé");
                 break;
             }
@@ -4732,9 +4758,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 setDateHeure(req.date, null);
                 if (req.montant != null) etMontantPaiement.setText(formatSaisie(req.montant));
                 etObservationsPaiement.setText(req.observations);
-                for (int i = 0; i < MODE_PAIEMENT_VALEURS.length; i++) {
-                    if (MODE_PAIEMENT_VALEURS[i].equals(req.mode)) spinnerModePaiementClient.setText(MODE_PAIEMENT_LABELS[i], false);
-                }
+                if (req.mode != null && !req.mode.isEmpty()) spinnerModePaiementClient.setText(modesPaiement.retenir(req.mode), false);
                 pendingCommandePaiement = req.commandeUniqueId;
                 selectClientByUniqueId(req.clientUniqueId);
                 break;

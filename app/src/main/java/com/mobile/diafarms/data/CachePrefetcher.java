@@ -81,6 +81,11 @@ public class CachePrefetcher {
     // loadFarmAppSettings/applyFarmAppSettings : appliqué cache d'abord pour que le
     // menu ne reste jamais vide hors ligne, y compris au tout premier écran.
     public static final String CACHE_FARM_SETTINGS = "farm_settings";
+    // Devise de la ferme (affichage et arrondi des montants, voir util.Monnaie) et modes de
+    // paiement cochés par la ferme (voir data.ModesPaiement). Rangés par compte comme tout
+    // le cache, donc par ferme ; rafraîchis à chaque ouverture de l'accueil.
+    public static final String CACHE_DEVISE_FERME = "devise_ferme";
+    public static final String CACHE_MODES_PAIEMENT = "modes_paiement_ferme";
     // Sessions de pesée EN_COURS du projet connues du serveur (créées sur le web ou sur un
     // autre téléphone) et leur détail : "Reprendre" peut ainsi les proposer et les importer
     // hors ligne (voir PeseeSessionActivity). Seulement celles absentes du téléphone.
@@ -270,6 +275,35 @@ public class CachePrefetcher {
         });
     }
 
+    /** Devise et modes de paiement actifs de la ferme. Un serveur plus ancien (404) laisse
+     * le cache vide : affichage FCFA et liste historique des modes, comme avant. */
+    private static void prefetchDeviseEtModesPaiement(Context appContext, LocalDatabase localDatabase) {
+        ApiClient.dataApi(appContext).getDeviseFerme().enqueue(new Callback<ApiEnvelope<com.mobile.diafarms.network.dto.DeviseFermeResponse>>() {
+            @Override
+            public void onResponse(Call<ApiEnvelope<com.mobile.diafarms.network.dto.DeviseFermeResponse>> call,
+                                   Response<ApiEnvelope<com.mobile.diafarms.network.dto.DeviseFermeResponse>> response) {
+                com.mobile.diafarms.network.dto.DeviseFermeResponse d = response.isSuccessful() && response.body() != null
+                        ? response.body().getData() : null;
+                if (d != null && d.devise != null) localDatabase.putCache(CACHE_DEVISE_FERME, gson.toJson(d));
+            }
+
+            @Override
+            public void onFailure(Call<ApiEnvelope<com.mobile.diafarms.network.dto.DeviseFermeResponse>> call, Throwable t) { }
+        });
+        ApiClient.dataApi(appContext).getModesPaiementFerme().enqueue(new Callback<ApiEnvelope<List<com.mobile.diafarms.network.dto.ModePaiementFermeResponse>>>() {
+            @Override
+            public void onResponse(Call<ApiEnvelope<List<com.mobile.diafarms.network.dto.ModePaiementFermeResponse>>> call,
+                                   Response<ApiEnvelope<List<com.mobile.diafarms.network.dto.ModePaiementFermeResponse>>> response) {
+                List<com.mobile.diafarms.network.dto.ModePaiementFermeResponse> l = response.isSuccessful() && response.body() != null
+                        ? response.body().getData() : null;
+                if (l != null && !l.isEmpty()) localDatabase.putCache(CACHE_MODES_PAIEMENT, gson.toJson(l));
+            }
+
+            @Override
+            public void onFailure(Call<ApiEnvelope<List<com.mobile.diafarms.network.dto.ModePaiementFermeResponse>>> call, Throwable t) { }
+        });
+    }
+
     /** Précharge le détail/alertes/stock de chaque projet d'une liste déjà récupérée
      * (évite de refaire l'appel /projets/select quand l'appelant l'a déjà en main). */
     public static void prefetchProjectsDetails(Context context, LocalDatabase localDatabaseAppelant, List<ProjetSelectResponse> projets) {
@@ -286,6 +320,7 @@ public class CachePrefetcher {
         prefetchRattachements(appContext, localDatabase);
         prefetchClients(appContext, localDatabase);
         prefetchSalaires(appContext, localDatabase);
+        prefetchDeviseEtModesPaiement(appContext, localDatabase);
         User u = new SessionManager(appContext).getCurrentUser();
         if (u != null && u.peutEncaisser()) {
             rafraichirCommandes(appContext, localDatabase, null);

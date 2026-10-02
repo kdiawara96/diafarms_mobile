@@ -286,6 +286,14 @@ public interface DataApi {
     @GET("farms/me")
     Call<ApiEnvelope<java.util.Map<String, String>>> getMaFerme();
 
+    // Pays et devise de la ferme (unité d'affichage et d'arrondi des montants, voir util.Monnaie).
+    @GET("farm-settings/devise")
+    Call<ApiEnvelope<com.mobile.diafarms.network.dto.DeviseFermeResponse>> getDeviseFerme();
+
+    // Modes de paiement ACTIFS de la ferme, dans l'ordre choisi (voir data.ModesPaiement).
+    @GET("farm-settings/modes-paiement")
+    Call<ApiEnvelope<List<com.mobile.diafarms.network.dto.ModePaiementFermeResponse>>> getModesPaiementFerme();
+
     @PUT("notifications/{key}/read")
     Call<ApiEnvelope<String>> markNotificationRead(@Path("key") String key);
 }

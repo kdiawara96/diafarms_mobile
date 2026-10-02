@@ -135,8 +135,8 @@ public class CommandesActivity extends AppCompatActivity {
         return c.estAuKilo() ? "Réforme au kilo" : "Réforme par tête";
     }
 
-    private static String montant(Double v) {
-        return String.format(Locale.FRANCE, "%,.0f F", v != null ? v : 0.0);
+    private String montant(Double v) {
+        return com.mobile.diafarms.util.Monnaie.de(localDatabase).montant(v);
     }
 
     private static String dateCourte(String iso) {
@@ -161,11 +161,11 @@ public class CommandesActivity extends AppCompatActivity {
         if (enAttente > 0) m.append(" (dont ").append(quantite(c, enAttente)).append(" livrés sur ce téléphone, pas encore envoyés)");
         m.append("\n\n");
         if (c.estAuKilo()) {
-            m.append("Tarification : au kilo, ").append(montant(c.prixKgEstime)).append("/kg estimé\n");
+            m.append("Tarification : au kilo, ").append(com.mobile.diafarms.util.Monnaie.de(localDatabase).prixUnitaire(c.prixKgEstime)).append("/kg estimé\n");
         } else {
             Double pu = c.prixUnitaireLivraison();
             m.append("Tarification : par ").append(c.estOeufs() ? "œuf" : "tête");
-            if (pu != null) m.append(", ").append(String.format(Locale.FRANCE, "%,.0f F", pu));
+            if (pu != null) m.append(", ").append(com.mobile.diafarms.util.Monnaie.de(localDatabase).prixUnitaire(pu));
             m.append('\n');
         }
         m.append("Montant estimé : ").append(montant(c.montantEstime)).append('\n');
