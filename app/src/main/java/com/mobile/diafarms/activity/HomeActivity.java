@@ -18,6 +18,7 @@ import androidx.cardview.widget.CardView;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
+import android.view.ViewGroup;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 
@@ -178,7 +179,19 @@ public class HomeActivity extends AppCompatActivity {
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.appBar), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, 0);
+            return insets;
+        });
+        // Barre « En ligne • Sync auto » collée en bas : en plein écran (edge-to-edge),
+        // la barre de navigation Android (3 boutons) la recouvrait sur certains
+        // téléphones. On la remonte de la hauteur de cette barre.
+        View cardSyncBar = findViewById(R.id.cardSyncBar);
+        final int margeBasSync = ((ViewGroup.MarginLayoutParams) cardSyncBar.getLayoutParams()).bottomMargin;
+        ViewCompat.setOnApplyWindowInsetsListener(cardSyncBar, (v, insets) -> {
+            Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) v.getLayoutParams();
+            lp.bottomMargin = margeBasSync + bars.bottom;
+            v.setLayoutParams(lp);
             return insets;
         });
 
