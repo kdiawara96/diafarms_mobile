@@ -289,9 +289,14 @@ public class MesSaisiesActivity extends AppCompatActivity {
                     tvStatus.setBackgroundColor(0xFF6D4C41);
                     break;
                 case SaisieLocale.STATUT_ERROR:
-                    tvStatus.setText("Erreur : " + (saisie.getErrorMessage() != null ? saisie.getErrorMessage() : "envoi échoué"));
+                    // Badge court ; la raison du serveur (ex. « Ce numéro de téléphone est déjà
+                    // celui du client... ») en entier sous le résumé : dans le petit badge, à
+                    // côté du titre, une phrase longue était à peine lisible.
+                    tvStatus.setText("Refusée");
                     tvStatus.setTextColor(Color.WHITE);
                     tvStatus.setBackgroundColor(0xFFC62828);
+                    tvSummary.setText(saisie.getDisplaySummary() + "\nRefusée : "
+                            + (saisie.getErrorMessage() != null ? saisie.getErrorMessage() : "envoi échoué"));
                     break;
                 default:
                     // Note d'un essai d'envoi qui n'a pas abouti (réseau, serveur) : la saisie
