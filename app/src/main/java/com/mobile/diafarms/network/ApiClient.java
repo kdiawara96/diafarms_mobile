@@ -55,7 +55,7 @@ public class ApiClient {
                             .addInterceptor(new AuthInterceptor(sessionManager))
                             .addInterceptor(new RequestLoggingInterceptor(context.getApplicationContext()))
                             .addInterceptor(new ErrorCaptureInterceptor(context.getApplicationContext()))
-                            .addInterceptor(new AbonnementInterceptor(context.getApplicationContext()))
+                            .addInterceptor(new AbonnementInterceptor(context.getApplicationContext(), sessionManager))
                             .build();
 
                     retrofit = new Retrofit.Builder()
@@ -170,41 +170,59 @@ public class ApiClient {
         }
     }
 
-    /** Ferme bloquée (voir data/AbonnementBloque) : regarde chaque LECTURE (GET) de l'API.
+    /** Ferme bloquée (voir data/AbonnementBloque) : regarde chaque LECTURE (GET) de l'API,
+     * pour la ferme du compte actif (lue AVANT l'envoi : le compte peut changer pendant).
      * En-tête X-Abonnement-Bloque (403, ou 200 de /notifications/list avec une seule alerte)
      * : état posé avec le message du serveur. Repli pour un serveur sans cet en-tête : 403
-     * dont le message est celui du blocage (contact WhatsApp). Toute autre lecture réussie
-     * lève l'état, sauf /abonnements/moi que le serveur laisse passer même bloqué. Ne
-     * modifie jamais la réponse, ne touche ni aux envois ni aux saisies locales. */
+     * dont le message est celui du blocage (contact WhatsApp). L'état n'est levé que par une
+     * lecture AUTHENTIFIÉE réussie (jamais par /test, logo, tampon, simulation de tarif,
+     * publics), et jamais par /abonnements/moi que le serveur laisse passer même bloqué.
+     * Requête portant un autre jeton que celui de la session (vérification du QR d'un autre
+     * compte) : ni posé ni levé. Ne modifie jamais la réponse, ne touche ni aux envois ni
+     * aux saisies locales. */
     private static class AbonnementInterceptor implements Interceptor {
         private static final long MAX_PEEK_BYTES = 8192;
         private final Context context;
+        private final SessionManager sessionManager;
 
-        AbonnementInterceptor(Context context) {
+        AbonnementInterceptor(Context context, SessionManager sessionManager) {
             this.context = context;
+            this.sessionManager = sessionManager;
+        }
+
+        private static boolean estPublic(String chemin) {
+            return chemin.endsWith("/test") || chemin.endsWith("/abonnements/tarif-simulation")
+                    || (chemin.contains("/farms/") && (chemin.endsWith("/logo") || chemin.endsWith("/tampon")));
         }
 
         @NonNull
         @Override
         public Response intercept(@NonNull Chain chain) throws IOException {
             Request request = chain.request();
+            if (!"GET".equalsIgnoreCase(request.method())) return chain.proceed(request);
+            String farmId = com.mobile.diafarms.data.SessionManager.activeFarmId(context);
+            String auth = request.header("Authorization");
+            String token = sessionManager.getToken();
+            boolean jetonDeSession = auth != null && token != null && !token.isEmpty() && auth.equals("Bearer " + token);
             Response response = chain.proceed(request);
-            if (!"GET".equalsIgnoreCase(request.method())) return response;
             String chemin = request.url().encodedPath();
-            if (!chemin.contains("/api/v1/") || chemin.endsWith("/abonnements/moi")) return response;
+            if (farmId == null || !jetonDeSession || !chemin.contains("/api/v1/")
+                    || chemin.endsWith("/abonnements/moi") || estPublic(chemin)) {
+                return response;
+            }
             try {
                 String etat = response.header("X-Abonnement-Bloque");
                 if (etat != null && !etat.trim().isEmpty()) {
-                    com.mobile.diafarms.data.AbonnementBloque.marquer(context, etat.trim(), message(response));
+                    com.mobile.diafarms.data.AbonnementBloque.marquer(context, farmId, etat.trim(), message(response));
                 } else if (response.code() == 403) {
                     String m = message(response);
                     if (m != null && m.contains(com.mobile.diafarms.data.AbonnementBloque.WHATSAPP)
                             && (m.contains("ferme est suspendu") || m.contains("abonnement de votre ferme est terminé"))) {
-                        com.mobile.diafarms.data.AbonnementBloque.marquer(context,
+                        com.mobile.diafarms.data.AbonnementBloque.marquer(context, farmId,
                                 m.contains("suspendu") ? "SUSPENDU" : "EXPIRE", m);
                     }
                 } else if (response.isSuccessful()) {
-                    com.mobile.diafarms.data.AbonnementBloque.lever(context);
+                    com.mobile.diafarms.data.AbonnementBloque.lever(context, farmId);
                 }
             } catch (Exception e) {
                 DebugLog.log(context, "ApiClient", "Etat de l'abonnement illisible : " + e.getMessage());

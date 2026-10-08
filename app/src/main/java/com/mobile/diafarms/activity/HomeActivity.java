@@ -389,6 +389,8 @@ public class HomeActivity extends AppCompatActivity {
     }
 
     private void logout() {
+        // État « ferme bloquée » de ce compte oublié : revérifié à la prochaine lecture.
+        AbonnementBloque.lever(this);
         sessionManager.lockSession();
         Intent intent = new Intent(this, LoginActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
@@ -676,7 +678,10 @@ public class HomeActivity extends AppCompatActivity {
                     public void onResponse(Call<ApiEnvelope<List<NotificationResponse>>> call, Response<ApiEnvelope<List<NotificationResponse>>> response) {
                         if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
                             alertesList = response.body().getData();
-                            localDatabase.putCache(cacheKey, gson.toJson(alertesList));
+                            // Alerte de blocage : jamais en cache (voir CachePrefetcher.contientAlerteBlocage).
+                            if (!CachePrefetcher.contientAlerteBlocage(alertesList)) {
+                                localDatabase.putCache(cacheKey, gson.toJson(alertesList));
+                            }
                             updateAlertesCard();
                         }
                     }
@@ -713,10 +718,16 @@ public class HomeActivity extends AppCompatActivity {
             cardAlertes.setVisibility(View.GONE);
             return;
         }
+        // Ferme débloquée : une alerte de blocage restée en mémoire (ou d'un ancien cache)
+        // ne doit plus s'afficher.
         List<NotificationResponse> nonLues = new ArrayList<>();
+        List<NotificationResponse> gardees = new ArrayList<>();
         for (NotificationResponse n : alertesList) {
+            if (AbonnementBloque.estAlerteBlocage(n.getKey())) continue;
+            gardees.add(n);
             if (!n.isRead()) nonLues.add(n);
         }
+        alertesList = gardees;
         if (nonLues.isEmpty()) {
             cardAlertes.setVisibility(View.GONE);
             return;

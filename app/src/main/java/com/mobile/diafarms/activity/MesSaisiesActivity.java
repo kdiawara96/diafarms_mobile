@@ -292,10 +292,14 @@ public class MesSaisiesActivity extends AppCompatActivity {
                     // Badge court ; la raison du serveur (ex. « Ce numéro de téléphone est déjà
                     // celui du client... ») en entier sous le résumé : dans le petit badge, à
                     // côté du titre, une phrase longue était à peine lisible.
-                    tvStatus.setText("Refusée");
+                    // « Refusée » : refus du serveur (code HTTP >= 400). Refus du téléphone
+                    // lui-même (code -1, ex. type inconnu de cette version) : « Non envoyable ».
+                    boolean refusServeur = saisie.getHttpCode() != null && saisie.getHttpCode() >= 400;
+                    String libelleRefus = refusServeur ? "Refusée" : "Non envoyable";
+                    tvStatus.setText(libelleRefus);
                     tvStatus.setTextColor(Color.WHITE);
                     tvStatus.setBackgroundColor(0xFFC62828);
-                    tvSummary.setText(saisie.getDisplaySummary() + "\nRefusée : "
+                    tvSummary.setText(saisie.getDisplaySummary() + "\n" + libelleRefus + " : "
                             + (saisie.getErrorMessage() != null ? saisie.getErrorMessage() : "envoi échoué"));
                     break;
                 default:
@@ -333,7 +337,8 @@ public class MesSaisiesActivity extends AppCompatActivity {
                 }
                 if (enErreur) {
                     // Le badge de statut est petit : message du serveur répété, lisible, sous le résumé.
-                    tvSummary.setText(saisie.getDisplaySummary() + "\nRefusée : "
+                    boolean refusServeur = saisie.getHttpCode() != null && saisie.getHttpCode() >= 400;
+                    tvSummary.setText(saisie.getDisplaySummary() + (refusServeur ? "\nRefusée : " : "\nNon envoyable : ")
                             + (saisie.getErrorMessage() != null ? saisie.getErrorMessage() : "envoi échoué"));
                 }
                 view.setOnClickListener(v -> openEdit(saisie));

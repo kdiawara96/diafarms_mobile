@@ -650,7 +650,8 @@ public class CachePrefetcher {
         ApiClient.dataApi(appContext).getNotificationsForProjet(projetUniqueId).enqueue(new Callback<ApiEnvelope<List<NotificationResponse>>>() {
             @Override
             public void onResponse(Call<ApiEnvelope<List<NotificationResponse>>> call, Response<ApiEnvelope<List<NotificationResponse>>> response) {
-                if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
+                if (response.isSuccessful() && response.body() != null && response.body().getData() != null
+                        && !contientAlerteBlocage(response.body().getData())) {
                     localDatabase.putCache(CACHE_NOTIFICATIONS_PREFIX + projetUniqueId, gson.toJson(response.body().getData()));
                 }
             }
@@ -733,5 +734,16 @@ public class CachePrefetcher {
     }
 
     private CachePrefetcher() {
+    }
+
+    /** Réponse de ferme bloquée (une seule alerte « abonnement-bloque-... », voir
+     * AbonnementBloque) : jamais écrite dans le cache, elle n'a rien d'une vraie alerte et
+     * reviendrait après le déblocage ; les dernières vraies alertes connues sont gardées. */
+    public static boolean contientAlerteBlocage(List<NotificationResponse> alertes) {
+        if (alertes == null) return false;
+        for (NotificationResponse n : alertes) {
+            if (n != null && AbonnementBloque.estAlerteBlocage(n.getKey())) return true;
+        }
+        return false;
     }
 }
