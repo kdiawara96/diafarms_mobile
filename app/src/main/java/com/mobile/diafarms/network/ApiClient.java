@@ -55,6 +55,7 @@ public class ApiClient {
                             .addInterceptor(new AuthInterceptor(sessionManager))
                             .addInterceptor(new RequestLoggingInterceptor(context.getApplicationContext()))
                             .addInterceptor(new ErrorCaptureInterceptor(context.getApplicationContext()))
+                            .addInterceptor(new AbonnementInterceptor(context.getApplicationContext()))
                             .build();
 
                     retrofit = new Retrofit.Builder()
@@ -166,6 +167,63 @@ public class ApiClient {
             }
 
             return response;
+        }
+    }
+
+    /** Ferme bloquée (voir data/AbonnementBloque) : regarde chaque LECTURE (GET) de l'API.
+     * En-tête X-Abonnement-Bloque (403, ou 200 de /notifications/list avec une seule alerte)
+     * : état posé avec le message du serveur. Repli pour un serveur sans cet en-tête : 403
+     * dont le message est celui du blocage (contact WhatsApp). Toute autre lecture réussie
+     * lève l'état, sauf /abonnements/moi que le serveur laisse passer même bloqué. Ne
+     * modifie jamais la réponse, ne touche ni aux envois ni aux saisies locales. */
+    private static class AbonnementInterceptor implements Interceptor {
+        private static final long MAX_PEEK_BYTES = 8192;
+        private final Context context;
+
+        AbonnementInterceptor(Context context) {
+            this.context = context;
+        }
+
+        @NonNull
+        @Override
+        public Response intercept(@NonNull Chain chain) throws IOException {
+            Request request = chain.request();
+            Response response = chain.proceed(request);
+            if (!"GET".equalsIgnoreCase(request.method())) return response;
+            String chemin = request.url().encodedPath();
+            if (!chemin.contains("/api/v1/") || chemin.endsWith("/abonnements/moi")) return response;
+            try {
+                String etat = response.header("X-Abonnement-Bloque");
+                if (etat != null && !etat.trim().isEmpty()) {
+                    com.mobile.diafarms.data.AbonnementBloque.marquer(context, etat.trim(), message(response));
+                } else if (response.code() == 403) {
+                    String m = message(response);
+                    if (m != null && m.contains(com.mobile.diafarms.data.AbonnementBloque.WHATSAPP)
+                            && (m.contains("ferme est suspendu") || m.contains("abonnement de votre ferme est terminé"))) {
+                        com.mobile.diafarms.data.AbonnementBloque.marquer(context,
+                                m.contains("suspendu") ? "SUSPENDU" : "EXPIRE", m);
+                    }
+                } else if (response.isSuccessful()) {
+                    com.mobile.diafarms.data.AbonnementBloque.lever(context);
+                }
+            } catch (Exception e) {
+                DebugLog.log(context, "ApiClient", "Etat de l'abonnement illisible : " + e.getMessage());
+            }
+            return response;
+        }
+
+        /** "message" d'un refus, ou celui de la première alerte (data[0].message). */
+        private static String message(Response response) {
+            try (ResponseBody peeked = response.peekBody(MAX_PEEK_BYTES)) {
+                com.google.gson.JsonObject o = com.google.gson.JsonParser.parseString(peeked.string()).getAsJsonObject();
+                if (o.has("data") && o.get("data").isJsonArray() && o.getAsJsonArray("data").size() > 0) {
+                    com.google.gson.JsonObject a = o.getAsJsonArray("data").get(0).getAsJsonObject();
+                    if (a.has("message") && !a.get("message").isJsonNull()) return a.get("message").getAsString();
+                }
+                if (o.has("message") && !o.get("message").isJsonNull()) return o.get("message").getAsString();
+            } catch (Exception ignored) {
+            }
+            return null;
         }
     }
 

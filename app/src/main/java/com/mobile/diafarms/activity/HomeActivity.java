@@ -25,6 +25,7 @@ import androidx.core.view.WindowInsetsControllerCompat;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.mobile.diafarms.R;
+import com.mobile.diafarms.data.AbonnementBloque;
 import com.mobile.diafarms.data.CachePrefetcher;
 import com.mobile.diafarms.data.LocalDatabase;
 import com.mobile.diafarms.data.SessionManager;
@@ -157,6 +158,14 @@ public class HomeActivity extends AppCompatActivity {
     private TextView tvConsultationSeule;
     private TextView tvDejaEnregistrees;
 
+    // Ferme bloquée (abonnement suspendu ou terminé, voir AbonnementBloque) : bandeau en
+    // haut, chiffres du projet en cache masqués (devenus anciens). Saisies et envoi
+    // inchangés. Écouteur gardé en champ : SharedPreferences ne garde qu'une référence faible.
+    private TextView tvAbonnementBloque;
+    private View clProjetResume;
+    private boolean bloqueAffiche = false;
+    private android.content.SharedPreferences.OnSharedPreferenceChangeListener ecouteurAbonnement;
+
     // Bandeau "Nouvelle version disponible"
     private CardView cardMiseAJour;
     private TextView tvMajTitre;
@@ -211,6 +220,9 @@ public class HomeActivity extends AppCompatActivity {
         }
 
         bindViews();
+        ecouteurAbonnement = (prefs, cle) -> appliquerAbonnementBloque();
+        AbonnementBloque.preferences(this).registerOnSharedPreferenceChangeListener(ecouteurAbonnement);
+        appliquerAbonnementBloque();
         setupHeader();
         setupVisibilityByRole();
         setupClickListeners();
@@ -258,6 +270,15 @@ public class HomeActivity extends AppCompatActivity {
         tvTauxPonte = findViewById(R.id.tvTauxPonte);
         tvJoursRestants = findViewById(R.id.tvJoursRestants);
         tvBatimentsOccupes = findViewById(R.id.tvBatimentsOccupes);
+        clProjetResume = findViewById(R.id.clProjetResume);
+        tvAbonnementBloque = findViewById(R.id.tvAbonnementBloque);
+        tvAbonnementBloque.setOnClickListener(v -> {
+            try {
+                startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(AbonnementBloque.WHATSAPP_LIEN)));
+            } catch (Exception e) {
+                Toast.makeText(this, "WhatsApp : " + AbonnementBloque.WHATSAPP, Toast.LENGTH_LONG).show();
+            }
+        });
 
         cardLastEntry = findViewById(R.id.cardLastEntry);
         cardAlertes = findViewById(R.id.cardAlertes);
@@ -667,7 +688,31 @@ public class HomeActivity extends AppCompatActivity {
                 });
     }
 
+    /** Ferme bloquée : bandeau visible, chiffres du projet et alertes en cache masqués (le
+     * bandeau porte déjà le message). Débloquée (une lecture normale a réussi) : tout
+     * réapparaît et le projet affiché est rechargé. Le sélecteur de projet et les boutons
+     * de saisie restent toujours là : les saisies sont acceptées par le serveur. */
+    private void appliquerAbonnementBloque() {
+        if (tvAbonnementBloque == null) return;
+        boolean bloque = AbonnementBloque.estBloque(this);
+        tvAbonnementBloque.setVisibility(bloque ? View.VISIBLE : View.GONE);
+        if (bloque) tvAbonnementBloque.setText(AbonnementBloque.message(this));
+        clProjetResume.setVisibility(bloque ? View.GONE : View.VISIBLE);
+        tvBatimentsOccupes.setVisibility(bloque ? View.GONE : View.VISIBLE);
+        if (bloque) {
+            cardAlertes.setVisibility(View.GONE);
+        } else if (bloqueAffiche) {
+            updateAlertesCard();
+            if (currentProjet != null) updateProjetDisplay();
+        }
+        bloqueAffiche = bloque;
+    }
+
     private void updateAlertesCard() {
+        if (AbonnementBloque.estBloque(this)) {
+            cardAlertes.setVisibility(View.GONE);
+            return;
+        }
         List<NotificationResponse> nonLues = new ArrayList<>();
         for (NotificationResponse n : alertesList) {
             if (!n.isRead()) nonLues.add(n);
@@ -983,6 +1028,9 @@ public class HomeActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (ecouteurAbonnement != null) {
+            AbonnementBloque.preferences(this).unregisterOnSharedPreferenceChangeListener(ecouteurAbonnement);
+        }
         if (connectivityManager != null && networkCallback != null) {
             connectivityManager.unregisterNetworkCallback(networkCallback);
         }
@@ -1275,6 +1323,7 @@ public class HomeActivity extends AppCompatActivity {
         setupSyncStatus();
         updateFinanceStats();
         loadLastEntry();
+        appliquerAbonnementBloque();
         if (updateController != null) {
             updateController.onResume();
         }

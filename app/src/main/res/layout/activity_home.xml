@@ -146,6 +146,25 @@
             </FrameLayout>
         </androidx.constraintlayout.widget.ConstraintLayout>
 
+        <!-- Ferme bloquée (abonnement suspendu ou terminé, voir data/AbonnementBloque) :
+             bandeau pleine largeur, message du serveur + WhatsApp. Les chiffres en cache
+             du projet sont masqués ; les saisies et l'envoi restent possibles. -->
+        <TextView
+            android:id="@+id/tvAbonnementBloque"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginBottom="12dp"
+            android:background="@drawable/bg_bandeau_bloque"
+            android:padding="12dp"
+            android:textColor="@color/red_text_dark"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:lineSpacingExtra="2dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:visibility="gone"/>
+
         <!-- Carte Projet -->
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
