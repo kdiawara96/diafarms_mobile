@@ -4151,6 +4151,15 @@ public class SaisieFormActivity extends AppCompatActivity {
                     toast("Veuillez saisir une description");
                     return;
                 }
+                if (type == SaisieType.TRANSACTION_ENTREE
+                        && com.mobile.diafarms.util.VenteHorsVentes.contientMotVente(description, categorieChoisie, precisionCategorie)) {
+                    new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                            .setTitle("Une vente se fait dans Ventes")
+                            .setMessage(com.mobile.diafarms.util.VenteHorsVentes.MESSAGE)
+                            .setPositiveButton("Compris", null)
+                            .show();
+                    return;
+                }
                 boolean sante = estSante();
                 if (sante && (projetUniqueId == null || projetUniqueId.isEmpty())) {
                     toast("Un soin concerne un projet : choisissez d'abord le projet à l'accueil");
