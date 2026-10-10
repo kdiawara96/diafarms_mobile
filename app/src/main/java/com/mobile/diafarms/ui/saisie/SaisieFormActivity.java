@@ -821,6 +821,16 @@ public class SaisieFormActivity extends AppCompatActivity {
         groupClient = findViewById(R.id.groupClient);
         etClientNom = findViewById(R.id.etClientNom);
         etClientTelephone = findViewById(R.id.etClientTelephone);
+        // Seulement des chiffres, des espaces et un « + » au début (même règle que le serveur).
+        etClientTelephone.setFilters(new android.text.InputFilter[] {(source, start, end, dest, dstart, dend) -> {
+            StringBuilder garde = new StringBuilder();
+            for (int i = start; i < end; i++) {
+                char ch = source.charAt(i);
+                if ((ch >= '0' && ch <= '9') || ch == ' ' || (ch == '+' && dstart + garde.length() == 0
+                        && dest.toString().indexOf('+') < 0)) garde.append(ch);
+            }
+            return garde.length() == end - start ? null : garde.toString();
+        }});
         etClientAdresse = findViewById(R.id.etClientAdresse);
         etClientEmail = findViewById(R.id.etClientEmail);
 
