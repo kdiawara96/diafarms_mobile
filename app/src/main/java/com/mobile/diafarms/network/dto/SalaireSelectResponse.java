@@ -18,10 +18,21 @@ public class SalaireSelectResponse {
     // synchronisation, le serveur reste seul juge définitif (voir
     // SalaireServiceImpl.payer, rejette tout doublon quoi qu'il arrive).
     private String dernierPaiementPeriode;
+    // Toutes les périodes déjà payées (AAAA-MM) à la dernière synchronisation : un mois
+    // plus ancien déjà payé est refusé dès son choix, pas seulement le dernier.
+    private java.util.List<String> periodesPayees;
 
     public String getEmployeUniqueId() { return employeUniqueId; }
     public String getEmployeNom() { return employeNom; }
     public String getModePaiement() { return modePaiement; }
     public Double getTauxBase() { return tauxBase; }
     public String getDernierPaiementPeriode() { return dernierPaiementPeriode; }
+
+    /** Période déjà payée d'après la dernière synchronisation (liste complète, sinon le
+     * dernier paiement pour un cache d'avant ce champ). */
+    public boolean estPayee(String periode) {
+        if (periode == null) return false;
+        if (periode.equals(dernierPaiementPeriode)) return true;
+        return periodesPayees != null && periodesPayees.contains(periode);
+    }
 }

@@ -372,6 +372,7 @@ public class SaisieFormActivity extends AppCompatActivity {
     // elle-même ici (ça reste une action web, voir SaisieType.SALAIRE_PAYER).
     private View groupSalaire;
     private AutoCompleteTextView spinnerEmployeSalaire, spinnerMoisSalaire, spinnerAnneeSalaire;
+    private com.google.android.material.textfield.TextInputLayout tilMoisSalaire;
     private TextView tvAucunSalaireEmploye, tvTauxInfoSalaire;
     private TextInputLayout tilQuantiteSalaire;
     private TextInputEditText etQuantiteSalaire, etMontantSalaire, etDescriptionSalaire;
@@ -912,7 +913,10 @@ public class SaisieFormActivity extends AppCompatActivity {
         etMontantSalaire = findViewById(R.id.etMontantSalaire);
         etDescriptionSalaire = findViewById(R.id.etDescriptionSalaire);
         setupSalaireSpinners();
+        tilMoisSalaire = findViewById(R.id.tilMoisSalaire);
         spinnerEmployeSalaire.setOnItemClickListener((parent, view, position, id) -> applySalaireEmployeSelectionne());
+        spinnerMoisSalaire.setOnItemClickListener((parent, view, position, id) -> verifierPeriodeSalaire(true));
+        spinnerAnneeSalaire.setOnItemClickListener((parent, view, position, id) -> verifierPeriodeSalaire(true));
         TextWatcher quantiteSalaireWatcher = new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) { recalculerMontantSalaire(); }
@@ -2813,6 +2817,7 @@ public class SaisieFormActivity extends AppCompatActivity {
      * quantité — mêmes règles que PayerSalaireDialog côté web. */
     private void applySalaireEmployeSelectionne() {
         SalaireSelectResponse s = getSelectedSalaireEmploye();
+        verifierPeriodeSalaire(false);
         if (s == null) {
             tilQuantiteSalaire.setVisibility(View.GONE);
             tvTauxInfoSalaire.setText("");
@@ -2831,6 +2836,37 @@ public class SaisieFormActivity extends AppCompatActivity {
         etQuantiteSalaire.setText("");
         montantSalaireEstime = estimationSalaire(s, null);
         etMontantSalaire.setText(montantSalaireEstime != null ? monnaie.saisie(montantSalaireEstime) : "");
+    }
+
+    /** Message si ce mois est déjà payé pour cet employé, sinon null. Deux sources, sans
+     * réseau : les mois payés connus du serveur à la dernière synchronisation (liste
+     * complète, pas seulement le dernier) et les paiements pas encore envoyés de ce
+     * téléphone. Le serveur reste juge (SalaireServiceImpl.payer) pour un paiement fait
+     * ailleurs depuis la dernière synchronisation. */
+    private String messagePeriodeSalaireDejaPayee(SalaireSelectResponse employe, String periode) {
+        if (employe == null || periode == null) return null;
+        if (employe.estPayee(periode)) {
+            return "Le salaire de " + periode + " a déjà été payé pour " + employe.getEmployeNom() + ".";
+        }
+        for (SaisieLocale existante : localDatabase.getSaisiesByType(SaisieType.SALAIRE_PAYER)) {
+            if (!existante.isEditable()) continue; // déjà synchronisée, sans rapport ici
+            if (existante.getLocalId().equals(editingLocalId)) continue; // soi-même, en édition
+            SalairePayerRequest autre = gson.fromJson(existante.getPayloadJson(), SalairePayerRequest.class);
+            if (autre != null && employe.getEmployeUniqueId().equals(autre.employeUniqueId) && periode.equals(autre.periode)) {
+                return "Le salaire de " + periode + " pour " + employe.getEmployeNom() + " est déjà en attente d'envoi sur ce téléphone.";
+            }
+        }
+        return null;
+    }
+
+    /** Affiche tout de suite, sous le mois, si ce mois est déjà payé (au choix de
+     * l'employé, du mois ou de l'année), au lieu d'attendre l'envoi. annoncer : message
+     * en plus (choix fait par l'utilisateur, pas au rechargement de la liste). */
+    private void verifierPeriodeSalaire(boolean annoncer) {
+        if (tilMoisSalaire == null) return;
+        String msg = messagePeriodeSalaireDejaPayee(getSelectedSalaireEmploye(), getSelectedPeriodeSalaire());
+        tilMoisSalaire.setError(msg != null ? "Déjà payé : choisissez un autre mois" : null);
+        if (msg != null && annoncer) toast(msg);
     }
 
     /** Montant estimé, arrondi selon la devise : taux de la dernière synchro (x quantité hors
@@ -4466,18 +4502,10 @@ public class SaisieFormActivity extends AppCompatActivity {
                 // 1) le dernier paiement CONNU du serveur (best-effort, cache local) ;
                 // 2) les saisies PAS ENCORE synchronisées sur CE téléphone (couvre le cas
                 //    où le doublon vient d'être saisi hors ligne, avant toute synchro).
-                if (periode.equals(employe.getDernierPaiementPeriode())) {
-                    toast("Le salaire de " + periode + " a déjà été payé pour " + employe.getEmployeNom() + " (déjà synchronisé).");
+                String dejaPaye = messagePeriodeSalaireDejaPayee(employe, periode);
+                if (dejaPaye != null) {
+                    toast(dejaPaye);
                     return;
-                }
-                for (SaisieLocale existante : localDatabase.getSaisiesByType(SaisieType.SALAIRE_PAYER)) {
-                    if (!existante.isEditable()) continue; // déjà synchronisée, sans rapport ici
-                    if (existante.getLocalId().equals(editingLocalId)) continue; // soi-même, en édition
-                    SalairePayerRequest autre = gson.fromJson(existante.getPayloadJson(), SalairePayerRequest.class);
-                    if (employe.getEmployeUniqueId().equals(autre.employeUniqueId) && periode.equals(autre.periode)) {
-                        toast("Le salaire de " + periode + " pour " + employe.getEmployeNom() + " est déjà en attente de synchronisation sur ce téléphone.");
-                        return;
-                    }
                 }
                 boolean mensuel = "MENSUEL".equals(employe.getModePaiement());
                 Double quantiteSalaire = mensuel ? null : parseDoubleOrNull(etQuantiteSalaire.getText());
