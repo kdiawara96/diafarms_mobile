@@ -1,18 +1,18 @@
 package com.mobile.diafarms.network;
 
 /**
- * Serveur de production (cocorico.back.batimanager.net) — même backend que le web.
+ * Serveur de production (api.cocoricoferme.com) — même backend que le web.
  * Reste modifiable en direct depuis l'écran Diagnostics (AppSettings.setServerUrl)
  * pour un usage en développement local, sans avoir à recompiler l'app.
  */
 public class Constants {
 
-    public static final String BASE_URL = "https://cocorico.back.batimanager.net/diafarms/api/v1/";
+    public static final String BASE_URL = "https://api.cocoricoferme.com/diafarms/api/v1/";
 
     // Site web (frontend) : c'est lui qui publie l'APK et sa fiche de version pour la
     // mise à jour directe depuis l'app (voir update/UpdateChecker). Voir aussi
     // AppSettings.getWebUrl, qui le déduit de l'adresse serveur quand elle a été changée.
-    public static final String WEB_URL = "https://cocorico.batimanager.net/";
+    public static final String WEB_URL = "https://app.cocoricoferme.com/";
     public static final String UPDATE_VERSION_PATH = "app/version.json";
     public static final String UPDATE_APK_PATH = "app/cocorico.apk";
 
