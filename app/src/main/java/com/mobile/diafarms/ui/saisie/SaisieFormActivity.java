@@ -329,6 +329,8 @@ public class SaisieFormActivity extends AppCompatActivity {
     // Nouveau client (VENTE) — voir Client.java côté back, aucune notion de date ici.
     private View groupClient;
     private TextInputEditText etClientNom, etClientTelephone, etClientAdresse, etClientEmail;
+    // Indicatif du pays du téléphone du client (voir util/IndicatifTelephone).
+    private android.widget.Spinner spinnerIndicatifClient;
 
     // Nouvelle commande (VENTE) — client TOUJOURS obligatoire et déjà synchronisé
     // (spinnerClientCommande, pas d'option "aucun"), contrairement aux ventes. Voir
@@ -822,16 +824,23 @@ public class SaisieFormActivity extends AppCompatActivity {
         groupClient = findViewById(R.id.groupClient);
         etClientNom = findViewById(R.id.etClientNom);
         etClientTelephone = findViewById(R.id.etClientTelephone);
-        // Seulement des chiffres, des espaces et un « + » au début (même règle que le serveur).
+        // Le numéro sans l'indicatif : seulement des chiffres et des espaces (l'indicatif
+        // est choisi dans la liste à côté).
         etClientTelephone.setFilters(new android.text.InputFilter[] {(source, start, end, dest, dstart, dend) -> {
             StringBuilder garde = new StringBuilder();
             for (int i = start; i < end; i++) {
                 char ch = source.charAt(i);
-                if ((ch >= '0' && ch <= '9') || ch == ' ' || (ch == '+' && dstart + garde.length() == 0
-                        && dest.toString().indexOf('+') < 0)) garde.append(ch);
+                if ((ch >= '0' && ch <= '9') || ch == ' ') garde.append(ch);
             }
             return garde.length() == end - start ? null : garde.toString();
         }});
+        spinnerIndicatifClient = findViewById(R.id.spinnerIndicatifClient);
+        android.widget.ArrayAdapter<String> adapterIndicatif = new android.widget.ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_item, com.mobile.diafarms.util.IndicatifTelephone.libelles());
+        adapterIndicatif.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerIndicatifClient.setAdapter(adapterIndicatif);
+        spinnerIndicatifClient.setSelection(com.mobile.diafarms.util.IndicatifTelephone.position(
+                com.mobile.diafarms.util.IndicatifTelephone.INDICATIF_DEFAUT));
         etClientAdresse = findViewById(R.id.etClientAdresse);
         etClientEmail = findViewById(R.id.etClientEmail);
 
@@ -3632,18 +3641,25 @@ public class SaisieFormActivity extends AppCompatActivity {
     /** Message si ce nom (sans tenir compte des majuscules) ou ce téléphone est déjà pris
      * par un client connu du téléphone ou par un nouveau client pas encore envoyé ; null
      * sinon. Mêmes règles que le serveur (ClientServiceImpl.create). */
+    private String indicatifClient() {
+        int i = spinnerIndicatifClient.getSelectedItemPosition();
+        java.util.List<com.mobile.diafarms.util.IndicatifTelephone.Pays> p = com.mobile.diafarms.util.IndicatifTelephone.PAYS;
+        return i >= 0 && i < p.size() ? p.get(i).indicatif : com.mobile.diafarms.util.IndicatifTelephone.INDICATIF_DEFAUT;
+    }
+
     private String clientDoublon(String nom, String telephone) {
         String n = nom.trim();
-        String t = telephone.trim();
+        // Comparés en chiffres seuls : « +223 70 12 34 56 » et « 70123456 » sont le même numéro.
+        String t = com.mobile.diafarms.util.IndicatifTelephone.chiffres(telephone);
         for (ClientSelectResponse c : lireListeCache(CachePrefetcher.CACHE_CLIENTS_SELECT, ClientSelectResponse.class)) {
             if (c.getNom() != null && c.getNom().trim().equalsIgnoreCase(n)) return "Un client portant ce nom existe déjà";
-            if (c.getTelephone() != null && c.getTelephone().trim().equals(t)) return "Un client avec ce numéro de téléphone existe déjà (" + c.getNom() + ")";
+            if (c.getTelephone() != null && com.mobile.diafarms.util.IndicatifTelephone.chiffres(c.getTelephone()).equals(t)) return "Un client avec ce numéro de téléphone existe déjà (" + c.getNom() + ")";
         }
         for (SaisieLocale s : saisiesEnAttente(SaisieType.CLIENT_CREATE)) {
             ClientCreateRequest r = gson.fromJson(s.getPayloadJson(), ClientCreateRequest.class);
             if (r == null) continue;
             if (r.nom != null && r.nom.trim().equalsIgnoreCase(n)) return "Un client portant ce nom attend déjà d'être envoyé";
-            if (r.telephone != null && r.telephone.trim().equals(t)) return "Un client avec ce numéro attend déjà d'être envoyé (" + r.nom + ")";
+            if (r.telephone != null && com.mobile.diafarms.util.IndicatifTelephone.chiffres(r.telephone).equals(t)) return "Un client avec ce numéro attend déjà d'être envoyé (" + r.nom + ")";
         }
         return null;
     }
@@ -4279,7 +4295,8 @@ public class SaisieFormActivity extends AppCompatActivity {
                     toast("Veuillez saisir le nom du client");
                     return;
                 }
-                String telephoneClient = textOf(etClientTelephone);
+                String telephoneClient = com.mobile.diafarms.util.IndicatifTelephone.assembler(indicatifClient(),
+                        textOf(etClientTelephone));
                 if (telephoneClient.isEmpty()) {
                     toast("Veuillez saisir le numéro de téléphone du client");
                     return;
@@ -4769,7 +4786,10 @@ public class SaisieFormActivity extends AppCompatActivity {
             case CLIENT_CREATE: {
                 ClientCreateRequest req = gson.fromJson(json, ClientCreateRequest.class);
                 etClientNom.setText(req.nom);
-                etClientTelephone.setText(req.telephone);
+                String[] tel = com.mobile.diafarms.util.IndicatifTelephone.decouper(req.telephone,
+                        com.mobile.diafarms.util.IndicatifTelephone.INDICATIF_DEFAUT);
+                spinnerIndicatifClient.setSelection(com.mobile.diafarms.util.IndicatifTelephone.position(tel[0]));
+                etClientTelephone.setText(tel[1]);
                 etClientAdresse.setText(req.adresse);
                 etClientEmail.setText(req.email);
                 break;
