@@ -39,6 +39,21 @@ android {
         }
     }
 
+    // direct : APK téléchargée depuis app.cocoricoferme.com, avec la mise à jour
+    // intégrée (update/UpdateController). store : Play Store, qui interdit
+    // REQUEST_INSTALL_PACKAGES et fait lui-même les mises à jour.
+    flavorDimensions = ["distribution"]
+    productFlavors {
+        direct {
+            dimension "distribution"
+            buildConfigField "boolean", "MISE_A_JOUR_INTEGREE", "true"
+        }
+        store {
+            dimension "distribution"
+            buildConfigField "boolean", "MISE_A_JOUR_INTEGREE", "false"
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false

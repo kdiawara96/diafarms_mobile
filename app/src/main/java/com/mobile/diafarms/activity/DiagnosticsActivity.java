@@ -74,6 +74,8 @@ public class DiagnosticsActivity extends AppCompatActivity {
                 ? "Connecté en tant que " + currentUser.getNom()
                 : "Non connecté");
         findViewById(R.id.btnSupprimerCompte).setOnClickListener(v -> confirmSuppressionCompte());
+        findViewById(R.id.btnDemanderSuppressionCompte).setOnClickListener(v ->
+                ouvrirLien("https://cocoricoferme.com/confidentialite#suppression"));
 
         etServerUrl = findViewById(R.id.etServerUrl);
         tvConnectiviteResult = findViewById(R.id.tvConnectiviteResult);
@@ -115,7 +117,14 @@ public class DiagnosticsActivity extends AppCompatActivity {
                 findViewById(R.id.pbMajDiag),
                 findViewById(R.id.btnMettreAJourDiag),
                 this::synchroniserAvantMiseAJour);
-        btnVerifierMaj.setOnClickListener(v -> verifierMiseAJour());
+        if (BuildConfig.MISE_A_JOUR_INTEGREE) {
+            btnVerifierMaj.setOnClickListener(v -> verifierMiseAJour());
+        } else {
+            // Version Play Store : les mises à jour passent par le Store.
+            btnVerifierMaj.setText("Voir les mises à jour sur le Play Store");
+            btnVerifierMaj.setOnClickListener(v -> ouvrirLien(
+                    "https://play.google.com/store/apps/details?id=" + getPackageName()));
+        }
 
         refreshPendingCount();
         refreshErrorLog();
@@ -356,5 +365,13 @@ public class DiagnosticsActivity extends AppCompatActivity {
         intent.putExtra(Intent.EXTRA_STREAM, uri);
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         startActivity(Intent.createChooser(intent, "Partager le journal d'erreurs"));
+    }
+
+    private void ouvrirLien(String url) {
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+        } catch (android.content.ActivityNotFoundException e) {
+            Toast.makeText(this, "Aucun navigateur pour ouvrir " + url, Toast.LENGTH_LONG).show();
+        }
     }
 }

@@ -287,6 +287,23 @@
                     android:text="Supprimer ce compte de l'appareil"
                     app:backgroundTint="@color/red_bright" />
 
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="Pour supprimer définitivement votre compte Cocorico et les données de votre ferme sur le serveur, faites la demande ici."
+                    android:textColor="@android:color/darker_gray"
+                    android:textSize="12sp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnDemanderSuppressionCompte"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="Demander la suppression de mon compte"
+                    android:textColor="@color/red_bright" />
+
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"

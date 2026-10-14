@@ -42,6 +42,7 @@ import com.mobile.diafarms.network.dto.ProjetDetailResponse;
 import com.mobile.diafarms.network.dto.ProjetSelectResponse;
 import com.mobile.diafarms.network.dto.TransactionCreateRequest;
 import com.mobile.diafarms.ui.saisie.SaisieFormActivity;
+import com.mobile.diafarms.BuildConfig;
 import com.mobile.diafarms.update.UpdateChecker;
 import com.mobile.diafarms.update.UpdateController;
 import com.mobile.diafarms.update.UpdateInfo;
@@ -1050,6 +1051,8 @@ public class HomeActivity extends AppCompatActivity {
     /** Silencieux hors ligne ou en cas d'erreur, et limité à une requête toutes les 6 h
      * (voir UpdateChecker.checkAuto) : ne bloque jamais l'écran. */
     private void verifierMiseAJour() {
+        // Version Play Store : c'est le Store qui propose les mises à jour.
+        if (!BuildConfig.MISE_A_JOUR_INTEGREE) return;
         UpdateChecker.checkAuto(this, (info, erreur) -> {
             if (info == null || isFinishing() || isDestroyed()) return;
             afficherMiseAJour(info);
