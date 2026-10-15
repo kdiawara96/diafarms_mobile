@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Version Play Store : HTTPS uniquement (api.cocoricoferme.com). La version direct
+     garde le HTTP autorisé pour pointer un serveur de test depuis Diagnostics. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+</network-security-config>
