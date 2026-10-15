@@ -7,16 +7,13 @@
     android:layout_height="match_parent"
     android:background="@android:color/white">
 
-    <ScrollView
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:fillViewport="true"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent">
-
+    <!-- Pas de ScrollView : l'illustration (poids 1) rétrécit pour que les boutons et
+         « Pas encore de compte ? » restent visibles sur tous les écrans. -->
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
             android:orientation="vertical"
             android:gravity="center_horizontal"
             android:paddingHorizontal="28dp"
@@ -32,11 +29,13 @@
                 android:src="@drawable/logo_cocorico"
                 android:contentDescription="@null" />
 
-            <!-- Illustration ferme/poules. -->
+            <!-- Illustration ferme/poules : prend la place qui reste, pour que les boutons
+                 et « Pas encore de compte ? » soient visibles sans défiler. -->
             <ImageView
                 android:id="@+id/imgBanner"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="0dp"
+                android:layout_weight="1"
                 android:layout_marginTop="4dp"
                 android:adjustViewBounds="true"
                 android:scaleType="fitCenter"
@@ -147,7 +146,19 @@
 
             </LinearLayout>
 
+            <!-- Nouvel utilisateur venu du Play Store : le compte se crée sur le web,
+                 voir LauncherScreen.afficherPremiersPas. -->
+            <TextView
+                android:id="@+id/tvPasDeCompte"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="22dp"
+                android:padding="8dp"
+                android:text="Pas encore de compte ? Commencer ici"
+                android:textColor="@color/primary"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
         </LinearLayout>
-    </ScrollView>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
