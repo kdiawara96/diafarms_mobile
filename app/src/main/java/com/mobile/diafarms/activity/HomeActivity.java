@@ -437,9 +437,9 @@ public class HomeActivity extends AppCompatActivity {
             btnNouveauClient.setVisibility(View.GONE);
             btnNouvelleCommande.setVisibility(View.GONE);
         }
-        // Entrées/sorties du jour — concept propre au COMPTABLE, pas au VENTE (voir
-        // updateFinanceStats).
-        cardStatsFinance.setVisibility(isComptable ? View.VISIBLE : View.GONE);
+        // Entrées/sorties du jour : COMPTABLE et VENTE (ventes et encaissements comptent
+        // dans les entrées, voir updateFinanceStats).
+        cardStatsFinance.setVisibility(isComptable || isVente ? View.VISIBLE : View.GONE);
 
         // Fermé par défaut (fail-closed, cohérent avec AppAccessRules côté back) tant
         // que la réponse de /farm-settings n'est pas arrivée — voir loadFarmAppSettings,
@@ -1187,29 +1187,81 @@ public class HomeActivity extends AppCompatActivity {
         return "Il y a " + (diffHours / 24) + "j";
     }
 
-    /** Additionne les transactions locales (LOCAL + SYNCED) du jour, saisies par cet agent
-     * — spécifique aux entrées/sorties du COMPTABLE, pas aux ventes (SaisieType.VENTE_*,
-     * suivies séparément) : sans ça un VENTE pur verrait une carte à 0/0 sans rapport
-     * avec son activité réelle. */
+    /** Argent entré et sorti aujourd'hui d'après les saisies locales (LOCAL + SYNCED) de
+     * cet agent. Entrées : entrées d'argent, ventes (ce qui revient réellement en caisse),
+     * acomptes de commande, argent reçu à une livraison, encaissements clients. Sorties :
+     * sorties d'argent, achats d'aliment et de médicament, salaires payés. */
     private void updateFinanceStats() {
-        if (!currentUser.isComptable()) return;
+        if (!currentUser.isComptable() && !currentUser.isVente()) return;
 
         String today = new SimpleDateFormat("yyyy-MM-dd", Locale.FRANCE).format(new java.util.Date());
 
         double entrees = 0;
-        double sorties = 0;
-
         for (SaisieLocale s : localDatabase.getSaisiesByType(SaisieType.TRANSACTION_ENTREE)) {
             TransactionCreateRequest req = gson.fromJson(s.getPayloadJson(), TransactionCreateRequest.class);
-            if (req.montant != null && today.equals(req.date)) entrees += req.montant;
+            entrees += montantDuJour(today, req.date, req.montant);
         }
+        for (SaisieLocale s : localDatabase.getSaisiesByType(SaisieType.VENTE_OEUFS)) {
+            com.mobile.diafarms.network.dto.VenteOeufsCreateRequest req = gson.fromJson(s.getPayloadJson(),
+                    com.mobile.diafarms.network.dto.VenteOeufsCreateRequest.class);
+            entrees += montantDuJour(today, req.date, req.montantRapporte != null ? req.montantRapporte : req.montant);
+        }
+        for (SaisieLocale s : localDatabase.getSaisiesByType(SaisieType.VENTE_REFORME)) {
+            com.mobile.diafarms.network.dto.VenteReformeCreateRequest req = gson.fromJson(s.getPayloadJson(),
+                    com.mobile.diafarms.network.dto.VenteReformeCreateRequest.class);
+            entrees += montantDuJour(today, req.date, req.montantRapporte != null ? req.montantRapporte : req.montant);
+        }
+        // Fientes / autre vente : date + montant, que la saisie soit au nouveau format ou à celui de la 1.35.
+        for (SaisieType t : new SaisieType[]{SaisieType.VENTE_FIENTES, SaisieType.VENTE_AUTRE}) {
+            for (SaisieLocale s : localDatabase.getSaisiesByType(t)) {
+                TransactionCreateRequest req = gson.fromJson(s.getPayloadJson(), TransactionCreateRequest.class);
+                entrees += montantDuJour(today, req.date, req.montant);
+            }
+        }
+        for (SaisieLocale s : localDatabase.getSaisiesByType(SaisieType.COMMANDE_CREATE)) {
+            com.mobile.diafarms.network.dto.CommandeCreateRequest req = gson.fromJson(s.getPayloadJson(),
+                    com.mobile.diafarms.network.dto.CommandeCreateRequest.class);
+            entrees += montantDuJour(today, req.dateCommande != null ? req.dateCommande : today, req.montantAcompte);
+        }
+        for (SaisieLocale s : localDatabase.getSaisiesByType(SaisieType.LIVRAISON_COMMANDE)) {
+            com.mobile.diafarms.network.dto.LivraisonCommandeRequest req = gson.fromJson(s.getPayloadJson(),
+                    com.mobile.diafarms.network.dto.LivraisonCommandeRequest.class);
+            entrees += montantDuJour(today, req.date != null ? req.date : today, req.montantRecu);
+        }
+        for (SaisieLocale s : localDatabase.getSaisiesByType(SaisieType.PAIEMENT_CLIENT)) {
+            com.mobile.diafarms.network.dto.PaiementClientRequest req = gson.fromJson(s.getPayloadJson(),
+                    com.mobile.diafarms.network.dto.PaiementClientRequest.class);
+            entrees += montantDuJour(today, req.date != null ? req.date : today, req.montant);
+        }
+
+        double sorties = 0;
         for (SaisieLocale s : localDatabase.getSaisiesByType(SaisieType.TRANSACTION_SORTIE)) {
             TransactionCreateRequest req = gson.fromJson(s.getPayloadJson(), TransactionCreateRequest.class);
-            if (req.montant != null && today.equals(req.date)) sorties += req.montant;
+            sorties += montantDuJour(today, req.date, req.montant);
+        }
+        for (SaisieLocale s : localDatabase.getSaisiesByType(SaisieType.ALIMENTATION_ACHAT)) {
+            com.mobile.diafarms.network.dto.AlimentationCreateRequest req = gson.fromJson(s.getPayloadJson(),
+                    com.mobile.diafarms.network.dto.AlimentationCreateRequest.class);
+            sorties += montantDuJour(today, req.dateDistribution, req.coutTotal);
+        }
+        for (SaisieLocale s : localDatabase.getSaisiesByType(SaisieType.MEDICAMENT_ACHAT)) {
+            com.mobile.diafarms.network.dto.AchatMedicamentCreateRequest req = gson.fromJson(s.getPayloadJson(),
+                    com.mobile.diafarms.network.dto.AchatMedicamentCreateRequest.class);
+            sorties += montantDuJour(today, req.dateAchat, req.coutTotal);
+        }
+        for (SaisieLocale s : localDatabase.getSaisiesByType(SaisieType.SALAIRE_PAYER)) {
+            com.mobile.diafarms.network.dto.SalairePayerRequest req = gson.fromJson(s.getPayloadJson(),
+                    com.mobile.diafarms.network.dto.SalairePayerRequest.class);
+            sorties += montantDuJour(today, req.datePaiement != null ? req.datePaiement : today,
+                    req.montantForce != null ? req.montantForce : req.montant);
         }
 
         tvMesEntrees.setText(formatMontant(entrees));
         tvMesSorties.setText(formatMontant(sorties));
+    }
+
+    private static double montantDuJour(String today, String date, Double montant) {
+        return montant != null && montant > 0 && today.equals(date) ? montant : 0;
     }
 
     private String formatMontant(double montant) {

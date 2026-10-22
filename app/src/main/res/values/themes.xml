@@ -2,6 +2,9 @@
     <!-- Base application theme. -->
 <!--    <style name="Theme.Diafarms" parent="Theme.MaterialComponents.DayNight.NoActionBar">-->
     <style name="Theme.Diafarms" parent="Theme.Material3.Light.NoActionBar">
+        <!-- Couleurs identiques en mode sombre : interdit au téléphone d'assombrir
+             l'appli de lui-même (mode sombre forcé Android 10+, Samsung, Xiaomi). -->
+        <item name="android:forceDarkAllowed" tools:targetApi="q">false</item>
 
         <!-- Primary brand color. -->
         <item name="colorPrimary">@color/primary</item>
