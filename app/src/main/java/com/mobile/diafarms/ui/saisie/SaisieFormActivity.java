@@ -1112,6 +1112,8 @@ public class SaisieFormActivity extends AppCompatActivity {
         for (TextInputEditText e : montants) {
             if (e != null) e.setInputType(type);
         }
+        // Après les setInputType ci-dessus : groupe les milliers dans tous les champs chiffrés.
+        com.mobile.diafarms.util.ChiffresSaisie.appliquer(findViewById(R.id.main_saisie_form));
     }
 
     private void remplacerDeviseDansLibelles(View v) {
@@ -3594,7 +3596,8 @@ public class SaisieFormActivity extends AppCompatActivity {
 
     private int parseIntSafe(CharSequence s) {
         try {
-            return s == null || s.length() == 0 ? 0 : Integer.parseInt(s.toString().trim());
+            String b = com.mobile.diafarms.util.ChiffresSaisie.brut(s);
+            return b.isEmpty() ? 0 : Integer.parseInt(b);
         } catch (NumberFormatException e) {
             return 0;
         }
@@ -3602,7 +3605,8 @@ public class SaisieFormActivity extends AppCompatActivity {
 
     private Double parseDoubleOrNull(CharSequence s) {
         try {
-            return s == null || s.length() == 0 ? null : Double.parseDouble(s.toString().trim().replace(",", "."));
+            String b = com.mobile.diafarms.util.ChiffresSaisie.brut(s);
+            return b.isEmpty() ? null : Double.parseDouble(b.replace(",", "."));
         } catch (NumberFormatException e) {
             return null;
         }

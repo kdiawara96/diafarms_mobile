@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Marque un champ déjà formaté par ChiffresSaisie. -->
+    <item name="tag_chiffres_saisie" type="id" />
+</resources>
