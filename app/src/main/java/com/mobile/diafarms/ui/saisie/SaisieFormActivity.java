@@ -3670,7 +3670,12 @@ public class SaisieFormActivity extends AppCompatActivity {
 
     // ===================== VALIDATION + ENREGISTREMENT LOCAL =====================
 
+    private boolean montantConfirme;
+
     private void onValider() {
+        // Réponse « Oui, c'est juste » à un montant inhabituel : valable pour cet essai seulement.
+        boolean montantConfirme = this.montantConfirme;
+        this.montantConfirme = false;
         typeEnregistrement = null;
         String date = textOf(etDate);
         String heure = nullIfBlank(textOf(etHeure));
@@ -4560,6 +4565,23 @@ public class SaisieFormActivity extends AppCompatActivity {
             }
             default:
                 return;
+        }
+
+        if (!montantConfirme) {
+            String alerte = com.mobile.diafarms.util.MontantsInhabituels.messagePour(this, requestObject,
+                    m -> com.mobile.diafarms.util.Monnaie.de(localDatabase).montant(m));
+            if (alerte != null) {
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                        .setTitle("Montant inhabituel")
+                        .setMessage(alerte)
+                        .setNegativeButton("Corriger", null)
+                        .setPositiveButton("Oui, c'est juste", (d, w) -> {
+                            this.montantConfirme = true;
+                            onValider();
+                        })
+                        .show();
+                return;
+            }
         }
 
         String payloadJson = gson.toJson(requestObject);

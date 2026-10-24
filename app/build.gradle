@@ -18,8 +18,8 @@ android {
         applicationId "com.cocoricoferme.app"
         minSdk 24
         targetSdk 36
-        versionCode 42
-        versionName "1.41"
+        versionCode 43
+        versionName "1.42"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -105,4 +105,7 @@ dependencies {
     // voir AlertCheckWorker) — pas de vrai push (pas de Firebase), juste un contrôle
     // toutes les 15-30 min tant que le téléphone a du réseau.
     implementation libs.work.runtime
+
+    // Mise à jour par Google Play depuis l'app (version store, voir update/MiseAJourPlayStore).
+    implementation libs.app.update
 }

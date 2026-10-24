@@ -45,6 +45,8 @@ import com.mobile.diafarms.ui.saisie.SaisieFormActivity;
 import com.mobile.diafarms.BuildConfig;
 import com.mobile.diafarms.update.UpdateChecker;
 import com.mobile.diafarms.update.UpdateController;
+import com.mobile.diafarms.update.MiseAJourPlayStore;
+import com.mobile.diafarms.update.VersionMinimale;
 import com.mobile.diafarms.update.UpdateInfo;
 import com.mobile.diafarms.util.NetworkUtils;
 import com.mobile.diafarms.util.OccupationUtils;
@@ -172,6 +174,9 @@ public class HomeActivity extends AppCompatActivity {
     private TextView tvMajTitre;
     private TextView tvMajNotes;
     private UpdateController updateController;
+    // Version Play Store : mise à jour par Google (null pour la version APK directe).
+    private MiseAJourPlayStore miseAJourPlayStore;
+    private androidx.appcompat.app.AlertDialog dialogueObligatoire;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -186,6 +191,7 @@ public class HomeActivity extends AppCompatActivity {
         new WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView())
                 .setAppearanceLightStatusBars(false); // icônes heure/batterie en blanc, lisibles sur le vert
         setContentView(R.layout.activity_home);
+        if (!BuildConfig.MISE_A_JOUR_INTEGREE) miseAJourPlayStore = creerMiseAJourPlayStore();
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.appBar), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
@@ -233,6 +239,7 @@ public class HomeActivity extends AppCompatActivity {
         loadLastEntry();
         updateFinanceStats();
         verifierMiseAJour();
+        verifierVersionMinimale();
         proposerAdoptionSaisiesSansCompte(false);
         CachePrefetcher.prefetchProfil(this, this::surProfilMisAJour);
 
@@ -1003,6 +1010,7 @@ public class HomeActivity extends AppCompatActivity {
                     if (!wasOnline) {
                         refreshProjetsEtCache(() -> { });
                         verifierMiseAJour();
+                        verifierVersionMinimale();
                     }
                     wasOnline = true;
                 });
@@ -1040,6 +1048,8 @@ public class HomeActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (miseAJourPlayStore != null) miseAJourPlayStore.onDestroy();
+        if (dialogueObligatoire != null) dialogueObligatoire.dismiss();
         if (ecouteurAbonnement != null) {
             AbonnementBloque.preferences(this).unregisterOnSharedPreferenceChangeListener(ecouteurAbonnement);
         }
@@ -1051,12 +1061,99 @@ public class HomeActivity extends AppCompatActivity {
     /** Silencieux hors ligne ou en cas d'erreur, et limité à une requête toutes les 6 h
      * (voir UpdateChecker.checkAuto) : ne bloque jamais l'écran. */
     private void verifierMiseAJour() {
-        // Version Play Store : c'est le Store qui propose les mises à jour.
-        if (!BuildConfig.MISE_A_JOUR_INTEGREE) return;
+        // Version Play Store : Google propose la mise à jour (voir MiseAJourPlayStore).
+        if (!BuildConfig.MISE_A_JOUR_INTEGREE) {
+            if (miseAJourPlayStore != null) miseAJourPlayStore.verifier();
+            return;
+        }
         UpdateChecker.checkAuto(this, (info, erreur) -> {
             if (info == null || isFinishing() || isDestroyed()) return;
             afficherMiseAJour(info);
         });
+    }
+
+    /** Carte « Nouvelle version » pilotée par Google Play (version store). */
+    private MiseAJourPlayStore creerMiseAJourPlayStore() {
+        TextView tvStatut = findViewById(R.id.tvMajStatut);
+        android.widget.ProgressBar pb = findViewById(R.id.pbMaj);
+        android.widget.Button btn = findViewById(R.id.btnMettreAJour);
+        return new MiseAJourPlayStore(this, new MiseAJourPlayStore.Vue() {
+            @Override
+            public void disponible() {
+                tvMajTitre.setText("Nouvelle version disponible");
+                tvMajNotes.setVisibility(View.GONE);
+                pb.setVisibility(View.GONE);
+                tvStatut.setVisibility(View.GONE);
+                btn.setText("Mettre à jour");
+                btn.setEnabled(true);
+                btn.setOnClickListener(v -> miseAJourPlayStore.lancer(false));
+                cardMiseAJour.setVisibility(View.VISIBLE);
+            }
+
+            @Override
+            public void telechargement(int pourcent) {
+                cardMiseAJour.setVisibility(View.VISIBLE);
+                pb.setVisibility(View.VISIBLE);
+                pb.setProgress(pourcent);
+                tvStatut.setVisibility(View.VISIBLE);
+                tvStatut.setText("Téléchargement : " + pourcent + " %");
+                btn.setEnabled(false);
+            }
+
+            @Override
+            public void prete() {
+                tvMajTitre.setText("Mise à jour prête");
+                pb.setVisibility(View.GONE);
+                tvStatut.setVisibility(View.GONE);
+                btn.setText("Redémarrer pour installer");
+                btn.setEnabled(true);
+                btn.setOnClickListener(v -> miseAJourPlayStore.installer());
+                cardMiseAJour.setVisibility(View.VISIBLE);
+            }
+        });
+    }
+
+    /** Version en dessous du minimum de la console : on ne peut plus continuer sans
+     * mettre à jour. Les saisies en attente sont envoyées d'abord (elles seraient
+     * gardées par la mise à jour, mais autant qu'elles partent tout de suite). */
+    private void verifierVersionMinimale() {
+        // Même moment (démarrage, retour du réseau) : repères des montants pour les saisies hors ligne.
+        com.mobile.diafarms.util.MontantsInhabituels.rafraichir(this);
+        VersionMinimale.verifier(this, obsolete -> {
+            if (isFinishing() || isDestroyed()) return;
+            if (obsolete) {
+                afficherMiseAJourObligatoire();
+            } else if (dialogueObligatoire != null) {
+                dialogueObligatoire.dismiss();
+                dialogueObligatoire = null;
+            }
+        });
+    }
+
+    private void afficherMiseAJourObligatoire() {
+        if (isFinishing() || isDestroyed()) return;
+        if (dialogueObligatoire != null) dialogueObligatoire.dismiss();
+        int pending = localDatabase.countPending();
+        com.google.android.material.dialog.MaterialAlertDialogBuilder b =
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                        .setTitle("Mise à jour obligatoire")
+                        .setCancelable(false);
+        if (pending > 0) {
+            b.setMessage("Envoyez d'abord vos " + pending + " saisie(s), puis mettez à jour Cocorico.")
+                    .setPositiveButton("Envoyer mes saisies", (d, w) -> forceSync());
+        } else {
+            b.setMessage("Mettez à jour Cocorico pour continuer.")
+                    .setPositiveButton("Mettre à jour", (d, w) -> {
+                        if (miseAJourPlayStore != null) {
+                            miseAJourPlayStore.lancer(true);
+                        } else {
+                            UpdateChecker.checkManual(this, (info, erreur) -> {
+                                if (info != null && !isFinishing()) afficherMiseAJour(info);
+                            });
+                        }
+                    });
+        }
+        dialogueObligatoire = b.show();
     }
 
     private void afficherMiseAJour(UpdateInfo info) {
@@ -1312,6 +1409,7 @@ public class HomeActivity extends AppCompatActivity {
                     setupSyncStatus();
                     loadLastEntry();
                     updateFinanceStats();
+                    if (VersionMinimale.estObsolete(HomeActivity.this)) afficherMiseAJourObligatoire();
                     // Les saisies qu'on vient de pousser ont pu changer le stock, la
                     // mortalité cumulée, etc. côté serveur, et la liste de projets a pu
                     // changer (nouveau projet assigné, projet passé en terminé) : on
@@ -1393,6 +1491,8 @@ public class HomeActivity extends AppCompatActivity {
         if (updateController != null) {
             updateController.onResume();
         }
+        if (miseAJourPlayStore != null) miseAJourPlayStore.onResume(VersionMinimale.estObsolete(this));
+        if (VersionMinimale.estObsolete(this)) afficherMiseAJourObligatoire();
 
         // Reprise après mise en arrière-plan (retour de connexion sur le terrain,
         // changement d'appli...) : on ne veut pas attendre un tap manuel sur "Sync"

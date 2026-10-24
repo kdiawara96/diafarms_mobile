@@ -133,6 +133,8 @@ public class PeseeSessionActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_pesee_session);
+        // Chiffres groupés par milliers pendant la frappe, comme les autres saisies.
+        com.mobile.diafarms.util.ChiffresSaisie.appliquer(getWindow().getDecorView());
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main_pesee), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.ime());
@@ -482,10 +484,11 @@ public class PeseeSessionActivity extends AppCompatActivity {
         til.setHint("Nombre habituel de sujets par pesée");
         TextInputEditText et = new TextInputEditText(til.getContext());
         et.setInputType(InputType.TYPE_CLASS_NUMBER);
-        et.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(5)});
+        et.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(6)});
         et.setText("1");
         et.setSelectAllOnFocus(true);
         et.setTextSize(22);
+        com.mobile.diafarms.util.ChiffresSaisie.formater(et);
         til.addView(et);
         FrameLayout wrapper = new FrameLayout(this);
         wrapper.setPadding(dp(20), dp(8), dp(20), 0);
@@ -809,9 +812,10 @@ public class PeseeSessionActivity extends AppCompatActivity {
         tilN.setHint("Nombre de sujets");
         TextInputEditText etN = new TextInputEditText(tilN.getContext());
         etN.setInputType(InputType.TYPE_CLASS_NUMBER);
-        etN.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(5)});
+        etN.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(6)});
         etN.setText(p.nombreSujets != null ? String.valueOf(p.nombreSujets) : "");
         etN.setTextSize(20);
+        com.mobile.diafarms.util.ChiffresSaisie.formater(etN);
         tilN.addView(etN);
         form.addView(tilN);
 
@@ -1048,7 +1052,7 @@ public class PeseeSessionActivity extends AppCompatActivity {
 
     private static Integer parseEntier(String s) {
         try {
-            return Integer.parseInt(s.trim());
+            return Integer.parseInt(com.mobile.diafarms.util.ChiffresSaisie.brut(s));
         } catch (NumberFormatException e) {
             return null;
         }
@@ -1057,7 +1061,7 @@ public class PeseeSessionActivity extends AppCompatActivity {
     /** Accepte la virgule comme le point ("6,3" ou "6.3"). */
     private static Double parseDecimal(String s) {
         try {
-            double v = Double.parseDouble(s.trim().replace(',', '.'));
+            double v = Double.parseDouble(com.mobile.diafarms.util.ChiffresSaisie.brut(s).replace(',', '.'));
             return Double.isNaN(v) || Double.isInfinite(v) ? null : v;
         } catch (NumberFormatException e) {
             return null;

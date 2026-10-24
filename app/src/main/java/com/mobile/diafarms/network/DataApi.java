@@ -61,6 +61,11 @@ public interface DataApi {
 
     // Quelles actions Finance sont ouvertes à ce rôle (voir HomeActivity.applyFarmAppSettings) —
     // imposé aussi côté serveur à la connexion/au scan QR (AppAccessRules), pas qu'un masquage d'écran.
+    // Prix habituels et plus gros montants récents : confirmation d'un montant inhabituel
+    // à la saisie, même hors ligne (voir util/MontantsInhabituels).
+    @GET("reperes-montants")
+    Call<ApiEnvelope<com.google.gson.JsonObject>> getReperesMontants();
+
     @GET("farm-settings")
     Call<ApiEnvelope<FarmAppSettingsResponse>> getFarmAppSettings();
 
