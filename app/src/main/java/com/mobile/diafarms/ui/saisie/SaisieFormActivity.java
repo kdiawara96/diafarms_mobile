@@ -80,7 +80,7 @@ import retrofit2.Response;
 /**
  * Écran de saisie unique, paramétré par SaisieType : affiche seulement les champs
  * pertinents pour le type demandé. Enregistre toujours en local (jamais d'appel réseau
- * direct ici) — la synchronisation se fait depuis l'accueil, via SyncManager, ce qui
+ * direct ici), la synchronisation se fait depuis l'accueil, via SyncManager, ce qui
  * permet de lister/modifier/supprimer une saisie tant qu'elle n'est pas encore envoyée.
  */
 public class SaisieFormActivity extends AppCompatActivity {
@@ -93,21 +93,21 @@ public class SaisieFormActivity extends AppCompatActivity {
     public static final String EXTRA_COMMANDE_ID = "COMMANDE_ID";
 
     // "Vente" n'a de sens que pour une Entrée, "Achat"/"Salaire"/... que pour une
-    // Sortie — deux listes séparées plutôt qu'une liste unique proposant des
+    // Sortie, deux listes séparées plutôt qu'une liste unique proposant des
     // catégories hors-sujet selon le type (même règle que CreateTransactionDialog
     // côté web). Le type est fixé pour tout l'écran (TRANSACTION_ENTREE ou
     // TRANSACTION_SORTIE choisi depuis l'accueil), donc pas besoin de basculer la
     // liste dynamiquement ici, contrairement au web où un seul formulaire couvre
     // les deux types.
-    // "Vente" retirée — voir CreateTransactionDialog côté web : une vente réelle passe
+    // "Vente" retirée, voir CreateTransactionDialog côté web : une vente réelle passe
     // par Vente œufs/réforme/fientes/Autre vente, jamais une "Entrée d'argent" manuelle.
     private static final String[] CATEGORIES_TRANSACTION_ENTREE = {"Location", "Don", "Autre"};
     // "Salaire" retiré : le paiement d'un salaire passe obligatoirement par "Payer un
     // salaire" (SALAIRE_PAYER), qui vérifie la grille et empêche un double paiement du
-    // même mois — une "Sortie d'argent" catégorie "Salaire" contournerait ce contrôle.
+    // même mois, une "Sortie d'argent" catégorie "Salaire" contournerait ce contrôle.
     // "Santé / Vétérinaire" est de retour : depuis le retrait du champ Coût de l'écran
-    // Santé / Vétérinaire (SaisieType.SOINS, sous-type Médicament/Autre — la Production
-    // ne suit plus que le fait), c'est ici, en Comptabilité, que ce coût se saisit —
+    // Santé / Vétérinaire (SaisieType.SOINS, sous-type Médicament/Autre, la Production
+    // ne suit plus que le fait), c'est ici, en Comptabilité, que ce coût se saisit,
     // sauf pour un Vaccin, qui garde son propre calcul automatique (dose × prix).
     // Même liste que le web (CreateTransactionDialog/EditTransactionDialog,
     // CATEGORIES_SORTIE) : le mobile n'avait que 6 entrées dont "Transport" à la place
@@ -130,11 +130,11 @@ public class SaisieFormActivity extends AppCompatActivity {
     private static final double POIDS_SAC_DEFAUT_KG = 50;
     // Fusion Soins/Vaccination (UI) : un seul point d'entrée (SaisieType.SOINS, voir
     // HomeActivity/btnSoins), le type choisi ici décide quel sous-groupe de champs est
-    // affiché (voir updateGroupSoinsSousType()) — Vaccination n'est plus un
+    // affiché (voir updateGroupSoinsSousType()), Vaccination n'est plus un
     // SaisieType/écran distinct.
     private static final String[] TYPES_SOIN = {"Vaccination", "Médicament", "Autre"};
     // Valeurs enum backend (Soins.type, entité unifiée) correspondant 1-pour-1 à
-    // TYPES_SOIN ci-dessus, dans le même ordre — le spinner reste en français, seule
+    // TYPES_SOIN ci-dessus, dans le même ordre, le spinner reste en français, seule
     // la valeur envoyée au serveur change.
     private static final String[] TYPES_SOIN_WIRE = {"VACCINATION", "MEDICAMENT", "AUTRE"};
 
@@ -160,28 +160,28 @@ public class SaisieFormActivity extends AppCompatActivity {
     private Calendar heureCal; // null tant que l'heure n'est pas choisie (optionnelle)
 
     private List<OccupationBatimentResponse> batiments = new ArrayList<>();
-    // Bâtiment à resélectionner dès que "batiments" sera chargé — voir
+    // Bâtiment à resélectionner dès que "batiments" sera chargé, voir
     // selectBatimentByUniqueId/applyPendingBatimentSelection.
     private String pendingBatimentSelection;
 
     // TOUS les poulaillers de la ferme (pas seulement occupés par le projet
-    // sélectionné, contrairement à "batiments" ci-dessus) — pour Entretien
+    // sélectionné, contrairement à "batiments" ci-dessus), pour Entretien
     // uniquement, voir loadBatimentsEntretien/getBatimentsSelect.
     private List<com.mobile.diafarms.network.dto.BatimentSelectResponse> batimentsEntretien = new ArrayList<>();
     private String pendingBatimentEntretienSelection;
 
     // Magasins de vente (VENTE) : liste déjà filtrée par le serveur aux magasins liés
-    // à ce vendeur — partagée par les deux spinners (Vente œufs / Vente réforme),
+    // à ce vendeur, partagée par les deux spinners (Vente œufs / Vente réforme),
     // même liste dans les deux cas. Voir loadMagasins/selectMagasinByUniqueId.
     private List<MagasinSelectResponse> magasins = new ArrayList<>();
     private String pendingMagasinSelection;
 
-    // Magasins de STOCKAGE (Collecte œufs, obligatoire) — déjà filtrés côté serveur au
+    // Magasins de STOCKAGE (Collecte œufs, obligatoire), déjà filtrés côté serveur au
     // type STOCKAGE (voir loadMagasinsStockage/selectBatimentStockageByUniqueId).
     private List<MagasinSelectResponse> batimentsStockage = new ArrayList<>();
     private String pendingBatimentStockageSelection;
 
-    // Clients déjà synchronisés côté serveur (VENTE) — partagés par les 3 sélecteurs
+    // Clients déjà synchronisés côté serveur (VENTE), partagés par les 3 sélecteurs
     // (Vente œufs/réforme : optionnel : Commande : obligatoire), même schéma que
     // "magasins" ci-dessus. Voir loadClients/CachePrefetcher.CACHE_CLIENTS_SELECT.
     private List<ClientSelectResponse> clients = new ArrayList<>();
@@ -190,7 +190,7 @@ public class SaisieFormActivity extends AppCompatActivity {
     // Vues communes
     private TextView tvTitreForm, tvProjetForm, tvStockInfo;
     // Dernière valeur de stock connue (synchronisée ou en cache hors ligne) pour le
-    // projet actif — sert à bloquer une saisie de consommation intenable AVANT de la
+    // projet actif, sert à bloquer une saisie de consommation intenable AVANT de la
     // créer/mettre en file d'attente, plutôt que de laisser l'utilisateur remplir tout
     // le formulaire pour découvrir le rejet seulement à l'envoi (voir onValider, cas
     // ALIMENTATION_CONSOMMATION). null tant qu'aucune valeur n'est connue (jamais
@@ -211,24 +211,24 @@ public class SaisieFormActivity extends AppCompatActivity {
     private TextInputEditText etAlveolesCollectees, etOeufsCollectes, etOeufsCasses, etOeufsNonUtilisables;
     private TextView tvResumeCollecte;
 
-    // Soins & Vaccination (fusionnées, un seul écran/type — voir TYPES_SOIN ci-dessus)
+    // Soins & Vaccination (fusionnées, un seul écran/type, voir TYPES_SOIN ci-dessus)
     private View groupSoins;
     private AutoCompleteTextView spinnerTypeSoin;
     // Champs génériques (Médicament/Autre), visibles seulement si le type choisi
-    // n'est pas Vaccination — voir updateGroupSoinsSousType().
+    // n'est pas Vaccination, voir updateGroupSoinsSousType().
     private View groupSoinsGenerique;
     // Pas de coût ici : la Production ne suit que le fait, le coût réel se saisit
     // séparément en Comptabilité (catégorie "Santé / Vétérinaire").
     private TextInputEditText etProduit, etQuantiteSoin, etObservationsSoin;
 
-    // Champs Vaccination (doses seulement, aucun montant — la Production ne suit
+    // Champs Vaccination (doses seulement, aucun montant, la Production ne suit
     // que le fait, le coût réel se saisit en Comptabilité), visibles seulement si le
-    // type choisi est Vaccination — voir updateGroupSoinsSousType().
+    // type choisi est Vaccination, voir updateGroupSoinsSousType().
     private View groupVaccination;
     private TextInputEditText etNomVaccin, etQuantiteVaccin;
     private CheckBox cbModeOral, cbModeInjection, cbModePulverisation, cbModeTopique;
 
-    // Entretien (poulailler ou site — jamais lié au projet, voir SaisieType.ENTRETIEN)
+    // Entretien (poulailler ou site, jamais lié au projet, voir SaisieType.ENTRETIEN)
     private View groupEntretien;
     private AutoCompleteTextView spinnerNiveauEntretien;
     private View groupEntretienBatiment;
@@ -239,7 +239,7 @@ public class SaisieFormActivity extends AppCompatActivity {
     private View groupMortalite;
     private TextInputEditText etNombreMorts, etCauseMortalite;
 
-    // Réforme (Production) — comptage pur, plafonné par l'effectif vivant DU PROJET,
+    // Réforme (Production), comptage pur, plafonné par l'effectif vivant DU PROJET,
     // jamais de prix ici (voir effectifReformeDisponible). Mirroir de Mortalité.
     private View groupReforme;
     private TextView tvEffectifReformeInfo;
@@ -269,7 +269,7 @@ public class SaisieFormActivity extends AppCompatActivity {
     private View groupConsommation;
     private TextInputEditText etQuantiteKgConso;
 
-    // Vente œufs (VENTE) — vendue DEPUIS un magasin précis (obligatoire, voir
+    // Vente œufs (VENTE), vendue DEPUIS un magasin précis (obligatoire, voir
     // spinnerMagasinOeufs), plafonnée par le stock vendable DE CE MAGASIN (vrai stock
     // séparé par magasin), calculé côté serveur (voir stockOeufsDisponible, jamais
     // recalculé sur l'appareil).
@@ -277,36 +277,36 @@ public class SaisieFormActivity extends AppCompatActivity {
     private AutoCompleteTextView spinnerMagasinOeufs;
     private AutoCompleteTextView spinnerClientVenteOeufs;
     private TextView tvStockOeufsInfo;
-    // Unité de saisie de etQuantiteOeufsVente/etPrixUnitaireOeufs (voir AlveoleUtils) —
+    // Unité de saisie de etQuantiteOeufsVente/etPrixUnitaireOeufs (voir AlveoleUtils),
     // Œuf ou Alvéole (plateau de 30 œufs) ; req.quantiteOeufs envoyé au serveur reste
     // toujours en œufs, quelle que soit l'unité choisie ici (voir onValider).
     private RadioGroup radioGroupUniteVenteOeufs;
     private TextInputLayout tilQuantiteOeufsVente, tilPrixUnitaireOeufs;
     private TextInputEditText etQuantiteOeufsVente, etPrixUnitaireOeufs, etMontantVenteOeufs, etMontantRapporteVenteOeufs;
-    // Libellé/visibilité pilotés par la présence d'un client (spinnerClientVenteOeufs) —
+    // Libellé/visibilité pilotés par la présence d'un client (spinnerClientVenteOeufs),
     // voir refreshModePaiementVenteOeufs.
     private TextInputLayout tilMontantRapporteVenteOeufs, tilModePaiementVenteOeufs;
     private AutoCompleteTextView spinnerModePaiementVenteOeufs;
     private Integer stockOeufsDisponible;
-    // Bon (défaut) ou cassé — deux pools de stock magasin totalement séparés côté
+    // Bon (défaut) ou cassé, deux pools de stock magasin totalement séparés côté
     // serveur (voir TypeStockMagasin.OEUFS_CASSES) : bascule quel disponible est
     // vérifié/affiché, voir refreshStockOeufsAffiche().
     private RadioGroup radioGroupTypeOeufVente;
     private StockMagasinResponse dernierStockMagasinOeufs;
     // Le montant rapporté suit le montant théorique par défaut (vente payée
-    // intégralement) tant que l'utilisateur ne l'a pas modifié lui-même — même
+    // intégralement) tant que l'utilisateur ne l'a pas modifié lui-même, même
     // principe que CreateVenteOeufsDialog côté web.
     private boolean montantRapporteOeufsModifieManuel = false;
     private boolean montantRapporteReformeModifieManuel = false;
     // Distingue une saisie utilisateur d'un setText() programmatique sur le champ
-    // "montant rapporté" (voir recalculerMontantVenteOeufs/recalculerMontantVenteReforme) —
+    // "montant rapporté" (voir recalculerMontantVenteOeufs/recalculerMontantVenteReforme),
     // sans ça, le TextWatcher marquerait le champ "modifié à la main" dès la première
     // synchronisation automatique.
     private boolean syncingMontantRapporte = false;
 
-    // Vente réforme (VENTE) — vendue DEPUIS un magasin précis (obligatoire, voir
+    // Vente réforme (VENTE), vendue DEPUIS un magasin précis (obligatoire, voir
     // spinnerMagasinReforme), plafonnée par le total réformé transféré dans CE
-    // MAGASIN moins déjà vendu (voir stockReformeDisponible) — distinct de l'effectif
+    // MAGASIN moins déjà vendu (voir stockReformeDisponible), distinct de l'effectif
     // vivant d'UN projet (effectifReformeDisponible, saisie Réforme Production).
     private View groupVenteReforme;
     private AutoCompleteTextView spinnerMagasinReforme;
@@ -314,25 +314,25 @@ public class SaisieFormActivity extends AppCompatActivity {
     private TextView tvStockReformeInfo;
     private TextInputEditText etNombreSujetsVente, etPrixUnitaireReforme, etMontantVenteReforme, etMontantRapporteVenteReforme;
     private Integer stockReformeDisponible;
-    // Par tête (défaut) ou au kilo — même principe que radioGroupTypeOeufVente, sauf
+    // Par tête (défaut) ou au kilo, même principe que radioGroupTypeOeufVente, sauf
     // que ça ne change pas quel stock est vérifié (toujours en sujets dans les deux
-    // cas), seulement le sens de etPrixUnitaireReforme et la présence du poids total —
+    // cas), seulement le sens de etPrixUnitaireReforme et la présence du poids total,
     // voir refreshTypeVenteReformeUi/recalculerMontantVenteReforme.
     private RadioGroup radioGroupTypeVenteReforme;
     private TextInputLayout tilPoidsTotalReforme, tilPrixUnitaireReforme;
     private View spacerPoidsTotalReforme;
     private TextInputEditText etPoidsTotalReforme;
-    // Même principe que Vente d'œufs — voir refreshModePaiementVenteReforme.
+    // Même principe que Vente d'œufs, voir refreshModePaiementVenteReforme.
     private TextInputLayout tilMontantRapporteVenteReforme, tilModePaiementVenteReforme;
     private AutoCompleteTextView spinnerModePaiementVenteReforme;
 
-    // Nouveau client (VENTE) — voir Client.java côté back, aucune notion de date ici.
+    // Nouveau client (VENTE), voir Client.java côté back, aucune notion de date ici.
     private View groupClient;
     private TextInputEditText etClientNom, etClientTelephone, etClientAdresse, etClientEmail;
     // Indicatif du pays du téléphone du client (voir util/IndicatifTelephone).
     private android.widget.Spinner spinnerIndicatifClient;
 
-    // Nouvelle commande (VENTE) — client TOUJOURS obligatoire et déjà synchronisé
+    // Nouvelle commande (VENTE), client TOUJOURS obligatoire et déjà synchronisé
     // (spinnerClientCommande, pas d'option "aucun"), contrairement aux ventes. Voir
     // Commande.java côté back.
     private View groupCommande;
@@ -340,7 +340,7 @@ public class SaisieFormActivity extends AppCompatActivity {
     private TextView tvAucunClientCommande;
     private AutoCompleteTextView spinnerMagasinCommande;
     private RadioGroup radioGroupTypeCommande;
-    // Unité de saisie (Œuf/Alvéole), visible seulement pour le type Œufs — même
+    // Unité de saisie (Œuf/Alvéole), visible seulement pour le type Œufs, même
     // patron que radioGroupUniteVenteOeufs (groupVenteOeufs) : jamais l'alvéole
     // envoyée au serveur, voir isCommandeEnAlveoles()/onValider().
     private View groupUniteCommande;
@@ -348,7 +348,7 @@ public class SaisieFormActivity extends AppCompatActivity {
     private TextInputLayout tilQuantiteCommande, tilPrixUnitaireCommande;
     private TextInputEditText etQuantiteCommande, etPrixUnitaireCommande, etMontantEstimeCommande, etAcompteCommande;
     private TextInputEditText etDateLivraisonCommande;
-    // Visible seulement si l'acompte saisi ci-dessus est > 0 — voir
+    // Visible seulement si l'acompte saisi ci-dessus est > 0, voir
     // refreshModePaiementCommande.
     private TextInputLayout tilModePaiementCommande;
     private AutoCompleteTextView spinnerModePaiementCommande;
@@ -369,7 +369,7 @@ public class SaisieFormActivity extends AppCompatActivity {
     private TextView tvEstimationPeseeReforme, tvEstimationPeseeCommande, tvPoidsMoyenReforme;
     private MaterialButton btnUtiliserEstimationReforme, btnUtiliserEstimationCommande;
 
-    // Payer un salaire (COMPTABLE) — grille déjà synchronisée côté serveur (voir
+    // Payer un salaire (COMPTABLE), grille déjà synchronisée côté serveur (voir
     // loadSalaires/CachePrefetcher.CACHE_SALAIRES_SELECT), aucune gestion de la grille
     // elle-même ici (ça reste une action web, voir SaisieType.SALAIRE_PAYER).
     private View groupSalaire;
@@ -583,7 +583,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         if (type == SaisieType.REFORME) {
             loadStockagesReforme();
         }
-        // Vente œufs/réforme (VENTE) : magasin de vente obligatoire — le stock qui
+        // Vente œufs/réforme (VENTE) : magasin de vente obligatoire, le stock qui
         // plafonne la vente est désormais celui DE CE MAGASIN précis (vrai stock
         // séparé par magasin), plus jamais un stock unique pour toute la ferme comme
         // avant. Voir loadMagasins/loadStockPourMagasinSelectionne. Une commande vise
@@ -591,7 +591,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         if (type == SaisieType.VENTE_OEUFS || type == SaisieType.VENTE_REFORME || type == SaisieType.COMMANDE_CREATE) {
             loadMagasins();
         }
-        // Client optionnel sur une vente, obligatoire sur une commande — voir
+        // Client optionnel sur une vente, obligatoire sur une commande, voir
         // loadClients (uniquement les clients déjà synchronisés côté serveur).
         if (type == SaisieType.VENTE_OEUFS || type == SaisieType.VENTE_REFORME || type == SaisieType.COMMANDE_CREATE
                 || type == SaisieType.PAIEMENT_CLIENT) {
@@ -756,7 +756,7 @@ public class SaisieFormActivity extends AppCompatActivity {
             refreshCoherence();
         });
         // Montant théorique jamais saisi à la main : toujours quantité × prix unitaire
-        // (voir recalculerMontantVenteOeufs) — un rabais se reflète dans le montant
+        // (voir recalculerMontantVenteOeufs), un rabais se reflète dans le montant
         // rapporté, pas ici (même principe que CreateVenteOeufsDialog côté web).
         etMontantVenteOeufs.setEnabled(false);
         TextWatcher venteOeufsWatcher = new TextWatcher() {
@@ -1132,7 +1132,7 @@ public class SaisieFormActivity extends AppCompatActivity {
     }
 
     /** Bascule quel sous-groupe de champs de la saisie Soins est affiché selon le
-     * type choisi dans spinnerTypeSoin — appelé au changement de sélection, à
+     * type choisi dans spinnerTypeSoin, appelé au changement de sélection, à
      * l'ouverture du formulaire (applyTypeVisibility) et en édition
      * (prefillFromExisting), une fois le spinner positionné sur la bonne valeur. */
     private void updateGroupSoinsSousType() {
@@ -1287,7 +1287,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         return NIVEAUX_ENTRETIEN[0].equalsIgnoreCase(spinnerNiveauEntretien.getText().toString());
     }
 
-    /** Bascule le champ poulailler/type selon le niveau choisi — un niveau "Site"
+    /** Bascule le champ poulailler/type selon le niveau choisi, un niveau "Site"
      * n'a ni poulailler ni type précis (toujours "Autres travaux", voir onValider). */
     private void updateGroupEntretienNiveau() {
         boolean batiment = isNiveauEntretienBatiment();
@@ -1324,7 +1324,7 @@ public class SaisieFormActivity extends AppCompatActivity {
     }
 
     /** TOUS les poulaillers de la ferme (pas seulement ceux occupés par le projet
-     * sélectionné) — même principe cache-puis-réseau que loadBatiments(), voir
+     * sélectionné), même principe cache-puis-réseau que loadBatiments(), voir
      * CachePrefetcher.prefetchBatiments (déjà préchargé au démarrage/connexion). */
     private void loadBatimentsEntretien() {
         String cached = localDatabase.getCache(CachePrefetcher.CACHE_BATIMENTS_SELECT);
@@ -1515,17 +1515,17 @@ public class SaisieFormActivity extends AppCompatActivity {
         groupSacsVenteDiverse.setVisibility(type == SaisieType.VENTE_FIENTES ? View.VISIBLE : View.GONE);
         tilDescriptionVenteDiverse.setHint(type == SaisieType.VENTE_AUTRE ? "Commentaire * (ce qui a été vendu)" : "Description (facultatif)");
 
-        // Aucun de ces types n'a de notion de bâtiment (poulailler) — client, commande et
+        // Aucun de ces types n'a de notion de bâtiment (poulailler), client, commande et
         // salaire sont farm-scopés (voir Client.java/Commande.java/Salaire.java côté
         // back) ; les ventes puisent dans le stock d'un MAGASIN (toute la ferme), jamais
-        // d'un poulailler précis — un vendeur sur le terrain n'a pas à choisir un
+        // d'un poulailler précis, un vendeur sur le terrain n'a pas à choisir un
         // poulailler pour vendre des œufs déjà dans un magasin de vente (voir
         // VenteOeufsCreateRequest/VenteReformeCreateRequest, aucun batimentUniqueId).
         // Client et Salaire n'ont en plus aucune notion de date/heure : le bloc
         // Date/Heure est masqué en plus pour ces deux types (une commande garde
         // etDate = dateCommande, un paiement de salaire a sa propre Période dédiée).
         // ENTRETIEN a son propre champ poulailler (spinnerBatimentEntretien, TOUS les
-        // poulaillers de la ferme) — le champ partagé ci-dessus ne liste que ceux
+        // poulaillers de la ferme), le champ partagé ci-dessus ne liste que ceux
         // occupés par le projet sélectionné, non pertinent ici.
         boolean sansBatiment = type == SaisieType.CLIENT_CREATE || type == SaisieType.COMMANDE_CREATE || type == SaisieType.SALAIRE_PAYER
                 || type == SaisieType.VENTE_OEUFS || type == SaisieType.VENTE_REFORME || type == SaisieType.VENTE_FIENTES
@@ -1540,7 +1540,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         // SOINS affiche toujours le bâtiment, même quand le type choisi dans le
         // formulaire est Vaccination : optionnel dans ce cas (voir onValider, le
         // choix "Aucun bâtiment précis" reste valide), obligatoire pour Médicament/
-        // Autre — reprend le comportement de l'ancien écran Vaccination dédié, qui
+        // Autre, reprend le comportement de l'ancien écran Vaccination dédié, qui
         // n'avait tout simplement pas ce champ. Seuls Client/Salaire restent sans
         // aucune notion de date/heure de saisie.
         // Salaire : la date est celle du paiement (datePaiement), sans heure.
@@ -2004,7 +2004,7 @@ public class SaisieFormActivity extends AppCompatActivity {
     /**
      * Sélecteur de date M3 (calendrier en bas de l'écran) à la place du
      * DatePickerDialog système, qui détonnait visuellement avec le reste de l'appli.
-     * MaterialDatePicker travaille en UTC (epoch millis) en interne — on convertit
+     * MaterialDatePicker travaille en UTC (epoch millis) en interne, on convertit
      * explicitement vers/depuis UTC pour la présélection et le résultat, sinon le jour
      * affiché peut se décaler de ±1 selon le fuseau horaire de l'appareil (piège
      * classique de cette API si on lui passe directement un Calendar en fuseau local).
@@ -2084,7 +2084,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 && radioGroupTypeVenteReforme.getCheckedRadioButtonId() == R.id.radioTypeVenteReformeKilo;
     }
 
-    /** Affiche/masque le champ poids et adapte le hint du prix selon le mode choisi —
+    /** Affiche/masque le champ poids et adapte le hint du prix selon le mode choisi,
      * appelé au changement de radio ET quand le groupe Vente réforme redevient
      * visible (voir showGroupFor). */
     private void refreshTypeVenteReformeUi() {
@@ -2112,7 +2112,7 @@ public class SaisieFormActivity extends AppCompatActivity {
 
     /** Même principe que recalculerMontantVenteOeufs, pour Vente réforme. Par tête :
      * sujets × prix. Au kilo : poids total × prix (etPrixUnitaireReforme réinterprété
-     * en prix/kg) — le nombre de sujets sert uniquement au plafond de stock, jamais à
+     * en prix/kg), le nombre de sujets sert uniquement au plafond de stock, jamais à
      * ce calcul dans ce mode. */
     private void recalculerMontantVenteReforme() {
         Double prix = parseDoubleOrNull(etPrixUnitaireReforme.getText());
@@ -2140,7 +2140,7 @@ public class SaisieFormActivity extends AppCompatActivity {
     }
 
     /** Libellés des champs quantité/prix selon le type (Œufs/Réforme) et, pour Œufs,
-     * l'unité choisie (Œuf/Alvéole) — même patron que le listener de
+     * l'unité choisie (Œuf/Alvéole), même patron que le listener de
      * radioGroupUniteVenteOeufs (bindViews). */
     private void applyLabelsQuantiteCommande() {
         if (isCommandeReforme()) {
@@ -2154,7 +2154,7 @@ public class SaisieFormActivity extends AppCompatActivity {
     }
 
     /** Montant = quantité saisie × prix unitaire saisi, tous deux dans la MÊME unité
-     * (œuf/alvéole, ou sujet pour Réforme) — pas besoin de conversion pour ce calcul,
+     * (œuf/alvéole, ou sujet pour Réforme), pas besoin de conversion pour ce calcul,
      * contrairement à req.quantite/req.prixUnitaireEstime dans onValider() qui
      * doivent, eux, toujours être exprimés en œufs pour le type OEUFS. Reste
      * modifiable manuellement ensuite (ex: négociation), même principe que
@@ -2307,7 +2307,7 @@ public class SaisieFormActivity extends AppCompatActivity {
 
     /**
      * Ne propose que les bâtiments occupés par le projet en cours (via son
-     * occupationBatiment), pas tous les bâtiments de la ferme — inutile et source
+     * occupationBatiment), pas tous les bâtiments de la ferme, inutile et source
      * d'erreur de saisir une collecte/soin/mortalité dans un bâtiment qui n'a rien
      * à voir avec ce projet.
      */
@@ -2400,7 +2400,7 @@ public class SaisieFormActivity extends AppCompatActivity {
     }
 
     // Même principe que getSelectedBatimentUniqueId() mais sur batimentsEntretien
-    // (TOUS les poulaillers de la ferme) — voir Entretien.
+    // (TOUS les poulaillers de la ferme), voir Entretien.
     private String getSelectedBatimentEntretienUniqueId() {
         String selected = spinnerBatimentEntretien.getText().toString();
         for (com.mobile.diafarms.network.dto.BatimentSelectResponse b : batimentsEntretien) {
@@ -2413,7 +2413,7 @@ public class SaisieFormActivity extends AppCompatActivity {
      * En édition d'une saisie existante, prefillFromExisting() (appelé de manière
      * synchrone dans onCreate) tente de resélectionner le bâtiment AVANT que
      * loadBatiments() (appel réseau asynchrone, lancé juste avant) ait eu le temps de
-     * répondre — la liste "batiments" est encore vide à ce moment-là, donc la sélection
+     * répondre, la liste "batiments" est encore vide à ce moment-là, donc la sélection
      * échouait silencieusement et affichait "Aucun bâtiment précis" alors qu'un
      * bâtiment était bien enregistré. On mémorise la demande et on la ré-applique
      * depuis populateBatimentSpinner() dès que la vraie liste est disponible.
@@ -2435,7 +2435,7 @@ public class SaisieFormActivity extends AppCompatActivity {
     }
 
     /** Retourne la dernière valeur connue en cache local pour cette clé, ou null si
-     * absente — utilisé par les écrans de stock/effectif pour afficher tout de suite
+     * absente, utilisé par les écrans de stock/effectif pour afficher tout de suite
      * une valeur déjà connue plutôt que d'attendre le réseau (jusqu'à 15s hors ligne,
      * voir ApiClient.connectTimeout/readTimeout) : la requête réseau est ensuite
      * lancée en tâche de fond et ne fait que rafraîchir l'affichage si elle aboutit. */
@@ -2485,7 +2485,7 @@ public class SaisieFormActivity extends AppCompatActivity {
     }
 
     /**
-     * Magasins de vente liés à ce vendeur (déjà filtrés côté serveur) — mêmes deux
+     * Magasins de vente liés à ce vendeur (déjà filtrés côté serveur), mêmes deux
      * spinners (Vente œufs / Vente réforme) alimentés depuis la même liste, même
      * schéma cache → réseau que loadBatiments(). Pas d'option "Aucun magasin" : le
      * magasin est obligatoire pour toute vente (contrairement au bâtiment).
@@ -2551,7 +2551,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         return null;
     }
 
-    /** Même raisonnement que selectBatimentByUniqueId/applyPendingBatimentSelection —
+    /** Même raisonnement que selectBatimentByUniqueId/applyPendingBatimentSelection,
      * voir leur commentaire pour la course entre prefillFromExisting() (synchrone) et
      * loadMagasins() (réseau asynchrone). */
     private void selectMagasinByUniqueId(String uniqueId) {
@@ -2579,11 +2579,11 @@ public class SaisieFormActivity extends AppCompatActivity {
     }
 
     /**
-     * Clients déjà synchronisés côté serveur (farm-scopée, pas de filtre par vendeur) —
+     * Clients déjà synchronisés côté serveur (farm-scopée, pas de filtre par vendeur),
      * partagés par les 3 sélecteurs (Vente œufs/réforme : optionnel avec un premier
      * élément "Vente directe" ; Commande : obligatoire, sans cet élément). Même schéma
      * cache → réseau que loadMagasins(). Un client créé hors ligne (voir CLIENT_CREATE)
-     * n'apparaît ici qu'une fois synchronisé — voir SaisieType.CLIENT_CREATE.
+     * n'apparaît ici qu'une fois synchronisé, voir SaisieType.CLIENT_CREATE.
      */
     private void loadClients() {
         String cacheKey = CachePrefetcher.CACHE_CLIENTS_SELECT;
@@ -2630,7 +2630,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         spinnerClientVenteOeufs.setText(labelsVente.get(0), false);
         spinnerClientVenteReforme.setText(labelsVente.get(0), false);
 
-        // Commande : client obligatoire, pas d'option "aucun" — si la liste est vide,
+        // Commande : client obligatoire, pas d'option "aucun", si la liste est vide,
         // le message tvAucunClientCommande prend le relais (voir onValider pour le
         // blocage explicite).
         List<String> labelsCommande = new ArrayList<>();
@@ -2684,7 +2684,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 if (type == SaisieType.PAIEMENT_CLIENT) surClientPaiementChoisi(false);
                 // Appelé explicitement (pas seulement via OnItemClickListener) car
                 // AutoCompleteTextView.setText(..., false) ne déclenche jamais le
-                // listener — même raisonnement que applyPendingMagasinSelection.
+                // listener, même raisonnement que applyPendingMagasinSelection.
                 refreshModePaiementVenteOeufs();
                 refreshModePaiementVenteReforme();
                 return;
@@ -2712,7 +2712,7 @@ public class SaisieFormActivity extends AppCompatActivity {
     }
 
     /** Un mode de paiement n'a de sens que si le montant rapporté devient un paiement
-     * client (voir VenteOeufsCreateRequest.modePaiement) — sinon (vente directe) c'est
+     * client (voir VenteOeufsCreateRequest.modePaiement), sinon (vente directe) c'est
      * un simple contrôle de caisse vendeur, le champ reste masqué et modePaiement part
      * null (voir onValider). */
     private void refreshModePaiementVenteOeufs() {
@@ -2728,7 +2728,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         tilModePaiementVenteReforme.setVisibility(hasClient ? View.VISIBLE : View.GONE);
     }
 
-    /** Un mode de paiement n'a de sens que s'il y a réellement un acompte à qualifier —
+    /** Un mode de paiement n'a de sens que s'il y a réellement un acompte à qualifier,
      * champ masqué et modePaiement part null sinon (voir onValider). */
     private void refreshModePaiementCommande() {
         Double acompte = parseDoubleOrNull(etAcompteCommande.getText());
@@ -2737,7 +2737,7 @@ public class SaisieFormActivity extends AppCompatActivity {
 
     // ===================== PAYER UN SALAIRE (COMPTABLE) =====================
 
-    /** Mois (1-12, libellés français) + années courante ±1 — même plage que le web
+    /** Mois (1-12, libellés français) + années courante ±1, même plage que le web
      * (PayerSalaireDialog), largement suffisante pour rattraper un mois passé ou
      * anticiper un paiement en avance sans champ libre source d'erreur de saisie. */
     private void setupSalaireSpinners() {
@@ -2754,7 +2754,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         spinnerAnneeSalaire.setText(annees.get(1), false); // année courante, position 1 (courante-1, courante, courante+1)
     }
 
-    /** "AAAA-MM" à partir des spinners mois/année — voir SalairePayerRequest.periode
+    /** "AAAA-MM" à partir des spinners mois/année, voir SalairePayerRequest.periode
      * côté back, résolu dynamiquement au taux réellement en vigueur pour cette période
      * (SalaireServiceImpl.resolveTauxPourPeriode), pas seulement le taux courant. */
     private String getSelectedPeriodeSalaire() {
@@ -2766,7 +2766,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         return String.format(Locale.FRANCE, "%s-%02d", annee, mois);
     }
 
-    /** Grille salariale de la ferme (farm-scopée) — un Salaire par employé (mode +
+    /** Grille salariale de la ferme (farm-scopée), un Salaire par employé (mode +
      * taux de base), utilisée pour peupler le sélecteur employé et pré-remplir le
      * montant proposé. Même schéma cache → réseau que loadClients(). */
     private void loadSalaires() {
@@ -2825,7 +2825,7 @@ public class SaisieFormActivity extends AppCompatActivity {
 
     /** JOURNALIER/HORAIRE : quantité obligatoire, montant = taux × quantité (recalculé
      * à la saisie, voir recalculerMontantSalaire). MENSUEL : montant = taux, pas de
-     * quantité — mêmes règles que PayerSalaireDialog côté web. */
+     * quantité, mêmes règles que PayerSalaireDialog côté web. */
     private void applySalaireEmployeSelectionne() {
         SalaireSelectResponse s = getSelectedSalaireEmploye();
         verifierPeriodeSalaire(false);
@@ -2919,7 +2919,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         }
     }
 
-    /** Magasins de STOCKAGE de la ferme (Collecte œufs, obligatoire) — déjà filtrés
+    /** Magasins de STOCKAGE de la ferme (Collecte œufs, obligatoire), déjà filtrés
      * côté serveur au type STOCKAGE (voir DataApi.getMagasinsSelect). Pas d'option
      * "Aucun" : le magasin de stockage est obligatoire. Même schéma cache → réseau
      * que loadMagasins(). */
@@ -2977,7 +2977,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         return null;
     }
 
-    /** Même raisonnement que selectBatimentByUniqueId/applyPendingBatimentSelection —
+    /** Même raisonnement que selectBatimentByUniqueId/applyPendingBatimentSelection,
      * voir leur commentaire pour la course entre prefillFromExisting() (synchrone) et
      * loadMagasinsStockage() (réseau asynchrone). */
     private void selectBatimentStockageByUniqueId(String uniqueId) {
@@ -3002,7 +3002,7 @@ public class SaisieFormActivity extends AppCompatActivity {
     }
 
     /** Stock d'œufs pas encore transféré vers un magasin, dans le bâtiment de stockage
-     * sélectionné — pure info contextuelle (voir tvStockBatimentStockage dans le
+     * sélectionné, pure info contextuelle (voir tvStockBatimentStockage dans le
      * layout), ne plafonne rien : une collecte AJOUTE au stock, elle ne le consomme
      * pas. Même schéma cache → réseau que loadStockForMagasin. */
     private void loadStockBatimentStockageSelectionne() {
@@ -3043,11 +3043,11 @@ public class SaisieFormActivity extends AppCompatActivity {
     }
 
     /** Le stock qui plafonne la vente est celui DU MAGASIN sélectionné, pas de toute
-     * la ferme (vrai stock séparé par magasin) — déclenché à chaque changement de
+     * la ferme (vrai stock séparé par magasin), déclenché à chaque changement de
      * sélection des spinners magasin (voir bindViews) et par applyPendingMagasinSelection. */
     private void loadStockPourMagasinSelectionne() {
         // Une commande vise aussi un magasin (spinnerMagasinCommande) mais son stock n'a
-        // pas d'affichage dédié dans groupCommande (juste informatif sur une vente) —
+        // pas d'affichage dédié dans groupCommande (juste informatif sur une vente),
         // rien à faire ici pour ce type.
         if (type != SaisieType.VENTE_OEUFS && type != SaisieType.VENTE_REFORME) return;
         AutoCompleteTextView spinner = (type == SaisieType.VENTE_OEUFS) ? spinnerMagasinOeufs : spinnerMagasinReforme;
@@ -3089,7 +3089,7 @@ public class SaisieFormActivity extends AppCompatActivity {
     }
 
     /** Rejoue l'affichage du stock (et stockOeufsDisponible, utilisé par onValider pour
-     * le garde-fou client) selon le type bon/cassé actuellement sélectionné — appelé à
+     * le garde-fou client) selon le type bon/cassé actuellement sélectionné, appelé à
      * la fois quand un nouveau stock arrive du serveur ET quand l'utilisateur bascule
      * le RadioGroup (le stock des deux types est déjà connu, pas besoin de re-fetch). */
     private void refreshStockOeufsAffiche() {
@@ -3135,7 +3135,7 @@ public class SaisieFormActivity extends AppCompatActivity {
     }
 
     /**
-     * Effectif vivant DU PROJET sélectionné (nbSujets - mortalité - déjà réformés) —
+     * Effectif vivant DU PROJET sélectionné (nbSujets - mortalité - déjà réformés),
      * plafond de la saisie Réforme (Production), même schéma cache → réseau que
      * loadStockForMagasin() plus bas.
      */
@@ -3956,7 +3956,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                     return;
                 }
                 // Bloque ici, avec le stock déjà connu (synchronisé ou en cache hors
-                // ligne) — plutôt que de créer une saisie qui échouera de toute façon au
+                // ligne), plutôt que de créer une saisie qui échouera de toute façon au
                 // moment de l'envoi (le serveur refait cette même vérification côté
                 // données à jour, voir ConsommationAlimentImpl.create). Ne bloque
                 // jamais si le stock est simplement inconnu (pas encore synchronisé) :
@@ -4026,11 +4026,11 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.clientUniqueId = getSelectedClientUniqueId(spinnerClientVenteOeufs, true);
                 req.quantiteOeufs = quantite; // toujours en œufs, quelle que soit l'unité saisie
                 // prixUnitaire (VenteOeufs.prixUnitaire côté back) est "informatif, par
-                // œuf" — reconverti depuis le prix par alvéole si c'est l'unité choisie.
+                // œuf", reconverti depuis le prix par alvéole si c'est l'unité choisie.
                 req.prixUnitaire = enAlveoles ? prixSaisi / AlveoleUtils.OEUFS_PAR_ALVEOLE : prixSaisi;
                 req.montant = montant;
                 req.montantRapporte = montantRapporte;
-                // Seulement pertinent si le montant rapporté devient un paiement client —
+                // Seulement pertinent si le montant rapporté devient un paiement client,
                 // voir refreshModePaiementVenteOeufs/VenteOeufsCreateRequest.modePaiement.
                 req.modePaiement = req.clientUniqueId != null ? getSelectedModePaiement(spinnerModePaiementVenteOeufs) : null;
                 req.typeOeuf = casse ? "CASSE" : "BON";
@@ -4344,7 +4344,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 boolean estReforme = isCommandeReforme();
                 boolean enAlveoles = isCommandeEnAlveoles();
                 int saisie = parseIntSafe(etQuantiteCommande.getText());
-                // Toujours reconverti en œufs pour l'API/la base — voir Commande.quantite
+                // Toujours reconverti en œufs pour l'API/la base, voir Commande.quantite
                 // côté back, qui ne connaît jamais l'alvéole (même principe que VenteOeufs).
                 int quantite = (!estReforme && enAlveoles) ? AlveoleUtils.alveolesToOeufs(saisie) : saisie;
                 Double montantEstime = arrondiFranc(parseDoubleOrNull(etMontantEstimeCommande.getText()));
@@ -4378,7 +4378,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 }
                 Double prixSaisiCommande = parseDoubleOrNull(etPrixUnitaireCommande.getText());
                 // prixUnitaireEstime (Commande.prixUnitaireEstime côté back) est
-                // "informatif, par œuf" — reconverti depuis le prix par alvéole si c'est
+                // "informatif, par œuf", reconverti depuis le prix par alvéole si c'est
                 // l'unité choisie, même principe que VenteOeufs.
                 Double prixReelCommande = prixSaisiCommande != null
                         ? (!estReforme && enAlveoles ? prixSaisiCommande / AlveoleUtils.OEUFS_PAR_ALVEOLE : prixSaisiCommande)
@@ -4400,7 +4400,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                     toast("L'acompte ne peut pas être négatif");
                     return;
                 }
-                // Seulement pertinent s'il y a réellement un acompte — voir
+                // Seulement pertinent s'il y a réellement un acompte, voir
                 // refreshModePaiementCommande/CommandeCreateRequest.modePaiement.
                 req.modePaiement = (req.montantAcompte != null && req.montantAcompte > 0)
                         ? getSelectedModePaiement(spinnerModePaiementCommande) : null;
@@ -4519,7 +4519,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                     return;
                 }
                 String periode = getSelectedPeriodeSalaire();
-                // Bloque une tentative évidente de double paiement AVANT l'envoi — le
+                // Bloque une tentative évidente de double paiement AVANT l'envoi, le
                 // serveur reste seul juge définitif (SalaireServiceImpl.payer rejette
                 // tout doublon quoi qu'il arrive), mais sur le terrain hors ligne, deux
                 // paiements pour le même employé/période peuvent être mis en file avant
@@ -4676,7 +4676,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 setDateHeure(req.date, req.heure);
                 if (req.oeufsCollectes != null) {
                     // Rescindé en alvéoles + reste pour l'affichage, symétrique de
-                    // oeufsCollectesReel() — la valeur stockée est toujours un total en
+                    // oeufsCollectesReel(), la valeur stockée est toujours un total en
                     // œufs, jamais décomposée (voir onValider()).
                     etAlveolesCollectees.setText(String.valueOf(req.oeufsCollectes / AlveoleUtils.OEUFS_PAR_ALVEOLE));
                     etOeufsCollectes.setText(String.valueOf(req.oeufsCollectes % AlveoleUtils.OEUFS_PAR_ALVEOLE));
@@ -4825,7 +4825,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 setDateHeure(req.dateCommande, null);
                 // Bascule d'abord le type (déclenche le listener qui affiche/masque
                 // groupUniteCommande, voir bindViews) avant de remplir les valeurs.
-                // Réédition toujours en œufs (unité Œuf par défaut), jamais en alvéole —
+                // Réédition toujours en œufs (unité Œuf par défaut), jamais en alvéole,
                 // même principe que VENTE_OEUFS : la valeur stockée est toujours un total
                 // en œufs, pas la saisie d'origine.
                 boolean estReforme = "REFORME".equals(req.type);
@@ -4877,7 +4877,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                     int mois = Integer.parseInt(req.periode.substring(5));
                     spinnerMoisSalaire.setText(MOIS_LABELS[mois - 1], false);
                     // Peuplé avec [anneeCourante-1, anneeCourante, anneeCourante+1] (voir
-                    // setupSalaireSpinners) — n'affiche que si l'année demandée fait bien
+                    // setupSalaireSpinners), n'affiche que si l'année demandée fait bien
                     // partie de cette plage.
                     int anneeCourante = Calendar.getInstance().get(Calendar.YEAR);
                     if (Math.abs(annee - anneeCourante) <= 1) {

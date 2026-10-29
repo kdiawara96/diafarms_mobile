@@ -2,7 +2,7 @@
 <network-security-config>
     <!-- L'adresse du serveur est configurable en direct depuis l'écran Diagnostics
          (AppSettings.setServerUrl) et reste en HTTP tant qu'il n'y a pas de backend
-         HTTPS — un allowlist d'IP fixe (comme avant) empêcherait ce champ de
+         HTTPS, un allowlist d'IP fixe (comme avant) empêcherait ce champ de
          fonctionner pour toute IP autre que celle codée en dur au moment du build.
          À resserrer (repasser cleartextTrafficPermitted à false) une fois un domaine
          HTTPS réel en place pour la prod. -->

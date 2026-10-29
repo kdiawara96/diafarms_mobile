@@ -1,7 +1,7 @@
 package com.mobile.diafarms.network;
 
 /**
- * Serveur de production (api.cocoricoferme.com) — même backend que le web.
+ * Serveur de production (api.cocoricoferme.com), même backend que le web.
  * Reste modifiable en direct depuis l'écran Diagnostics (AppSettings.setServerUrl)
  * pour un usage en développement local, sans avoir à recompiler l'app.
  */

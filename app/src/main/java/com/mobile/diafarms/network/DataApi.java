@@ -59,7 +59,7 @@ public interface DataApi {
     @GET("projets/select")
     Call<ApiEnvelope<List<ProjetSelectResponse>>> getProjetsSelect();
 
-    // Quelles actions Finance sont ouvertes à ce rôle (voir HomeActivity.applyFarmAppSettings) —
+    // Quelles actions Finance sont ouvertes à ce rôle (voir HomeActivity.applyFarmAppSettings),
     // imposé aussi côté serveur à la connexion/au scan QR (AppAccessRules), pas qu'un masquage d'écran.
     // Prix habituels et plus gros montants récents : confirmation d'un montant inhabituel
     // à la saisie, même hors ligne (voir util/MontantsInhabituels).
@@ -69,7 +69,7 @@ public interface DataApi {
     @GET("farm-settings")
     Call<ApiEnvelope<FarmAppSettingsResponse>> getFarmAppSettings();
 
-    // Poulaillers uniquement (élevage) — le stockage/la vente vivent désormais dans
+    // Poulaillers uniquement (élevage), le stockage/la vente vivent désormais dans
     // Magasin (voir getMagasinsSelect ci-dessous, type VENTE/STOCKAGE).
     @GET("batiments/select")
     Call<ApiEnvelope<List<BatimentSelectResponse>>> getBatimentsSelect();
@@ -84,12 +84,12 @@ public interface DataApi {
     Call<ApiEnvelope<List<SiteSelectResponse>>> getSites();
 
     // Stock d'œufs pas encore transféré vers un magasin de vente, dans ce magasin de
-    // stockage précis — pure info contextuelle à la collecte (voir SaisieFormActivity),
+    // stockage précis, pure info contextuelle à la collecte (voir SaisieFormActivity),
     // ne plafonne rien : une collecte AJOUTE au stock, elle ne le consomme pas.
     @GET("magasin-transferts/disponible-batiment")
     Call<ApiEnvelope<Integer>> getDisponibleMagasinStockage(@Query("magasinStockageUniqueId") String magasinStockageUniqueId);
 
-    // Un vendeur (rôle VENTE) ne voit que les magasins de vente auxquels il est lié —
+    // Un vendeur (rôle VENTE) ne voit que les magasins de vente auxquels il est lié,
     // voir MagasinServiceImpl.list() côté back, déjà filtré côté serveur. type =
     // "VENTE" ou "STOCKAGE" (voir Magasin.TypeMagasin), omis = tous types confondus.
     @GET("magasins/list")
@@ -98,11 +98,11 @@ public interface DataApi {
     @GET("magasins/{uniqueId}/stock")
     Call<ApiEnvelope<StockMagasinResponse>> getStockMagasin(@Path("uniqueId") String magasinUniqueId);
 
-    // Clients déjà synchronisés côté serveur, farm-scopée — voir ClientSelectResponse.
+    // Clients déjà synchronisés côté serveur, farm-scopée, voir ClientSelectResponse.
     @GET("clients/select")
     Call<ApiEnvelope<List<ClientSelectResponse>>> getClientsSelect();
 
-    // Grille salariale de la ferme (rôle Comptable, "Payer un salaire") — voir
+    // Grille salariale de la ferme (rôle Comptable, "Payer un salaire"), voir
     // SalaireSelectResponse.
     @GET("salaires/select")
     Call<ApiEnvelope<List<SalaireSelectResponse>>> getSalairesSelect();
@@ -113,20 +113,20 @@ public interface DataApi {
     @GET("consommations-aliment/stock/{projetUniqueId}")
     Call<ApiEnvelope<StockAlimentResponse>> getStockAliment(@Path("projetUniqueId") String projetUniqueId);
 
-    // ============== SOINS (entité unifiée : Soins générique — Médicament/Autre — ET
+    // ============== SOINS (entité unifiée : Soins générique, Médicament/Autre, ET
     // Vaccination, fusionnées côté back en une seule table/entité "Soins", distinguées
     // par le champ type. Vaccination utilise ce même endpoint, avec
     // type=VACCINATION et les champs quantite/prixUnitaire/modeAdministration
-    // renseignés — voir SaisieFormActivity.onValider). ==============
+    // renseignés, voir SaisieFormActivity.onValider). ==============
     @POST("soins/create")
     Call<ApiEnvelope<CreatedEntityResponse>> createSoins(@Header("Idempotency-Key") String idempotencyKey, @Body SoinsCreateRequest request);
 
-    // ============== ENTRETIEN (poulailler ou site — jamais lié à un projet, voir
+    // ============== ENTRETIEN (poulailler ou site, jamais lié à un projet, voir
     // Entretien.java côté back) ==============
     @POST("entretiens/create")
     Call<ApiEnvelope<CreatedEntityResponse>> createEntretien(@Header("Idempotency-Key") String idempotencyKey, @Body EntretienCreateRequest request);
 
-    // ============== NOTIFICATIONS (alertes ferme entière — voir AlertCheckWorker,
+    // ============== NOTIFICATIONS (alertes ferme entière, voir AlertCheckWorker,
     // vérification périodique en arrière-plan pour les notifications locales) ==============
     @GET("notifications/list")
     Call<ApiEnvelope<List<NotificationResponse>>> getNotifications();
@@ -140,7 +140,7 @@ public interface DataApi {
     Call<ApiEnvelope<CreatedEntityResponse>> createCollecteOeufs(@Header("Idempotency-Key") String idempotencyKey, @Body CollecteOeufsCreateRequest request);
 
     // ============== RÉFORME (Production : comptage pur, plafonné par l'effectif
-    // vivant DU PROJET — aucun prix, voir diafarms_back ReformeImpl) ==============
+    // vivant DU PROJET, aucun prix, voir diafarms_back ReformeImpl) ==============
     // Plafond d'une saisie (effectif vivant du poulailler/projet, œufs encore collectables
     // ce jour-là) : alimente les alertes de cohérence en direct du formulaire.
     @GET("plafond-saisie")
@@ -178,7 +178,7 @@ public interface DataApi {
     @POST("commandes/create")
     Call<ApiEnvelope<CreatedEntityResponse>> createCommande(@Header("Idempotency-Key") String idempotencyKey, @Body CommandeCreateRequest request);
 
-    // Commandes d'un statut donné (EN_ATTENTE, CONFIRMEE, EN_LIVRAISON...) — voir
+    // Commandes d'un statut donné (EN_ATTENTE, CONFIRMEE, EN_LIVRAISON...), voir
     // CachePrefetcher.prefetchCommandes, qui ne garde que les commandes ouvertes.
     @GET("commandes/list")
     Call<ApiEnvelope<PageResponse<CommandeResponse>>> getCommandes(@Query("page") int page,
@@ -222,16 +222,16 @@ public interface DataApi {
     Call<ApiEnvelope<CompteClientResponse>> getCompteClient(@Path("uniqueId") String clientUniqueId);
 
     // ============== SALAIRES (COMPTABLE : paiement uniquement, pas de gestion de la
-    // grille — voir SalaireServiceImpl.payer côté back, au plus un paiement par période) ==============
+    // grille, voir SalaireServiceImpl.payer côté back, au plus un paiement par période) ==============
     @POST("salaires/payer")
     Call<ApiEnvelope<CreatedEntityResponse>> payerSalaire(@Header("Idempotency-Key") String idempotencyKey, @Body SalairePayerRequest request);
 
-    // ============== ALIMENTATION — ACHAT (aliment entrant, par projet) ==============
+    // ============== ALIMENTATION, ACHAT (aliment entrant, par projet) ==============
     @POST("alimentations/create/{uniqueIdProjet}")
     Call<ApiEnvelope<CreatedEntityResponse>> createAlimentationAchat(
             @Header("Idempotency-Key") String idempotencyKey, @Path("uniqueIdProjet") String projetUniqueId, @Body AlimentationCreateRequest request);
 
-    // ============== MÉDICAMENTS — achat (dépense + stock du projet) et stock ==============
+    // ============== MÉDICAMENTS, achat (dépense + stock du projet) et stock ==============
     @POST("medicaments/create/{uniqueIdProjet}")
     Call<ApiEnvelope<CreatedEntityResponse>> createAchatMedicament(
             @Header("Idempotency-Key") String idempotencyKey, @Path("uniqueIdProjet") String projetUniqueId,
@@ -241,11 +241,11 @@ public interface DataApi {
     Call<ApiEnvelope<java.util.List<com.mobile.diafarms.network.dto.StockMedicamentResponse>>> getStockMedicaments(
             @Path("uniqueIdProjet") String projetUniqueId);
 
-    // ============== ALIMENTATION — CONSOMMATION (aliment sortant) ==============
+    // ============== ALIMENTATION, CONSOMMATION (aliment sortant) ==============
     @POST("consommations-aliment/create")
     Call<ApiEnvelope<CreatedEntityResponse>> createConsommationAliment(@Header("Idempotency-Key") String idempotencyKey, @Body ConsommationAlimentCreateRequest request);
 
-    // ============== SESSIONS DE PESÉE (Production) — envoi de l'état complet de la
+    // ============== SESSIONS DE PESÉE (Production), envoi de l'état complet de la
     // session, idempotent côté serveur (voir SessionPeseeSyncRequest). La réponse est
     // l'état serveur complet (SessionPeseeServeur), fusionné dans l'état local.
     // X-Pesee-Contrat: 2 : le serveur répond 200 + peseesRefusees (au lieu d'un 400)
@@ -279,7 +279,7 @@ public interface DataApi {
     @POST("transactions/create")
     Call<ApiEnvelope<CreatedEntityResponse>> createTransaction(@Header("Idempotency-Key") String idempotencyKey, @Body TransactionCreateRequest request);
 
-    // ============== ALERTES (recalculées côté serveur, jamais mockées côté client —
+    // ============== ALERTES (recalculées côté serveur, jamais mockées côté client,
     // même logique que le web, voir NotificationServiceImpl) ==============
     @GET("notifications/projet/{projetUniqueId}")
     Call<ApiEnvelope<List<NotificationResponse>>> getNotificationsForProjet(@Path("projetUniqueId") String projetUniqueId);

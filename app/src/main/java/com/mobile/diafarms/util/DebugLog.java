@@ -12,7 +12,7 @@ import java.util.Locale;
 
 /**
  * Journal de diagnostic écrit sur le stockage externe propre à l'app (pas besoin de
- * permission particulière, récupérable via `adb pull` sans root) — Logcat s'est révélé
+ * permission particulière, récupérable via `adb pull` sans root), Logcat s'est révélé
  * filtré pour les apps tierces sur ce build "User" (retail), donc inutilisable pour
  * déboguer à distance. Fichier : Android/data/com.mobile.diafarms/files/diafarms_debug.txt
  */
@@ -41,8 +41,8 @@ public class DebugLog {
     }
 
     /**
-     * Journal dédié et curaté de TOUTE erreur réseau — réponses HTTP non 2xx et échecs
-     * bas niveau (timeout, hôte injoignable...), voir ApiClient.ErrorCaptureInterceptor —
+     * Journal dédié et curaté de TOUTE erreur réseau, réponses HTTP non 2xx et échecs
+     * bas niveau (timeout, hôte injoignable...), voir ApiClient.ErrorCaptureInterceptor,
      * séparé du journal de debug général pour rester lisible/partageable tel quel par
      * quelqu'un qui n'a pas besoin de tout le bruit des requêtes réussies. Un long
      * séparateur entre chaque entrée pour repérer facilement où commence/finit chaque
@@ -70,7 +70,7 @@ public class DebugLog {
     }
 
     /** Comme captureHttpError mais pour un évènement de diagnostic non-HTTP (ex: échec
-     * de la connexion hors ligne) — écrit dans le MÊME journal que celui affiché/partagé
+     * de la connexion hors ligne), écrit dans le MÊME journal que celui affiché/partagé
      * par l'écran Diagnostics (voir DiagnosticsActivity.readErrorLog/getErrorLogFile),
      * qui ne lit que ERROR_FILE_NAME. Un DebugLog.log() seul (journal général) ne serait
      * donc jamais vu par quelqu'un sur le terrain qui partage juste ce journal. */

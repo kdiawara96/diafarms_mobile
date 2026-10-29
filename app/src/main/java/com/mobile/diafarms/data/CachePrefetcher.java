@@ -33,8 +33,8 @@ import retrofit2.Response;
 
 /**
  * Précharge en cache local (LocalDatabase.local_cache) le détail, les alertes et le
- * stock aliment de TOUS les projets de l'agent — pas seulement celui affiché à l'écran
- * — pour que le travail hors ligne sur le terrain fonctionne même sur un projet jamais
+ * stock aliment de TOUS les projets de l'agent, pas seulement celui affiché à l'écran
+ *, pour que le travail hors ligne sur le terrain fonctionne même sur un projet jamais
  * consulté en ligne. Déclenché juste après un login/scan QR réussi (encore en ligne à
  * ce moment précis) et à chaque ouverture de l'accueil. Chaque appel réseau est
  * indépendant (fire-and-forget) : un échec sur un projet ne bloque pas les autres, et
@@ -62,22 +62,22 @@ public class CachePrefetcher {
     // stock (œufs pas encore transférés) par magasin de stockage précis.
     public static final String CACHE_MAGASINS_STOCKAGE_SELECT = "magasins_stockage_select";
     public static final String CACHE_STOCK_MAGASIN_STOCKAGE_PREFIX = "stock_magasin_stockage_";
-    // Poulaillers de la ferme (PRODUCTION) : liste complète non filtrée par le serveur —
+    // Poulaillers de la ferme (PRODUCTION) : liste complète non filtrée par le serveur,
     // bâtiment d'élevage optionnel de Collecte œufs (distinct du magasin de stockage).
     // Rattachement facultatif d'une dépense : tous les sites / tous les poulaillers (occupés ou non).
     public static final String CACHE_SITES_SELECT = "sites_select";
     public static final String CACHE_BATIMENTS_TOUS = "batiments_tous";
     public static final String CACHE_BATIMENTS_SELECT = "batiments_select";
-    // Clients de la ferme (VENTE) : uniquement ceux déjà synchronisés côté serveur —
+    // Clients de la ferme (VENTE) : uniquement ceux déjà synchronisés côté serveur,
     // voir ClientSelectResponse et SaisieFormActivity (sélecteur optionnel d'une vente,
     // obligatoire d'une commande).
     public static final String CACHE_CLIENTS_SELECT = "clients_select";
     // Grille salariale de la ferme (COMPTABLE) : un Salaire par employé (mode + taux de
-    // base), utilisée pour pré-remplir "Payer un salaire" hors ligne — le serveur reste
+    // base), utilisée pour pré-remplir "Payer un salaire" hors ligne, le serveur reste
     // seul juge du taux réellement appliqué à la période payée à la synchronisation
     // (voir SalaireServiceImpl.resolveTauxPourPeriode).
     public static final String CACHE_SALAIRES_SELECT = "salaires_select";
-    // Accès mobile par rôle (Production/Comptable/Vente) — voir HomeActivity.
+    // Accès mobile par rôle (Production/Comptable/Vente), voir HomeActivity.
     // loadFarmAppSettings/applyFarmAppSettings : appliqué cache d'abord pour que le
     // menu ne reste jamais vide hors ligne, y compris au tout premier écran.
     public static final String CACHE_FARM_SETTINGS = "farm_settings";
@@ -134,7 +134,7 @@ public class CachePrefetcher {
     }
 
     /** Précharge la liste des magasins liés à ce vendeur (rôle VENTE), et le stock de
-     * chacun — inoffensif pour les autres rôles : la liste sera simplement vide. Appelé
+     * chacun, inoffensif pour les autres rôles : la liste sera simplement vide. Appelé
      * depuis prefetchProjectsDetails ci-dessous (donc à chaque ouverture de l'accueil,
      * pas seulement au premier bootstrap) pour que le stock par magasin reste à jour. */
     private static void prefetchMagasins(Context appContext, LocalDatabase localDatabase) {
@@ -165,7 +165,7 @@ public class CachePrefetcher {
     }
 
     /** Précharge la liste des magasins de STOCKAGE de la ferme (obligatoire pour la
-     * Collecte œufs) et le stock disponible (pas encore transféré) de chacun —
+     * Collecte œufs) et le stock disponible (pas encore transféré) de chacun,
      * inoffensif pour un rôle sans accès Production, la liste sera juste inutilisée. */
     private static void prefetchMagasinsStockage(Context appContext, LocalDatabase localDatabase) {
         ApiClient.dataApi(appContext).getMagasinsSelect("STOCKAGE").enqueue(new Callback<ApiEnvelope<List<MagasinSelectResponse>>>() {
@@ -194,7 +194,7 @@ public class CachePrefetcher {
         });
     }
 
-    /** Précharge la liste des poulaillers de la ferme — inoffensif pour un rôle sans
+    /** Précharge la liste des poulaillers de la ferme, inoffensif pour un rôle sans
      * accès Production, la liste sera juste inutilisée. Voir CACHE_BATIMENTS_SELECT. */
     private static void prefetchBatiments(Context appContext, LocalDatabase localDatabase) {
         ApiClient.dataApi(appContext).getBatimentsSelect().enqueue(new Callback<ApiEnvelope<List<BatimentSelectResponse>>>() {
@@ -238,7 +238,7 @@ public class CachePrefetcher {
     }
 
     /** Précharge la liste des clients déjà synchronisés côté serveur (farm-scopée, pas
-     * de filtre par rôle côté back) — inoffensif pour un rôle sans accès Vente, la
+     * de filtre par rôle côté back), inoffensif pour un rôle sans accès Vente, la
      * liste sera juste inutilisée. Voir CACHE_CLIENTS_SELECT. */
     private static void prefetchClients(Context appContext, LocalDatabase localDatabase) {
         ApiClient.dataApi(appContext).getClientsSelect().enqueue(new Callback<ApiEnvelope<List<ClientSelectResponse>>>() {
@@ -258,7 +258,7 @@ public class CachePrefetcher {
         });
     }
 
-    /** Précharge la grille salariale de la ferme (rôle Comptable, "Payer un salaire") —
+    /** Précharge la grille salariale de la ferme (rôle Comptable, "Payer un salaire"),
      * inoffensif pour un rôle sans accès Comptable, la liste sera juste inutilisée.
      * Voir CACHE_SALAIRES_SELECT. */
     private static void prefetchSalaires(Context appContext, LocalDatabase localDatabase) {
@@ -720,9 +720,9 @@ public class CachePrefetcher {
     }
 
     /** Ne garde que les projets actifs (ProjetSelectResponse.active, reflet direct de
-     * !initialisation.archive côté back) — on n'amène jamais un projet archivé sur le
+     * !initialisation.archive côté back), on n'amène jamais un projet archivé sur le
      * terrain, ni à l'écran ni en cache. Ne PAS se baser sur finPrevue : c'est une date
-     * indicative, pas un statut — un projet reste actif même après sa fin prévue tant
+     * indicative, pas un statut, un projet reste actif même après sa fin prévue tant
      * qu'il n'a pas été explicitement archivé (ancien bug : un projet dont la date de
      * fin était dépassée disparaissait à tort du mobile alors qu'il restait actif côté web). */
     public static List<ProjetSelectResponse> filterActifs(List<ProjetSelectResponse> projets) {

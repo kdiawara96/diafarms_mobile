@@ -1,7 +1,7 @@
 package com.mobile.diafarms.network.dto;
 
 /**
- * Miroir de com.diafarms.ml.request.create.ConsommationAlimentCreate côté backend —
+ * Miroir de com.diafarms.ml.request.create.ConsommationAlimentCreate côté backend,
  * "aliment sortant" (consommation, tirée du stock du projet, carte Alimentation).
  */
 public class ConsommationAlimentCreateRequest {

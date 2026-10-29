@@ -7,7 +7,7 @@ import java.util.List;
  * Miroir des claims du JWT émis pour le QR (voir QRCodeService.generateAndEncryptQRCode
  * côté backend) : sub=username, uniqueId, fullName, role (rôles séparés par "|"), exp
  * (expiration epoch secondes). Lu directement depuis le JWT décodé localement (voir
- * JwtHelper) — on fait confiance à ce contenu sans vérifier la signature, car le QR
+ * JwtHelper), on fait confiance à ce contenu sans vérifier la signature, car le QR
  * qui le porte a déjà été chiffré de bout en bout par le backend (même clé AES que
  * AESHelper/Constants.AES_SECRET_KEY) : le canal est déjà de confiance.
  */

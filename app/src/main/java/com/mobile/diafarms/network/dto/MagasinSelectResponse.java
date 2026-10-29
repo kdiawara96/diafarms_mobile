@@ -2,7 +2,7 @@ package com.mobile.diafarms.network.dto;
 
 import java.util.List;
 
-/** Miroir minimal de MagasinDTO côté backend (GET /magasins/list) — un vendeur ne
+/** Miroir minimal de MagasinDTO côté backend (GET /magasins/list), un vendeur ne
  * voit que les magasins de vente auxquels il est lié, déjà filtré côté serveur.
  * type = "VENTE" ou "STOCKAGE" (voir Magasin.TypeMagasin côté back) : un magasin de
  * stockage est alimenté par la collecte (voir SaisieFormActivity), un magasin de

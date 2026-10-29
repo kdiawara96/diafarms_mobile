@@ -1,7 +1,7 @@
 package com.mobile.diafarms.network.dto;
 
 /**
- * Miroir de com.diafarms.ml.request.create.ReformeCreate côté backend — comptage
+ * Miroir de com.diafarms.ml.request.create.ReformeCreate côté backend, comptage
  * pur des sujets retirés du cheptel vivant (comme MortaliteCreateRequest), aucun
  * prix ici.
  */

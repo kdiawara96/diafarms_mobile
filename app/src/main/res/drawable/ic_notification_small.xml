@@ -4,7 +4,7 @@
     android:viewportWidth="24"
     android:viewportHeight="24">
     <!-- Icône de notification dédiée : Android exige une silhouette blanche opaque
-         sur fond transparent pour la barre de statut (setSmallIcon) — une icône en
+         sur fond transparent pour la barre de statut (setSmallIcon), une icône en
          couleurs (comme le mipmap du launcher, utilisé avant) est rendue comme un
          bloc blanc plein, illisible. Forme "cloche" standard, reconnaissable même en
          tout petit. -->

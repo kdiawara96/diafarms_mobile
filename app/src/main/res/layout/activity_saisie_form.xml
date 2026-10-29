@@ -46,7 +46,7 @@
             <View android:layout_width="match_parent" android:layout_height="20dp" />
 
             <!-- Poulailler (obligatoire pour collecte, sortie d'aliment, soins, mortalité,
-                 réforme ; facultatif sinon — libellé fixé par
+                 réforme ; facultatif sinon, libellé fixé par
                  SaisieFormActivity.populateBatimentSpinner) -->
             <LinearLayout
                 android:id="@+id/groupBatimentTop"
@@ -75,7 +75,7 @@
                 <View android:layout_width="match_parent" android:layout_height="16dp" />
             </LinearLayout>
 
-            <!-- Date / Heure (masqué pour Client, voir applyTypeVisibility — pas de date
+            <!-- Date / Heure (masqué pour Client, voir applyTypeVisibility, pas de date
                  dans ClientCreate côté back ; pour Commande, etDate représente la date de
                  commande, heure inutilisée mais laissée visible comme pour Transaction) -->
             <LinearLayout
@@ -186,7 +186,7 @@
 
                 <!-- Compté en deux temps comme sur le terrain : d'abord les alvéoles
                      pleines (plateaux de 30), puis les œufs qui restent sans remplir un
-                     plateau entier — un seul champ œufs/alvéoles obligeait à convertir
+                     plateau entier, un seul champ œufs/alvéoles obligeait à convertir
                      mentalement à chaque saisie. Total envoyé = alvéoles×30 + œufs. -->
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -252,7 +252,7 @@
             </LinearLayout>
 
             <!-- ===================== SOINS & VACCINATION (fusionnées, un seul point
-                 d'entrée — voir HomeActivity/btnSoins) : le spinner Type choisit entre
+                 d'entrée, voir HomeActivity/btnSoins) : le spinner Type choisit entre
                  Vaccination/Médicament/Autre, ce qui bascule quel sous-groupe de champs
                  est affiché (voir updateGroupSoinsSousType() côté Java). ===================== -->
             <LinearLayout
@@ -354,7 +354,7 @@
 
                     <!-- Pas de coût ici : la Production ne suit plus que le fait (quoi/
                          quand/où), le coût réel se saisit séparément en Comptabilité
-                         (Nouvelle transaction, catégorie "Santé / Vétérinaire") — voir
+                         (Nouvelle transaction, catégorie "Santé / Vétérinaire"), voir
                          SaisieFormActivity.onValider et CATEGORIES_TRANSACTION_SORTIE. -->
                 </LinearLayout>
 
@@ -429,7 +429,7 @@
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
-            <!-- ===================== ENTRETIEN (poulailler ou site — jamais lié au
+            <!-- ===================== ENTRETIEN (poulailler ou site, jamais lié au
                  projet, voir HomeActivity.openSaisie/Entretien.java côté back).
                  Le poulailler ici vient de TOUS ceux de la ferme (getBatimentsSelect),
                  pas seulement ceux occupés par le projet sélectionné en haut (voir
@@ -600,7 +600,7 @@
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
-            <!-- ===================== ALIMENTATION — CONSOMMATION (sortie) ===================== -->
+            <!-- ===================== ALIMENTATION, CONSOMMATION (sortie) ===================== -->
             <LinearLayout
                 android:id="@+id/groupConsommation"
                 android:layout_width="match_parent"
@@ -654,7 +654,7 @@
 
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 
-                <!-- Optionnel — seuls les clients déjà synchronisés apparaissent (voir
+                <!-- Optionnel, seuls les clients déjà synchronisés apparaissent (voir
                      SaisieFormActivity.loadClients) : "Vente directe" reste le choix par
                      défaut, comme côté web. -->
                 <com.google.android.material.textfield.TextInputLayout
@@ -748,7 +748,7 @@
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 
                 <!-- Toujours quantité × prix unitaire, jamais modifiable directement (voir
-                     recalculerMontantVenteOeufs) — un rabais se reflète dans le montant
+                     recalculerMontantVenteOeufs), un rabais se reflète dans le montant
                      rapporté ci-dessous, pas ici. -->
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -762,13 +762,13 @@
 
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 
-                <!-- Ce qui revient RÉELLEMENT en caisse aujourd'hui — si différent du
+                <!-- Ce qui revient RÉELLEMENT en caisse aujourd'hui, si différent du
                      montant théorique, l'écart est suivi comme dette (client sélectionné
                      ci-dessus si renseigné, sinon vendeur), voir SoldeClient/SoldeVendeur
                      côté back. Pré-rempli = montant théorique (vente payée intégralement),
                      à corriger explicitement si ce n'est pas le cas. Libellé/hint changé
                      dynamiquement selon la présence d'un client ("Montant reçu maintenant" /
-                     "Montant rapporté") — voir refreshModePaiementVenteOeufs. -->
+                     "Montant rapporté"), voir refreshModePaiementVenteOeufs. -->
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/tilMontantRapporteVenteOeufs"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -782,7 +782,7 @@
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 
                 <!-- Visible seulement quand un client est sélectionné ci-dessus (sinon
-                     envoyé null — voir onValider) : n'a de sens que pour un paiement
+                     envoyé null, voir onValider) : n'a de sens que pour un paiement
                      client, pas pour un contrôle de caisse vendeur. -->
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/tilModePaiementVenteOeufs"
@@ -910,7 +910,7 @@
                         android:text="Utiliser l'estimation" />
                 </LinearLayout>
 
-                <!-- Visible uniquement en mode "Au kilo" — voir refreshTypeVenteReformeUi. -->
+                <!-- Visible uniquement en mode "Au kilo", voir refreshTypeVenteReformeUi. -->
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/tilPoidsTotalReforme"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -934,7 +934,7 @@
                 <View android:id="@+id/spacerPoidsTotalReforme" android:layout_width="match_parent" android:layout_height="12dp"
                     android:visibility="gone" />
 
-                <!-- Hint changé dynamiquement ("Prix unitaire" / "Prix au kilo") — voir
+                <!-- Hint changé dynamiquement ("Prix unitaire" / "Prix au kilo"), voir
                      refreshTypeVenteReformeUi. -->
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/tilPrixUnitaireReforme"
@@ -948,7 +948,7 @@
 
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 
-                <!-- Toujours sujets × prix unitaire, jamais modifiable directement — même
+                <!-- Toujours sujets × prix unitaire, jamais modifiable directement, même
                      principe que Vente d'œufs (voir groupVenteOeufs). -->
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -962,10 +962,10 @@
 
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 
-                <!-- Ce qui revient RÉELLEMENT en caisse aujourd'hui — même principe que
+                <!-- Ce qui revient RÉELLEMENT en caisse aujourd'hui, même principe que
                      Vente d'œufs (voir groupVenteOeufs). Pré-rempli = montant théorique,
                      à corriger explicitement si ce n'est pas le cas. Libellé/hint changé
-                     dynamiquement selon la présence d'un client — voir
+                     dynamiquement selon la présence d'un client, voir
                      refreshModePaiementVenteReforme. -->
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/tilMontantRapporteVenteReforme"
@@ -979,7 +979,7 @@
 
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 
-                <!-- Visible seulement quand un client est sélectionné ci-dessus — même
+                <!-- Visible seulement quand un client est sélectionné ci-dessus, même
                      principe que Vente d'œufs (voir groupVenteOeufs). -->
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/tilModePaiementVenteReforme"
@@ -1079,7 +1079,7 @@
             </LinearLayout>
 
             <!-- ===================== NOUVELLE COMMANDE (VENTE : client obligatoire, déjà
-                 synchronisé — voir SaisieFormActivity.loadClients) ===================== -->
+                 synchronisé, voir SaisieFormActivity.loadClients) ===================== -->
             <LinearLayout
                 android:id="@+id/groupCommande"
                 android:layout_width="match_parent"
@@ -1154,7 +1154,7 @@
                         android:text="Réforme" />
                 </RadioGroup>
 
-                <!-- Unité de vente (Œuf/Alvéole), visible seulement pour le type Œufs — même
+                <!-- Unité de vente (Œuf/Alvéole), visible seulement pour le type Œufs, même
                      patron que radioGroupUniteVenteOeufs (groupVenteOeufs) : jamais l'alvéole
                      envoyée au serveur, juste une facilité de saisie (voir onValider()). -->
                 <LinearLayout
@@ -1309,7 +1309,7 @@
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 
                 <!-- Visible seulement si un acompte > 0 est saisi ci-dessus (sinon envoyé
-                     null — voir onValider) : n'a de sens que s'il y a réellement un
+                     null, voir onValider) : n'a de sens que s'il y a réellement un
                      paiement à qualifier. -->
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/tilModePaiementCommande"

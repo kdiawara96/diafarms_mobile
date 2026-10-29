@@ -68,7 +68,7 @@ public class HomeActivity extends AppCompatActivity {
 
     // Cache local (voir LocalDatabase.putCache/getCache et CachePrefetcher) : permet
     // d'afficher les dernières données connues quand le réseau est indisponible plutôt
-    // qu'un écran vierge — rafraîchi à chaque appel réseau réussi et après chaque
+    // qu'un écran vierge, rafraîchi à chaque appel réseau réussi et après chaque
     // synchronisation. Clés partagées avec CachePrefetcher pour que le préchargement
     // déclenché après le login/scan QR écrive au même endroit que cet écran.
     private static final String CACHE_PROJETS_SELECT = CachePrefetcher.CACHE_PROJETS_SELECT;
@@ -118,18 +118,18 @@ public class HomeActivity extends AppCompatActivity {
     private GridLayout gridProduction;
     private CardView btnCollecteOeufs;
     private CardView btnAlimentation;
-    // Couvre Médicament/Autre ET Vaccination — un seul bouton, le type se choisit
+    // Couvre Médicament/Autre ET Vaccination, un seul bouton, le type se choisit
     // dans le formulaire (voir SaisieFormActivity/SaisieType.SOINS).
     private CardView btnSoins;
     // Jamais lié au projet sélectionné (contrairement aux autres cartes de cette
-    // grille) — voir SaisieType.ENTRETIEN et openSaisie().
+    // grille), voir SaisieType.ENTRETIEN et openSaisie().
     private CardView btnEntretien;
     private CardView btnMortalite;
     private CardView btnReforme;
-    // Sessions de pesée du projet sélectionné — écran dédié PeseeSessionActivity.
+    // Sessions de pesée du projet sélectionné, écran dédié PeseeSessionActivity.
     private CardView btnPesee;
 
-    // Vues Comptable et Vente — deux rôles distincts, deux sections indépendantes
+    // Vues Comptable et Vente, deux rôles distincts, deux sections indépendantes
     // (voir setupVisibilityByRole/loadFarmAppSettings) : avant, un seul titre "Saisie
     // comptable" mélangeait les cartes des deux rôles, source de confusion pour un
     // compte qui n'a que l'un des deux (ou les deux à la fois).
@@ -185,7 +185,7 @@ public class HomeActivity extends AppCompatActivity {
         // jamais de valeur non nulle sur la plupart des appareils (Android < 15 ne
         // force pas l'edge-to-edge tout seul), et l'entête verte s'arrête juste sous
         // la barre de statut au lieu de remonter jusqu'en haut derrière l'heure/la
-        // batterie — d'où le vide blanc constaté au-dessus de l'entête.
+        // batterie, d'où le vide blanc constaté au-dessus de l'entête.
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         getWindow().setStatusBarColor(android.graphics.Color.TRANSPARENT);
         new WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView())
@@ -244,7 +244,7 @@ public class HomeActivity extends AppCompatActivity {
         CachePrefetcher.prefetchProfil(this, this::surProfilMisAJour);
 
         // Vérification périodique des alertes en arrière-plan (notifications locales,
-        // voir AlertCheckWorker) — pas de vrai push, un contrôle toutes les 15-30 min.
+        // voir AlertCheckWorker), pas de vrai push, un contrôle toutes les 15-30 min.
         // KEEP : sans effet si déjà enregistré, pas de doublon à chaque ouverture.
         com.mobile.diafarms.data.AlertCheckWorker.enregistrer(this);
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU
@@ -266,7 +266,7 @@ public class HomeActivity extends AppCompatActivity {
         findViewById(R.id.imgBtnDiagnostics).setOnClickListener(v -> startActivity(new Intent(this, DiagnosticsActivity.class)));
 
         // Avatar + nom/rôles de l'agent : affiche ses infos et propose la déconnexion
-        // classique (verrouillage réversible, voir SessionManager.lockSession) — la
+        // classique (verrouillage réversible, voir SessionManager.lockSession), la
         // suppression complète du compte reste dans Paramètres (DiagnosticsActivity),
         // volontairement séparée pour ne pas confondre les deux actions.
         View.OnClickListener showProfile = v -> showProfileDialog();
@@ -342,7 +342,7 @@ public class HomeActivity extends AppCompatActivity {
     /** Un seul badge compact, jamais 3 en ligne : au-delà de 2 rôles cumulés, la liste
      * complète tenait mal dans l'espace dispo entre l'avatar et les boutons de droite
      * (voir activity_home.xml, llRoles). "PRODUCTION · VENTE" jusqu'à 2 rôles,
-     * "PRODUCTION +2" au-delà — le détail complet reste consultable via showProfileDialog
+     * "PRODUCTION +2" au-delà, le détail complet reste consultable via showProfileDialog
      * (tap sur l'avatar/le nom). */
     private void setupHeader() {
         tvAgentName.setText(currentUser.getNom());
@@ -364,7 +364,7 @@ public class HomeActivity extends AppCompatActivity {
     }
 
     /** Infos de l'agent connecté + déconnexion classique (verrouillage, pas de
-     * suppression — voir SessionManager.lockSession). RESPONSABLE n'apparaît jamais
+     * suppression, voir SessionManager.lockSession). RESPONSABLE n'apparaît jamais
      * ici : aucune présence mobile pour ce rôle (voir User.isComptable/isVente,
      * qui remplacent l'ancien isFinance unique). */
     private void showProfileDialog() {
@@ -390,7 +390,7 @@ public class HomeActivity extends AppCompatActivity {
                 .setNegativeButton("Fermer", null)
                 .create();
         dialog.show();
-        // Bouton par défaut du thème (vert primaire) pour les deux actions — "Déconnecter"
+        // Bouton par défaut du thème (vert primaire) pour les deux actions, "Déconnecter"
         // se confondait visuellement avec "Fermer" alors que c'est la seule des deux qui
         // change réellement l'état de la session.
         dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setTextColor(getColor(R.color.red_error));
@@ -413,7 +413,7 @@ public class HomeActivity extends AppCompatActivity {
         boolean isFinance = isComptable || isVente; // section "Finance" = l'un ou l'autre
 
         // Fermé par défaut (fail-closed) tant que la réponse de /farm-settings n'est pas
-        // arrivée — voir loadFarmAppSettings ci-dessous. Avant, ce bloc restait VISIBLE
+        // arrivée, voir loadFarmAppSettings ci-dessous. Avant, ce bloc restait VISIBLE
         // pour quiconque avait le rôle PRODUCTION, sans jamais consulter
         // productionMobileEnabled : un compte multi-rôles (ex: PRODUCTION + COMPTABLE)
         // pouvait se connecter grâce à un autre rôle actif et voyait quand même les
@@ -422,7 +422,7 @@ public class HomeActivity extends AppCompatActivity {
         gridProduction.setVisibility(View.GONE);
 
         // Comptable et Vente sont deux rôles distincts, chacun avec son propre titre et
-        // sa propre grille — un compte qui n'a que l'un des deux ne doit voir ni le
+        // sa propre grille, un compte qui n'a que l'un des deux ne doit voir ni le
         // titre ni les cartes de l'autre (un compte qui cumule les deux voit les deux
         // sections l'une sous l'autre, jamais mélangées dans la même grille).
         tvSectionComptable.setVisibility(isComptable ? View.VISIBLE : View.GONE);
@@ -449,7 +449,7 @@ public class HomeActivity extends AppCompatActivity {
         cardStatsFinance.setVisibility(isComptable || isVente ? View.VISIBLE : View.GONE);
 
         // Fermé par défaut (fail-closed, cohérent avec AppAccessRules côté back) tant
-        // que la réponse de /farm-settings n'est pas arrivée — voir loadFarmAppSettings,
+        // que la réponse de /farm-settings n'est pas arrivée, voir loadFarmAppSettings,
         // appelé juste après. Chaque rôle a son propre jeu de boutons, gardé
         // indépendamment de l'autre : un COMPTABLE ne voit jamais les boutons vente (et
         // inversement) quel que soit le réglage admin.
@@ -473,11 +473,11 @@ public class HomeActivity extends AppCompatActivity {
 
     /** PRODUCTION, COMPTABLE et VENTE ont chacun un jeu d'actions mobile fixe,
      * activé/désactivé en bloc par l'admin (voir Paramètres côté web, AppAccessRules
-     * côté back) — indépendamment du fait que le compte ait pu se connecter grâce à un
+     * côté back), indépendamment du fait que le compte ait pu se connecter grâce à un
      * AUTRE rôle actif (voir AppAccessRules.canAccessMobile : un cumul de rôles donne
      * accès à l'app, pas automatiquement à CHAQUE section). Cache local d'abord (voir
      * CachePrefetcher.CACHE_FARM_SETTINGS) : l'app doit rester intégralement utilisable
-     * hors ligne, y compris le tout premier écran de menu — masquer indéfiniment tant
+     * hors ligne, y compris le tout premier écran de menu, masquer indéfiniment tant
      * que le réseau ne répond pas (comme avant ce correctif) cassait le mode hors ligne
      * pour TOUT le monde, pas seulement pour les rôles gérés ici. Le réseau, s'il
      * répond, rafraîchit l'affichage et le cache ; à défaut, le dernier réglage connu
@@ -512,7 +512,7 @@ public class HomeActivity extends AppCompatActivity {
         if (currentUser.isComptable()) {
             btnEntreeArgent.setVisibility(s.isComptableMobileEnabled() ? View.VISIBLE : View.GONE);
             btnSortieArgent.setVisibility(s.isComptableMobileEnabled() ? View.VISIBLE : View.GONE);
-            // Le Comptable ne peut que PAYER un salaire déjà défini sur mobile — gérer
+            // Le Comptable ne peut que PAYER un salaire déjà défini sur mobile, gérer
             // la grille (ajouter un salarié, fixer son taux) reste une action web (voir
             // SaisieType.SALAIRE_PAYER, DefinirSalaireDialog côté web).
             btnPayerSalaire.setVisibility(s.isComptableMobileEnabled() ? View.VISIBLE : View.GONE);
@@ -565,7 +565,7 @@ public class HomeActivity extends AppCompatActivity {
 
     /** Charge les projets réels de la ferme (GET /projets/select) pour peupler le sélecteur. */
     /** Local d'abord : affiche tout de suite la dernière liste connue en cache (voir
-     * LocalDatabase.putCache/getCache) au lieu d'attendre la réponse réseau — sur le
+     * LocalDatabase.putCache/getCache) au lieu d'attendre la réponse réseau, sur le
      * terrain hors ligne, ApiClient met jusqu'à 15s (connectTimeout/readTimeout) à
      * échouer, ce qui figeait l'écran tout ce temps. Le réseau tourne ensuite en tâche
      * de fond et rafraîchit l'affichage/le cache s'il aboutit ; le cache est aussi
@@ -582,7 +582,7 @@ public class HomeActivity extends AppCompatActivity {
                     projetsList = CachePrefetcher.filterActifs(response.body().getData());
                     localDatabase.putCache(CACHE_PROJETS_SELECT, gson.toJson(projetsList));
                     // Précharge le détail/alertes/stock de TOUS les projets, pas
-                    // uniquement celui affiché ici — sinon un projet jamais
+                    // uniquement celui affiché ici, sinon un projet jamais
                     // sélectionné en ligne apparaît vide dès qu'on le choisit hors
                     // ligne sur le terrain (voir CachePrefetcher).
                     CachePrefetcher.prefetchProjectsDetails(HomeActivity.this, localDatabase, projetsList);
@@ -604,7 +604,7 @@ public class HomeActivity extends AppCompatActivity {
     }
 
     /** Affiche tout de suite la dernière liste de projets connue en local, sans
-     * attendre le réseau — voir loadProjets(). Retourne false si rien n'est en cache. */
+     * attendre le réseau, voir loadProjets(). Retourne false si rien n'est en cache. */
     private boolean renderProjetsFromCache() {
         String cached = localDatabase.getCache(CACHE_PROJETS_SELECT);
         if (cached == null) return false;
@@ -662,7 +662,7 @@ public class HomeActivity extends AppCompatActivity {
         cardAlertes.setVisibility(View.GONE);
     }
 
-    /** Alertes recalculées côté serveur (stock, mortalité, transactions en attente...) —
+    /** Alertes recalculées côté serveur (stock, mortalité, transactions en attente...),
      * même logique/endpoint que le tableau de bord web, jamais de seuils recalculés côté
      * mobile. Réseau d'abord, repli sur le cache local hors ligne (voir loadProjets). */
     private void loadAlertes() {
@@ -670,7 +670,7 @@ public class HomeActivity extends AppCompatActivity {
         String cacheKey = CACHE_NOTIFICATIONS_PREFIX + currentProjet.getUniqueId();
 
         // Affiche tout de suite les dernières alertes connues en local (ou aucune),
-        // sans attendre le réseau — voir loadProjets().
+        // sans attendre le réseau, voir loadProjets().
         String cached = localDatabase.getCache(cacheKey);
         if (cached != null) {
             Type type = new TypeToken<List<NotificationResponse>>() {}.getType();
@@ -781,7 +781,7 @@ public class HomeActivity extends AppCompatActivity {
      * Réseau d'abord, repli sur le cache local hors ligne (voir loadProjets). */
     /** Un projet REFORME (chair) ne produit pas d'œufs : la carte "Collecte d'œufs"
      * ne doit pas être proposée pour lui, contrairement à PONTE et MIXTE. "Réforme",
-     * en revanche, reste proposée pour TOUS les types de projet, PONTE compris — une
+     * en revanche, reste proposée pour TOUS les types de projet, PONTE compris, une
      * pondeuse est elle aussi réformée en fin de cycle de ponte, ce n'est pas réservé
      * aux projets chair/mixte (correction du 2026-08-16 : l'ancienne logique masquait
      * à tort "Réforme" pour un projet PONTE pur). Ces cartes sont Production,
@@ -791,14 +791,14 @@ public class HomeActivity extends AppCompatActivity {
      * changement de projet.
      *
      * GridLayout ne referme PAS automatiquement l'espace d'une carte passée en GONE
-     * (limitation connue : le placement automatique réserve quand même sa cellule) —
+     * (limitation connue : le placement automatique réserve quand même sa cellule),
      * simplement masquer btnCollecteOeufs laissait donc un trou visible sur les
      * projets chair. On retire/reconstruit la grille à la place, en ne (ré)ajoutant
      * que les cartes réellement visibles, pour qu'elles se resserrent naturellement.
      *
      * PONTE/MIXTE : 7 cartes (Collecte, Alimentation, Soins, Entretien, Mortalité,
-     * Réforme, Pesée) — impair, la dernière (Pesée) reste seule, pleine largeur.
-     * REFORME seul : Collecte masquée, 6 cartes — pair, toutes appariées 2 à 2
+     * Réforme, Pesée), impair, la dernière (Pesée) reste seule, pleine largeur.
+     * REFORME seul : Collecte masquée, 6 cartes, pair, toutes appariées 2 à 2
      * (une dernière carte isolée resterait seule, pleine largeur, sur sa ligne (voir seuleSurSaLigne ci-dessous,
      * calcul générique quel que soit le nombre de cartes)). */
     private void updateSaisieButtonsVisibility() {
@@ -841,7 +841,7 @@ public class HomeActivity extends AppCompatActivity {
 
         String cacheKey = CACHE_PROJET_DETAIL_PREFIX + currentProjet.getUniqueId();
         // Affiche tout de suite le dernier détail connu en local plutôt que de vider
-        // l'écran (tirets) pendant jusqu'à 15s en attendant le réseau — voir loadProjets().
+        // l'écran (tirets) pendant jusqu'à 15s en attendant le réseau, voir loadProjets().
         boolean hadCache = renderProjetDetailFromCache(cacheKey);
         if (!hadCache) clearProjetDisplay();
         loadAlertes();
@@ -865,7 +865,7 @@ public class HomeActivity extends AppCompatActivity {
     }
 
     /** Affiche tout de suite le dernier détail de projet connu en local, sans
-     * attendre le réseau — voir updateProjetDisplay(). Retourne false si rien n'est en cache. */
+     * attendre le réseau, voir updateProjetDisplay(). Retourne false si rien n'est en cache. */
     private boolean renderProjetDetailFromCache(String cacheKey) {
         String cached = localDatabase.getCache(cacheKey);
         if (cached == null) return false;
@@ -946,7 +946,7 @@ public class HomeActivity extends AppCompatActivity {
         btnEncaissementCompta.setOnClickListener(v -> openSaisie(SaisieType.PAIEMENT_CLIENT));
         btnPayerSalaire.setOnClickListener(v -> openSaisie(SaisieType.SALAIRE_PAYER));
 
-        // Sync — écouteur sur l'ImageButton interne, même raison que btnDiagnostics ci-dessus.
+        // Sync, écouteur sur l'ImageButton interne, même raison que btnDiagnostics ci-dessus.
         findViewById(R.id.imgBtnSync).setOnClickListener(v -> forceSync());
         btnSyncNow.setOnClickListener(v -> forceSync());
 
@@ -969,7 +969,7 @@ public class HomeActivity extends AppCompatActivity {
 
     private void openSaisie(SaisieType type) {
         // Vente œufs/réforme (Finance) puisent dans un stock à l'échelle de la ferme
-        // entière, pas du projet sélectionné — même exception que les transactions.
+        // entière, pas du projet sélectionné, même exception que les transactions.
         // Client/Commande ne sont pas non plus rattachés à un projet (voir Client.java/
         // Commande.java côté back : farm-scopés, pas projet-scopés). Entretien non plus
         // (voir Entretien.java) : un poulailler peut être entretenu même vide.
@@ -1019,7 +1019,7 @@ public class HomeActivity extends AppCompatActivity {
             @Override
             public void onLost(Network network) {
                 // Peut se déclencher pour un seul réseau (ex. Wi-Fi perdu) alors que la
-                // 4G a déjà pris le relais — on revérifie l'état global avant d'afficher
+                // 4G a déjà pris le relais, on revérifie l'état global avant d'afficher
                 // "Hors ligne" pour éviter un faux négatif pendant la bascule.
                 runOnUiThread(() -> {
                     if (!NetworkUtils.isOnline(HomeActivity.this)) {
@@ -1423,12 +1423,12 @@ public class HomeActivity extends AppCompatActivity {
 
     /** Récupère la liste de projets actifs à jour, remplace le cache local (projets +
      * détail/alertes/stock de chacun), et réapplique la sélection en cours si le projet
-     * existe toujours dans la liste actualisée — sinon retombe sur le premier projet. */
+     * existe toujours dans la liste actualisée, sinon retombe sur le premier projet. */
     private void refreshProjetsEtCache(Runnable onDone) {
         String currentProjetId = currentProjet != null ? currentProjet.getUniqueId() : null;
 
         // "Synchroniser" doit rafraîchir TOUTES les métadonnées locales, pas seulement
-        // les projets — y compris les accès mobile (Production/Comptable/Vente), sinon
+        // les projets, y compris les accès mobile (Production/Comptable/Vente), sinon
         // un changement de réglage admin ne remontait sur le terrain qu'au prochain
         // login. Voir loadFarmAppSettings (cache-first, met aussi à jour le cache local).
         if (currentUser.isProduction() || currentUser.isComptable() || currentUser.isVente()) {
@@ -1498,7 +1498,7 @@ public class HomeActivity extends AppCompatActivity {
         // changement d'appli...) : on ne veut pas attendre un tap manuel sur "Sync"
         // pour retirer un projet passé inactif ou récupérer les changements serveur.
         // Le tout premier onResume suit loadProjets() (onCreate) de si près qu'il
-        // ferait doublon — on ne rafraîchit qu'à partir de la 2e reprise.
+        // ferait doublon, on ne rafraîchit qu'à partir de la 2e reprise.
         if (premierResumeFait) {
             refreshProjetsEtCache(() -> { });
         } else {

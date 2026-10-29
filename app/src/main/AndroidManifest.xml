@@ -9,7 +9,7 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <!-- Requise à partir d'Android 13 (API 33) pour poster une notification locale —
+    <!-- Requise à partir d'Android 13 (API 33) pour poster une notification locale,
          voir AlertCheckWorker, demandée à l'exécution depuis HomeActivity. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Mise à jour directe de l'app (update/UpdateController) : ouvrir l'installeur

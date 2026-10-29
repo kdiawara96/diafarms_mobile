@@ -71,7 +71,7 @@ public class LoginActivity extends AppCompatActivity {
     /**
      * Propose les identifiants déjà utilisés avec succès sur cet appareil : un menu au
      * clic dès qu'il y en a plusieurs, pré-rempli directement s'il n'y en a qu'un. Le
-     * champ reste un TextInputEditText classique (identique au mot de passe) — pas
+     * champ reste un TextInputEditText classique (identique au mot de passe), pas
      * d'AutoCompleteTextView, dont le style de boîte ne matchait pas le reste du formulaire.
      */
     private void setupIdentifiantSuggestions() {
@@ -133,10 +133,10 @@ public class LoginActivity extends AppCompatActivity {
 
     /**
      * Vérifie l'identifiant/mot de passe local saisi contre TOUS les comptes mémorisés
-     * sur cet appareil (voir SessionManager.switchToAccountMatching — plusieurs comptes
+     * sur cet appareil (voir SessionManager.switchToAccountMatching, plusieurs comptes
      * peuvent coexister, ex. un agent Production et un agent Finance qui partagent le
      * même téléphone de terrain) et, en cas de correspondance, active ce compte et
-     * rouvre sa session déjà stockée (token du dernier scan) — c'est la SEULE
+     * rouvre sa session déjà stockée (token du dernier scan), c'est la SEULE
      * vérification faite ici, jamais d'appel réseau (voir attemptLogin).
      */
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             private boolean tryOfflineLogin(String identifiant, String password) {

@@ -4,7 +4,7 @@
     android:viewportWidth="24"
     android:viewportHeight="24">
     <!-- Icône "clé à molette" (Material "build"), pas de PNG dédié disponible pour
-         Entretien — vecteur simple à la couleur de marque, cohérent en taille avec
+         Entretien, vecteur simple à la couleur de marque, cohérent en taille avec
          les autres boutons de saisie même si eux sont des PNG en couleurs. -->
     <path
         android:fillColor="@color/primary"

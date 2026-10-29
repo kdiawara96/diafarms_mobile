@@ -3,7 +3,7 @@ package com.mobile.diafarms.util;
 import java.util.Locale;
 
 /**
- * Conversion œufs <-> alvéoles (plateau de 30 œufs, standard du marché) — pure
+ * Conversion œufs <-> alvéoles (plateau de 30 œufs, standard du marché), pure
  * facilité de saisie/affichage côté client : la base ne connaît que le nombre
  * d'œufs (voir VenteOeufs/CollecteOeufs côté backend), jamais l'alvéole.
  */
@@ -21,7 +21,7 @@ public class AlveoleUtils {
         return oeufs / OEUFS_PAR_ALVEOLE;
     }
 
-    /** "1 500 œuf(s) (50 alvéole(s))" — reste non-multiple de 30 signalé à part
+    /** "1 500 œuf(s) (50 alvéole(s))", reste non-multiple de 30 signalé à part
      * ("+ 5 œufs") plutôt que silencieusement arrondi. */
     public static String formatOeufsAvecAlveoles(int oeufs) {
         int alveoles = oeufsToAlveolesApprox(oeufs);

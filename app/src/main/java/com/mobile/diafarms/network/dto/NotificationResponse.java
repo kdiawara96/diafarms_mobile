@@ -1,6 +1,6 @@
 package com.mobile.diafarms.network.dto;
 
-/** Miroir de com.diafarms.ml.DTO.NotificationDTO côté backend — alertes recalculées
+/** Miroir de com.diafarms.ml.DTO.NotificationDTO côté backend, alertes recalculées
  * côté serveur (stock, mortalité, transactions en attente...), jamais de contenu
  * mocké côté client, à l'identique de la logique déjà en place sur le web. */
 public class NotificationResponse {

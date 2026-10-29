@@ -13,7 +13,7 @@
     <color name="green_primary_light">#4CAF50</color>
     <color name="green_accent">#81C784</color>
 
-    <!-- Vert vif utilisé sur l'écran d'accueil (en-tête, tuiles d'action, badges) —
+    <!-- Vert vif utilisé sur l'écran d'accueil (en-tête, tuiles d'action, badges),
          distinct de green_primary/primary (plus sombres, login/launcher). Nommé pour
          remplacer les #10B981 recopiés à la main dans activity_home.xml. -->
     <color name="green_bright">#10B981</color>
@@ -47,7 +47,7 @@
     <color name="egg_yellow">#FFC107</color>
     <color name="feed_brown">#8D6E63</color>
 
-    <!-- Écran d'accueil (LauncherScreen) — fond crème chaleureux, voir maquette de référence -->
+    <!-- Écran d'accueil (LauncherScreen), fond crème chaleureux, voir maquette de référence -->
     <color name="launcher_cream">#FBF2E1</color>
     <color name="launcher_orange">#E8912B</color>
 

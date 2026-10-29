@@ -8,7 +8,7 @@ import java.nio.charset.StandardCharsets;
 
 /**
  * Décode localement les claims d'un JWT (partie payload uniquement, sans vérifier la
- * signature) — utilisé pour lire fullName/role/uniqueId du token embarqué dans le QR
+ * signature), utilisé pour lire fullName/role/uniqueId du token embarqué dans le QR
  * sans appeler le serveur. Ne PAS utiliser pour valider un token vis-à-vis du backend
  * (aucune vérification cryptographique de signature ici) : la confiance vient du canal
  * QR déjà chiffré en AES bout en bout par le backend, pas de ce décodage.

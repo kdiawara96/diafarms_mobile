@@ -222,7 +222,7 @@ public class CameraScanActivity extends AppCompatActivity {
     /**
      * Déchiffre le QR (même schéma AES/CBC que QRCodeController/AESService côté back) et
      * lit l'identité directement dans les claims du JWT qu'il contient (fullName/role/
-     * uniqueId, voir QrJwtClaims/JwtHelper) — aucun appel réseau n'est nécessaire pour se
+     * uniqueId, voir QrJwtClaims/JwtHelper), aucun appel réseau n'est nécessaire pour se
      * connecter, exactement comme le login classique de BioEnrollApp qui ne consulte
      * jamais le back. Le réseau ne sert qu'ensuite, pour récupérer les projets actifs
      * liés au compte (voir CachePrefetcher), pas pour valider la connexion elle-même.
@@ -325,7 +325,7 @@ public class CameraScanActivity extends AppCompatActivity {
             // Premier scan sur cet appareil : la base locale est vide, impossible de
             // travailler hors ligne ensuite sans avoir récupéré au moins une fois les
             // projets actifs du compte. On exige donc ici une connexion réussie, une
-            // seule fois — c'est la SEULE situation où le scan requiert le réseau.
+            // seule fois, c'est la SEULE situation où le scan requiert le réseau.
             requireFirstMetadataFetch(user, identifiantsAcceptes);
         }
     }
@@ -407,11 +407,11 @@ public class CameraScanActivity extends AppCompatActivity {
         btnOk.setOnClickListener(v -> {
             dialog.dismiss();
             // Le mot de passe local est CE QUI permet l'accès hors ligne ensuite (via le
-            // formulaire identifiant/mot de passe classique, voir LoginActivity.tryOfflineLogin) —
+            // formulaire identifiant/mot de passe classique, voir LoginActivity.tryOfflineLogin),
             // pas un simple raccourci de confort, donc pas d'option "plus tard". Chaque
             // compte a désormais son propre emplacement (voir SessionManager.createSession,
             // qui vient d'activer CE compte, celui tout juste scanné) : hasLocalPassword()
-            // ne peut donc plus, comme avant, refléter le mot de passe d'un AUTRE compte —
+            // ne peut donc plus, comme avant, refléter le mot de passe d'un AUTRE compte,
             // on ne reprompte que si CE compte n'a pas encore le sien.
             if (!sessionManager.hasLocalPassword()) {
                 showSetPasswordDialog(identifiantsAcceptes);
@@ -457,7 +457,7 @@ public class CameraScanActivity extends AppCompatActivity {
             sessionManager.setLocalPassword(identifiantsAcceptes, password);
             // Relecture immédiate pour confirmer que l'écriture a bien persisté (et pas
             // été silencieusement perdue par une réinitialisation Keystore, voir
-            // SessionManager.recoverFromCorruptedPrefs) — sans ce log on ne peut pas
+            // SessionManager.recoverFromCorruptedPrefs), sans ce log on ne peut pas
             // distinguer "jamais écrit" de "écrit puis reperdu" en cas de souci.
             DebugLog.notice(this, TAG, "Mot de passe local enregistré pour " + identifiantsAcceptes
                     + ", relecture immédiate : hasLocalPassword=" + sessionManager.hasLocalPassword()

@@ -10,7 +10,7 @@
 
     <!-- AppBar avec Header et Projet -->
     <!-- android:theme désactive la superposition M3 "elevation overlay" pour cette
-         vue précise, quel que soit le mode sombre/clair du système — sans ça, sur
+         vue précise, quel que soit le mode sombre/clair du système, sans ça, sur
          certains appareils, AppBarLayout ignore le fond vert explicite et applique sa
          propre teinte de "surface" M3 par défaut (violet pâle du thème de base),
          constaté en direct sur un appareil alors qu'un autre affichait le vert normal. -->
@@ -894,7 +894,7 @@
 
             </GridLayout>
 
-            <!-- Section Comptable (CONDITIONNELLE, indépendante de Vente ci-dessous —
+            <!-- Section Comptable (CONDITIONNELLE, indépendante de Vente ci-dessous,
                  rôles distincts, chacun avec son propre titre et sa propre visibilité,
                  voir HomeActivity.setupVisibilityByRole/applyFarmAppSettings). -->
             <TextView
@@ -1001,7 +1001,7 @@
                 </androidx.cardview.widget.CardView>
 
                 <!-- Payer un salaire (COMPTABLE) : paiement uniquement, la grille salariale
-                     (ajouter un salarié, fixer son taux) reste une action web — voir
+                     (ajouter un salarié, fixer son taux) reste une action web, voir
                      HomeActivity.applyFarmAppSettings, SaisieType.SALAIRE_PAYER. -->
                 <androidx.cardview.widget.CardView
                     android:id="@+id/btnPayerSalaire"
@@ -1226,7 +1226,7 @@
                 </androidx.cardview.widget.CardView>
 
                 <!-- Vente œufs/réforme : plafonnées par le stock de TOUTE LA FERME, pas
-                     du projet sélectionné — toujours visibles (voir updateSaisieButtonsVisibility). -->
+                     du projet sélectionné, toujours visibles (voir updateSaisieButtonsVisibility). -->
                 <androidx.cardview.widget.CardView
                     android:id="@+id/btnVenteOeufs"
                     android:layout_width="0dp"
@@ -1322,7 +1322,7 @@
                 </androidx.cardview.widget.CardView>
 
                 <!-- Vente de fientes : vente diverse FIENTES (sacs, prix, montant), sans stock
-                     côté serveur, contrairement à œufs/réforme — visible seulement si l'admin
+                     côté serveur, contrairement à œufs/réforme, visible seulement si l'admin
                      l'a activée pour ce financier (voir HomeActivity.applyFarmAppSettings). -->
                 <androidx.cardview.widget.CardView
                     android:id="@+id/btnVenteFientes"
@@ -1423,7 +1423,7 @@
                 </androidx.cardview.widget.CardView>
 
                 <!-- Nouveau client (VENTE) : même toggle admin que les autres cartes Vente
-                     (voir HomeActivity.applyFarmAppSettings) — un client créé ici n'est
+                     (voir HomeActivity.applyFarmAppSettings), un client créé ici n'est
                      disponible pour une vente/commande qu'une fois synchronisé. -->
                 <androidx.cardview.widget.CardView
                     android:id="@+id/btnNouveauClient"
@@ -1473,7 +1473,7 @@
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 
-                <!-- Nouvelle commande (VENTE) : nécessite un client déjà synchronisé — voir
+                <!-- Nouvelle commande (VENTE) : nécessite un client déjà synchronisé, voir
                      SaisieFormActivity.loadClients. -->
                 <androidx.cardview.widget.CardView
                     android:id="@+id/btnNouvelleCommande"

@@ -1,7 +1,7 @@
 package com.mobile.diafarms.network.dto;
 
 /**
- * Miroir de StockReformeDTO côté backend (GET /ventes-reforme/stock) — stock de
+ * Miroir de StockReformeDTO côté backend (GET /ventes-reforme/stock), stock de
  * sujets réformés vendables à l'échelle de TOUTE LA FERME, distinct de
  * EffectifReformeResponse (effectif vivant d'UN projet, côté Production).
  */

@@ -11,15 +11,15 @@ public enum SaisieType {
     // "Sortie" d'aliment : consommation, tirée du stock du projet (carte Alimentation).
     ALIMENTATION_CONSOMMATION("Alimentation (sortie)", Categorie.PRODUCTION),
     // "Entrée" d'aliment : achat pour le projet. Acte financier (stock + sortie d'argent,
-    // coût obligatoire), donc côté Comptable et non plus Production — voir
+    // coût obligatoire), donc côté Comptable et non plus Production, voir
     // diafarms_back AlimentationImpl.ensureCanManageAchat.
     ALIMENTATION_ACHAT("Achat d'aliment", Categorie.FINANCE),
     // Achat de médicament ou de vaccin (Sortie d'argent, Santé / Vétérinaire) : dépense +
     // stock de médicaments du projet, où les soins peuvent puiser (voir diafarms_back
     // MedicamentService). Saisi depuis le formulaire Sortie d'argent.
     MEDICAMENT_ACHAT("Achat de médicament", Categorie.FINANCE),
-    // Couvre Médicament/Autre ET Vaccination (fusionnées à la fois côté back — un
-    // seul endpoint POST /soins/create — et côté UI, depuis la fusion des deux
+    // Couvre Médicament/Autre ET Vaccination (fusionnées à la fois côté back, un
+    // seul endpoint POST /soins/create, et côté UI, depuis la fusion des deux
     // écrans/boutons mobile : un seul point d'entrée, SaisieFormActivity affiche un
     // sous-groupe de champs différent selon le type choisi dans son spinner. Voir
     // SoinsCreateRequest, SaisieFormActivity.onValider/updateGroupSoinsSousType,
@@ -31,7 +31,7 @@ public enum SaisieType {
     // Entretien.java côté back, EntretienCreateRequest, DataApi.createEntretien.
     ENTRETIEN("Entretien", Categorie.PRODUCTION),
     MORTALITE("Mortalité", Categorie.PRODUCTION),
-    // Comptage pur des sujets retirés du cheptel vivant (comme Mortalité) — jamais de
+    // Comptage pur des sujets retirés du cheptel vivant (comme Mortalité), jamais de
     // prix ici, plafonné par l'effectif vivant du projet. Voir diafarms_back
     // ReformeImpl. La vente réelle (avec montant) est un acte Finance séparé.
     REFORME("Réforme", Categorie.PRODUCTION),
@@ -41,7 +41,7 @@ public enum SaisieType {
     // jamais SaisieFormActivity.
     PESEE_SESSION("Session de pesée", Categorie.PRODUCTION),
     // Ventes plafonnées côté serveur par le stock d'œufs vendables / de sujets
-    // réformés de TOUTE LA FERME (pas d'un projet précis) — voir diafarms_back
+    // réformés de TOUTE LA FERME (pas d'un projet précis), voir diafarms_back
     // VenteOeufsImpl/VenteReformeImpl. Catégorie Finance : c'est un acte commercial
     // (prix), pas un mouvement de stock Production, même s'il puise dans les
     // quantités remontées par Collecte œufs / Réforme.
@@ -58,11 +58,11 @@ public enum SaisieType {
     TRANSACTION_ENTREE("Entrée d'argent", Categorie.FINANCE),
     TRANSACTION_SORTIE("Sortie d'argent", Categorie.FINANCE),
     // Un client créé ici n'est utilisable dans une vente/commande qu'une fois
-    // synchronisé (voir DataApi.getClientsSelect, CachePrefetcher.prefetchClients) —
+    // synchronisé (voir DataApi.getClientsSelect, CachePrefetcher.prefetchClients),
     // pas de résolution de dépendance entre saisies locales, voir SyncManager (une
     // saisie à la fois, ordre non garanti entre un client et une vente qui le référence).
     CLIENT_CREATE("Nouveau client", Categorie.FINANCE),
-    // Toujours un client (obligatoire, contrairement à une vente) — voir
+    // Toujours un client (obligatoire, contrairement à une vente), voir
     // diafarms_back Commande.client et CommandeCreateRequest.
     COMMANDE_CREATE("Nouvelle commande", Categorie.FINANCE),
     // Livraison (totale ou partielle) d'une commande ouverte, choisie dans l'écran
@@ -75,7 +75,7 @@ public enum SaisieType {
     // VENTE, COMPTABLE, RESPONSABLE, ADMIN (PaiementClientService.ensureCanEncaisser).
     PAIEMENT_CLIENT("Encaissement client", Categorie.FINANCE),
     // Rôle Comptable uniquement : payer un salaire déjà défini (grille synchronisée
-    // via CachePrefetcher, voir SalaireSelectResponse) — pas de création/modification
+    // via CachePrefetcher, voir SalaireSelectResponse), pas de création/modification
     // de la grille elle-même sur mobile, ça reste une action web (voir DefinirSalaireDialog).
     SALAIRE_PAYER("Payer un salaire", Categorie.FINANCE);
 

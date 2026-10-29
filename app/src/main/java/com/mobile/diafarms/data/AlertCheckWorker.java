@@ -32,7 +32,7 @@ import java.util.concurrent.TimeUnit;
 import retrofit2.Response;
 
 /**
- * Vérification périodique des alertes ferme (mortalité, stock, échéances — voir
+ * Vérification périodique des alertes ferme (mortalité, stock, échéances, voir
  * NotificationServiceImpl côté back) en arrière-plan, pour déclencher une
  * notification locale sur le téléphone même si l'app n'est pas ouverte.
  *
@@ -40,11 +40,11 @@ import retrofit2.Response;
  * (WorkManager, minimum 15 min imposé par Android) qui appelle le même endpoint que
  * la liste d'alertes déjà affichée dans l'app (GET /notifications/list), tant que le
  * téléphone a du réseau. Un délai de quelques minutes/dizaines de minutes est donc
- * normal et attendu — largement suffisant pour une alerte de ferme (pas une urgence
+ * normal et attendu, largement suffisant pour une alerte de ferme (pas une urgence
  * "il faut réagir à la seconde").
  *
  * "Déjà notifiée" est suivi par clé stable (NotificationResponse.key) dans des
- * SharedPreferences classiques (pas de contenu sensible) — une alerte lue (côté web
+ * SharedPreferences classiques (pas de contenu sensible), une alerte lue (côté web
  * ou dans l'app) n'est jamais re-notifiée, et une alerte qui redevient active après
  * avoir disparu peut re-déclencher une notification plus tard.
  */
@@ -59,7 +59,7 @@ public class AlertCheckWorker extends Worker {
         super(context, params);
     }
 
-    /** À appeler une fois l'utilisateur connecté (voir HomeActivity.onCreate) — sans
+    /** À appeler une fois l'utilisateur connecté (voir HomeActivity.onCreate), sans
      * effet si déjà enregistré (KEEP), pas de doublon de vérification à chaque
      * ouverture de l'app. */
     public static void enregistrer(Context context) {
@@ -113,7 +113,7 @@ public class AlertCheckWorker extends Worker {
             }
         }
 
-        // On ne garde que les clés encore actives — une alerte qui redisparaît puis
+        // On ne garde que les clés encore actives, une alerte qui redisparaît puis
         // revient (ex: stock repasse au-dessus du seuil puis re-descend) doit pouvoir
         // re-notifier.
         prefs.edit().putStringSet(KEY_SEEN, clesActuelles).apply();
@@ -133,7 +133,7 @@ public class AlertCheckWorker extends Worker {
         return new NotificationCompat.Builder(context, CHANNEL_ID)
                 // Icône dédiée (silhouette blanche) : un mipmap en couleurs (avant)
                 // est rendu par Android comme un bloc blanc plein dans la barre de
-                // statut, illisible — voir ic_notification_small.
+                // statut, illisible, voir ic_notification_small.
                 .setSmallIcon(R.drawable.ic_notification_small)
                 .setLargeIcon(android.graphics.BitmapFactory.decodeResource(context.getResources(), R.drawable.logo_cocorico))
                 .setColor(androidx.core.content.ContextCompat.getColor(context,

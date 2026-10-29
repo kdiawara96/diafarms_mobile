@@ -38,7 +38,7 @@ import retrofit2.Response;
 /**
  * Écran de dépannage sur le terrain : changer l'adresse du serveur sans recompiler,
  * vérifier la connectivité, vider les données locales en cas d'incohérence, et
- * consulter/partager le journal des erreurs 401/serveur — utile car logcat s'est
+ * consulter/partager le journal des erreurs 401/serveur, utile car logcat s'est
  * révélé filtré sur les builds "retail" et adb n'est pas toujours disponible sur site.
  */
 public class DiagnosticsActivity extends AppCompatActivity {
@@ -234,11 +234,11 @@ public class DiagnosticsActivity extends AppCompatActivity {
 
     /**
      * Action destructrice et irréversible : retire complètement le compte ACTIF de cet
-     * appareil (session, token, mot de passe local) — pas la déconnexion classique du
+     * appareil (session, token, mot de passe local), pas la déconnexion classique du
      * terrain (voir HomeActivity, icône profil), qui elle ne fait que verrouiller sans
      * rien effacer. Plusieurs comptes pouvant coexister sur le même appareil (voir
      * SessionManager), le cache local générique (projets, identifiants, saisies en
-     * attente) n'est purgé que s'il ne reste plus aucun autre compte après suppression —
+     * attente) n'est purgé que s'il ne reste plus aucun autre compte après suppression,
      * sinon on emporterait par erreur les données d'un compte encore présent.
      */
     private void confirmSuppressionCompte() {
@@ -283,7 +283,7 @@ public class DiagnosticsActivity extends AppCompatActivity {
      * "Vider le cache" ne touche ni aux saisies en attente ni à la session (voir
      * LocalDatabase.clearCacheOnly), mais reste risqué sur le terrain : tant qu'aucun
      * accès réseau n'a eu lieu pour le repeupler, les projets/alertes/stock ne sont
-     * plus disponibles hors ligne — l'agent peut se retrouver bloqué sans données en
+     * plus disponibles hors ligne, l'agent peut se retrouver bloqué sans données en
      * pleine ferme, sans connexion. D'où la même confirmation par mot de passe que les
      * autres actions de la zone dangereuse, avec un avertissement explicite du risque
      * plutôt qu'un simple bouton déclenchant l'action au premier tap.
@@ -304,7 +304,7 @@ public class DiagnosticsActivity extends AppCompatActivity {
     /**
      * Action de la Zone dangereuse, confirmée par le mot de passe hors ligne du compte
      * ACTIF (celui défini au scan QR, voir SessionManager.setLocalPassword) plutôt
-     * qu'un simple "Confirmer/Annuler" — ces deux actions (suppression de compte,
+     * qu'un simple "Confirmer/Annuler", ces deux actions (suppression de compte,
      * vidage complet de la base) sont irréversibles et perdent potentiellement des
      * saisies non synchronisées, donc trop faciles à déclencher par erreur avec un
      * simple bouton. Vérifié hors ligne (pas d'appel réseau) pour rester utilisable

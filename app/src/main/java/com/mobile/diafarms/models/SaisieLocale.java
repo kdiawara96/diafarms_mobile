@@ -3,7 +3,7 @@ package com.mobile.diafarms.models;
 /**
  * Une saisie enregistrée localement (SQLite), en attente de synchronisation vers le
  * backend, ou déjà synchronisée. Le détail des champs (quantités, montant, etc.) est
- * porté par payloadJson — un JSON qui correspond exactement au *Create DTO backend
+ * porté par payloadJson, un JSON qui correspond exactement au *Create DTO backend
  * du type concerné (ex: SoinsCreate, MortaliteCreate...), sérialisé/désérialisé via Gson.
  */
 public class SaisieLocale {

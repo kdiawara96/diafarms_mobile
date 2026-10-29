@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Inspiré des cartes de BioEnroll (item_delete_download_formulaire.xml) : icône
      encadrée + titre en haut, séparateur, puis contenu/statut à gauche et actions à
-     droite en bas — plus lisible que l'ancienne carte tout-sur-une-ligne. -->
+     droite en bas, plus lisible que l'ancienne carte tout-sur-une-ligne. -->
 <!-- Wrapper obligatoire : ListView génère des AbsListView.LayoutParams pour la racine
-     de l'item, qui n'étend pas MarginLayoutParams — un layout_margin posé directement
+     de l'item, qui n'étend pas MarginLayoutParams, un layout_margin posé directement
      sur la CardView (root précédente) était donc silencieusement ignoré, collant les
      cartes les unes aux autres. En la mettant en enfant d'un FrameLayout classique, ses
      margins sont bien interprétées par un LayoutParams qui les supporte. -->

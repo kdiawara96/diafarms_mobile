@@ -1,6 +1,6 @@
 package com.mobile.diafarms.network.dto;
 
-/** Miroir minimal de ClientDTO côté backend (GET /clients/select) — clients de la
+/** Miroir minimal de ClientDTO côté backend (GET /clients/select), clients de la
  * ferme, utilisés pour le sélecteur optionnel d'une vente et obligatoire d'une
  * commande. Seuls les clients déjà synchronisés (créés côté serveur) apparaissent
  * ici : un client saisi hors ligne n'a pas encore de uniqueId serveur tant qu'il n'a

@@ -7,7 +7,7 @@ import retrofit2.http.GET;
 
 /**
  * Le login (LoginActivity) et le scan QR (CameraScanActivity) sont 100% locaux, sans
- * appel réseau — voir leurs commentaires respectifs. Le seul endpoint réellement utilisé
+ * appel réseau, voir leurs commentaires respectifs. Le seul endpoint réellement utilisé
  * ici sert uniquement au test de connectivité de l'écran Diagnostics.
  */
 public interface AuthApi {

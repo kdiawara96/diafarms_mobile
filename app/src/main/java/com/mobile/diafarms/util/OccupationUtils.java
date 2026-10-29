@@ -6,7 +6,7 @@ import java.util.Locale;
 
 /**
  * Une occupation bâtiment-projet reste active tant que sa dateSortie n'est pas
- * encore passée — elle peut être une date de fin PRÉVUE dans le futur, pas
+ * encore passée, elle peut être une date de fin PRÉVUE dans le futur, pas
  * seulement "en cours indéfiniment" (dateSortie null). Même règle que
  * getActiveBatiments côté web (src/utils/batiments.ts) : avant ce correctif, le
  * mobile traitait toute dateSortie non-null comme "déjà terminée", faisant

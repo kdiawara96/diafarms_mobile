@@ -9,7 +9,7 @@ import java.util.Locale;
  * Miroir de QrCodeEncrypte côté backend (com.diafarms.ml.DTO.QrCodeEncrypte) : c'est
  * le JSON obtenu après déchiffrement AES du contenu du QR (voir AESHelper). Volontairement
  * minimal (role/fullNameUser/qrGeneratedAt ont été retirés côté back) pour que le QR reste
- * scannable — le profil complet est de toute façon récupéré via /auth/me après validation.
+ * scannable, le profil complet est de toute façon récupéré via /auth/me après validation.
  */
 public class QrPayload {
     private String qrExpiresAt;    // "dd-MM-yy HH:mm", absent/null = QR permanent

@@ -24,7 +24,7 @@ import java.util.List;
  * doivent jamais rester en clair sur le disque, contrairement à ce qui existait avant.
  *
  * Plusieurs comptes peuvent être mémorisés SIMULTANÉMENT sur le même appareil (voir
- * Account/getAccounts) — un agent Production et un agent Finance qui partagent un
+ * Account/getAccounts), un agent Production et un agent Finance qui partagent un
  * téléphone de terrain doivent chacun garder leur session et leur mot de passe hors
  * ligne, indépendamment : avant, un second scan QR écrasait purement et simplement le
  * seul compte stocké (token ET mot de passe local), rendant l'accès hors ligne du
@@ -37,7 +37,7 @@ import java.util.List;
  * Sur certains appareils (Samsung notamment), la clé Android Keystore protégeant ces
  * préférences peut devenir indécryptable après un événement système (mise à jour,
  * changement de verrouillage d'écran...), ce qui faisait planter l'app en
- * SecurityException sur le moindre accès à la session — observé en conditions réelles.
+ * SecurityException sur le moindre accès à la session, observé en conditions réelles.
  * Tous les accès passent donc par des méthodes "safe" qui, en cas d'échec de
  * déchiffrement, réinitialisent les préférences plutôt que de planter : ça équivaut à
  * une déconnexion forcée de TOUS les comptes (perte de la session locale), mais l'app
@@ -105,7 +105,7 @@ public class SessionManager {
         }
     }
 
-    /** Efface le fichier de prefs corrompu et en recrée un vide — dernier recours quand
+    /** Efface le fichier de prefs corrompu et en recrée un vide, dernier recours quand
      * le Keystore ne peut plus déchiffrer les données déjà écrites. Efface AUSSI, entre
      * autres, tous les mots de passe hors ligne de TOUS les comptes : DebugLog.notice
      * (pas juste Log.e) pour que ça apparaisse dans le journal partagé depuis
@@ -125,7 +125,7 @@ public class SessionManager {
 
     /** Sur certains appareils (Samsung notamment), c'est la clé Keystore elle-même qui
      * devient inutilisable après un événement système, pas seulement les données déjà
-     * chiffrées avec elle — effacer le fichier de prefs ne suffirait pas, la prochaine
+     * chiffrées avec elle, effacer le fichier de prefs ne suffirait pas, la prochaine
      * écriture échouerait pareil avec la même clé cassée. On supprime l'entrée pour
      * forcer sa régénération complète (MasterKeys.getOrCreate en recrée une neuve). */
     private void resetMasterKeyIfNeeded() {
@@ -181,7 +181,7 @@ public class SessionManager {
     // ===== COMPTES (plusieurs comptes peuvent coexister sur le même appareil) =====
 
     /** Un compte mémorisé sur cet appareil (un par utilisateur ayant scanné son QR ici),
-     * indexé par userId (User.getId(), stable — voir CameraScanActivity.onQrLoginSuccess). */
+     * indexé par userId (User.getId(), stable, voir CameraScanActivity.onQrLoginSuccess). */
     private static class Account {
         String userId;
         User user;
@@ -336,9 +336,9 @@ public class SessionManager {
     /** Déconnexion "classique" (icône profil sur l'accueil) = verrouillage, PAS un
      * effacement : on ne touche ni au token ni au mot de passe local du compte actif,
      * seulement au drapeau is_logged_in (qui n'est pas par compte : c'est un état
-     * d'écran, "app déverrouillée ou non"). Retaper le mot de passe local d'un compte —
+     * d'écran, "app déverrouillée ou non"). Retaper le mot de passe local d'un compte,
      * le même ou un AUTRE compte mémorisé sur cet appareil (voir switchToAccountMatching)
-     * — suffit à revenir, sans réseau ni nouveau scan QR. Pour retirer complètement un
+     *, suffit à revenir, sans réseau ni nouveau scan QR. Pour retirer complètement un
      * compte de l'appareil, voir deleteAccount() (écran Paramètres). */
     public void lockSession() {
         safeEdit(editor -> editor.putBoolean(KEY_IS_LOGGED_IN, false));
@@ -380,7 +380,7 @@ public class SessionManager {
     }
 
     /** Retire complètement le compte ACTIF de l'appareil (session, token et mot de passe
-     * local) — les autres comptes mémorisés ne sont pas affectés. S'il en reste un
+     * local), les autres comptes mémorisés ne sont pas affectés. S'il en reste un
      * autre, il devient le compte actif ; sinon plus aucun compte n'est actif (retour à
      * l'écran de connexion, nouveau scan QR nécessaire pour ce compte). Ses saisies en
      * attente restent sur l'appareil (cloisonnées par compte, voir LocalDatabase) : elles
@@ -406,7 +406,7 @@ public class SessionManager {
     }
 
     /** true s'il reste au moins un compte mémorisé sur cet appareil (avant ou après un
-     * deleteAccount()) — utilisé par l'écran Paramètres pour savoir si le cache local
+     * deleteAccount()), utilisé par l'écran Paramètres pour savoir si le cache local
      * générique (projets, saisies en attente...) peut être purgé sans risque d'emporter
      * les données d'un AUTRE compte encore présent (voir DiagnosticsActivity). */
     public boolean hasAnyAccount() {
@@ -426,14 +426,14 @@ public class SessionManager {
     // en réutilisant la session déjà stockée (token). Toute l'app est pensée pour un
     // usage hors ligne : ce mot de passe local EST le moyen d'accès hors ligne, pas un
     // simple raccourci de confort. Chaque compte a le sien (voir Account) : celui du
-    // compte ACTIF au moment de l'appel pour setLocalPassword/hasLocalPassword/etc. —
+    // compte ACTIF au moment de l'appel pour setLocalPassword/hasLocalPassword/etc.,
     // voir switchToAccountMatching() pour la recherche à travers TOUS les comptes.
     //
     // Le backend accepte indifféremment username, email OU téléphone comme identifiant
     // de connexion (voir AuthImpl.jwt côté back : findByEmailOrUsernameOrTelephone...).
     // Si on ne retenait que le username renvoyé par /auth/me (ce qui était fait avant),
     // un agent qui a l'habitude de se connecter avec son numéro de téléphone tapait un
-    // identifiant qui ne correspondait jamais à celui enregistré au scan — l'accès hors
+    // identifiant qui ne correspondait jamais à celui enregistré au scan, l'accès hors
     // ligne semblait ne "jamais avoir enregistré le mot de passe" alors qu'il l'avait
     // bien fait, sous une autre forme d'identifiant. On enregistre donc les trois et on
     // accepte n'importe lequel d'entre eux à la reconnexion hors ligne.
@@ -454,7 +454,7 @@ public class SessionManager {
     }
 
     /** true si le compte ACTIF a déjà un mot de passe local défini (pas les autres
-     * comptes mémorisés sur l'appareil — voir switchToAccountMatching pour ceux-là). */
+     * comptes mémorisés sur l'appareil, voir switchToAccountMatching pour ceux-là). */
     public boolean hasLocalPassword() {
         Account a = getActiveAccount();
         return a != null && a.localPasswordHash != null;

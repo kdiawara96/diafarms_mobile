@@ -10,7 +10,7 @@
         <item name="colorPrimary">@color/primary</item>
         <item name="colorPrimaryVariant">@color/light_primary</item>
         <item name="colorOnPrimary">@color/white</item>
-        <!-- Secondary brand color — vert vif de l'accueil, plus cohérent que le
+        <!-- Secondary brand color, vert vif de l'accueil, plus cohérent que le
              teal du template par défaut jamais retouché depuis la création du projet. -->
         <item name="colorSecondary">@color/green_bright</item>
         <item name="colorSecondaryVariant">@color/green_bright_dark</item>
@@ -28,7 +28,7 @@
         <!-- Tentative de système de formes M3 global (shapeAppearanceCornerSmall/
              Medium/Large) retirée : coïncidait avec un entête délavé sur un appareil,
              mais le vrai coupable identifié ensuite est ThemeOverlay.Diafarms.
-             NoElevationOverlay (voir activity_home.xml) — gardé simple ici. -->
+             NoElevationOverlay (voir activity_home.xml), gardé simple ici. -->
     </style>
 
     <!-- Désactive la superposition M3 "elevation overlay" (teinte de surface selon

@@ -5,7 +5,7 @@ import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
 
 /**
- * Statut réseau réel de l'appareil (pas juste "l'appel a échoué") — utilisé pour
+ * Statut réseau réel de l'appareil (pas juste "l'appel a échoué"), utilisé pour
  * l'indicateur En ligne/Hors ligne de l'accueil. NET_CAPABILITY_VALIDATED exclut un
  * Wi-Fi connecté mais sans sortie internet effective (portail captif, routeur en
  * panne), sinon l'indicateur resterait vert à tort.

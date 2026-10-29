@@ -1,6 +1,6 @@
 package com.mobile.diafarms.network.dto;
 
-/** Miroir de FarmAppSettingsDTO côté backend (GET /farm-settings) — voir
+/** Miroir de FarmAppSettingsDTO côté backend (GET /farm-settings), voir
  * HomeActivity.loadFarmAppSettings pour l'affichage/masquage des boutons Finance
  * d'un COMPTABLE ou d'un VENTE en fonction de ces drapeaux. Un seul bouton par
  * rôle/action groupée (pas de granularité fine comme l'ancien FINANCIER à 5

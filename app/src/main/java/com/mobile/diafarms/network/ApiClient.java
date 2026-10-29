@@ -32,7 +32,7 @@ public class ApiClient {
         return getRetrofit(context).create(DataApi.class);
     }
 
-    /** Force la reconstruction du client au prochain appel — nécessaire après un
+    /** Force la reconstruction du client au prochain appel, nécessaire après un
      * changement d'adresse serveur depuis l'écran Diagnostics, le Retrofit existant
      * gardant sinon l'ancienne baseUrl en cache pour toute la durée du process. */
     public static void reset() {
@@ -105,7 +105,7 @@ public class ApiClient {
         }
     }
 
-    /** Journalise l'en-tête Authorization réellement envoyé, après AuthInterceptor —
+    /** Journalise l'en-tête Authorization réellement envoyé, après AuthInterceptor,
      * la seule façon de vérifier qu'il n'a pas été substitué en route (voir bug corrigé
      * dans AuthInterceptor : un token de session existant écrasait un header explicite). */
     private static class RequestLoggingInterceptor implements Interceptor {
@@ -126,8 +126,8 @@ public class ApiClient {
         }
     }
 
-    /** Capture TOUTE erreur — réponse HTTP non 2xx (400, 401, 403, 404, 5xx...) ET échec
-     * réseau bas niveau (timeout, hôte injoignable, DNS...) — pour l'écran Diagnostics :
+    /** Capture TOUTE erreur, réponse HTTP non 2xx (400, 401, 403, 404, 5xx...) ET échec
+     * réseau bas niveau (timeout, hôte injoignable, DNS...), pour l'écran Diagnostics :
      * l'objectif est de pouvoir demander à un utilisateur sur le terrain de partager ce
      * journal sans avoir besoin d'un accès adb/ordinateur, quelle que soit la nature du
      * problème. Utilise peekBody() plutôt que body() pour ne pas consommer le flux dont

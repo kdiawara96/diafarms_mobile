@@ -6,8 +6,8 @@ import java.security.NoSuchAlgorithmException;
 
 /**
  * Hachage du mot de passe local (accès hors ligne à l'app, défini juste après un scan
- * QR — voir CameraScanActivity). Ce n'est pas un secret protégeant un accès distant —
- * juste un verrou sur un token déjà stocké chiffré (SessionManager) — donc SHA-256 +
+ * QR, voir CameraScanActivity). Ce n'est pas un secret protégeant un accès distant,
+ * juste un verrou sur un token déjà stocké chiffré (SessionManager), donc SHA-256 +
  * sel fixe suffit très largement ici, pas besoin de bcrypt/Argon2.
  */
 public class LocalPasswordHasher {

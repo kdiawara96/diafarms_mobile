@@ -8,7 +8,7 @@ public class EntretienCreateRequest {
     public String date;             // "yyyy-MM-dd", obligatoire
     public String heure;            // "HH:mm", optionnel
     public String niveau;           // "BATIMENT" | "SITE"
-    public String type;             // "NETTOYAGE" | "COPEAU" | "AUTRE" — ignoré si niveau = SITE
+    public String type;             // "NETTOYAGE" | "COPEAU" | "AUTRE", ignoré si niveau = SITE
     public String description;
     public String observations;
 }

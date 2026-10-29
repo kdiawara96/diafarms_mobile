@@ -16,19 +16,19 @@ import java.util.UUID;
 
 public class LocalDatabase {
     private static final String DATABASE_NAME = "diafarms.db";
-    // v6 : fusion Soins/Vaccination côté UI — SaisieType.VACCINATION supprimé (un seul
+    // v6 : fusion Soins/Vaccination côté UI, SaisieType.VACCINATION supprimé (un seul
     // bouton/écran "Soins" désormais, voir HomeActivity/SaisieFormActivity). Une
     // saisie VACCINATION en attente, créée avant cette mise à jour, a sa colonne
     // "type" qui ne correspond plus à aucune constante de l'enum : SaisieType.valueOf
-    // lèverait IllegalArgumentException à la lecture — destruction simple (déjà le
+    // lèverait IllegalArgumentException à la lecture, destruction simple (déjà le
     // pattern de ce fichier, voir onUpgrade), acceptable en développement (voir v5
     // ci-dessous pour le précédent similaire lors de la fusion côté back).
-    // v5 : fusion Soins/Vaccination côté back — le payload_json d'une saisie
+    // v5 : fusion Soins/Vaccination côté back, le payload_json d'une saisie
     // VACCINATION en attente change de forme (VaccinCreateRequest -> SoinsCreateRequest
     // unifié : nomVaccin -> produit, quantite Integer -> Double, date/heure ajoutés).
     // Une saisie VACCINATION non encore synchronisée avant cette mise à jour serait
     // désérialisée avec l'ancienne forme et enverrait un payload invalide au nouvel
-    // endpoint /soins/create — destruction simple (déjà le pattern de ce fichier,
+    // endpoint /soins/create, destruction simple (déjà le pattern de ce fichier,
     // voir onUpgrade), acceptable en développement.
     // v7 (1.31) : saisies et cache cloisonnés par compte. saisies_locales gagne owner_user_id
     // / owner_farm_id (compte et ferme qui ont saisi), cle_envoi (clé stable par saisie,
@@ -42,7 +42,7 @@ public class LocalDatabase {
     private static final String TABLE_CACHE = "local_cache";
 
     // Colonnes local_cache : cache générique clé/valeur (JSON) pour les données lues du
-    // serveur (projets, détail projet, alertes...) — permet à l'app de démarrer et
+    // serveur (projets, détail projet, alertes...), permet à l'app de démarrer et
     // afficher les dernières données connues même hors ligne, plutôt que de dépendre
     // d'un appel réseau réussi à chaque ouverture. Rafraîchi à chaque appel réseau
     // réussi et après chaque synchronisation (voir HomeActivity/SyncManager).
@@ -262,7 +262,7 @@ public class LocalDatabase {
         return result;
     }
 
-    /** Horodatage (epoch ms) de la dernière mise à jour de cette entrée, 0 si absente —
+    /** Horodatage (epoch ms) de la dernière mise à jour de cette entrée, 0 si absente,
      * utilisé pour afficher "données du ..." quand on retombe sur le cache hors ligne. */
     public long getCacheUpdatedAt(String key) {
         SQLiteDatabase db = getReadableDatabase();
@@ -619,7 +619,7 @@ public class LocalDatabase {
 
     /**
      * Vide toutes les données locales (saisies en attente/synchronisées/en erreur et
-     * comptes mémorisés) — utilisé par l'écran Diagnostics pour repartir d'une base
+     * comptes mémorisés), utilisé par l'écran Diagnostics pour repartir d'une base
      * propre en cas d'incohérence sur le terrain. Retourne le nombre de saisies non
      * synchronisées qui seront perdues, pour que l'appelant puisse avertir avant confirmation.
      */
@@ -634,7 +634,7 @@ public class LocalDatabase {
 
     /**
      * Ne vide que le cache serveur générique (projets, détail projet, alertes, stock...)
-     * — contrairement à clearAllLocalData(), ne touche ni aux saisies en attente/déjà
+     *, contrairement à clearAllLocalData(), ne touche ni aux saisies en attente/déjà
      * synchronisées, ni aux comptes/session enregistrés. Action sans risque de perte de
      * données : force juste un re-téléchargement complet au prochain accès réseau, utile
      * quand les données affichées semblent incohérentes/périmées sans vouloir perdre de

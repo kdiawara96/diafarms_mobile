@@ -323,7 +323,7 @@ public class MesSaisiesActivity extends AppCompatActivity {
                     || SaisieLocale.STATUT_DEJA_ENREGISTREE.equals(saisie.getSyncStatus());
             if (saisie.getType() == SaisieType.PESEE_SESSION) {
                 // Toujours consultable (ouvre l'écran de la session). Suppression : session
-                // jamais envoyée et encore en cours, ou refusée par le serveur (ERROR) —
+                // jamais envoyée et encore en cours, ou refusée par le serveur (ERROR),
                 // sinon une session bloquée resterait en attente pour toujours. Confirmation
                 // forte dans confirmDelete.
                 editable = true;
@@ -396,7 +396,7 @@ public class MesSaisiesActivity extends AppCompatActivity {
                 case MEDICAMENT_ACHAT:
                 case SOINS:
                     // Couvre Médicament/Autre ET Vaccination depuis la fusion des deux
-                    // écrans/boutons mobile — voir SaisieType.SOINS. Pas d'icône dédiée à
+                    // écrans/boutons mobile, voir SaisieType.SOINS. Pas d'icône dédiée à
                     // la vaccination ici : la liste n'a plus qu'une icône par SaisieType.
                     return R.drawable.ic_trousse_secours;
                 case ENTRETIEN:

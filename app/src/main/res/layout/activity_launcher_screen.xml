@@ -20,7 +20,7 @@
             android:paddingTop="32dp"
             android:paddingBottom="28dp">
 
-            <!-- Logo Cocorico — identité adoptée sur web et mobile. -->
+            <!-- Logo Cocorico, identité adoptée sur web et mobile. -->
             <ImageView
                 android:id="@+id/imgEntete"
                 android:layout_width="180dp"
@@ -67,7 +67,7 @@
                 android:layout_marginBottom="20dp"
                 android:background="@color/launcher_orange" />
 
-            <!-- Connexion / QR Code — compacts, pas toute la largeur, voir maquette de référence. -->
+            <!-- Connexion / QR Code, compacts, pas toute la largeur, voir maquette de référence. -->
             <LinearLayout
                 android:id="@+id/cardsContainer"
                 android:layout_width="wrap_content"
