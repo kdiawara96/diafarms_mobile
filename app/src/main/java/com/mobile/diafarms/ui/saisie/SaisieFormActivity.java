@@ -3104,6 +3104,9 @@ public class SaisieFormActivity extends AppCompatActivity {
         displayStockMagasin(dernierStockMagasinOeufs, false);
     }
 
+    // On vend depuis un point de vente : vide, le stock doit d'abord venir du dépôt.
+    private static final String POINT_DE_VENTE_VIDE = "Point de vente vide : demandez un transfert depuis le dépôt.";
+
     private void displayStockMagasin(StockMagasinResponse stock, boolean fromCache) {
         String suffix = fromCache ? " (dernière donnée connue, hors ligne)" : "";
         if (type == SaisieType.VENTE_OEUFS) {
@@ -3112,7 +3115,8 @@ public class SaisieFormActivity extends AppCompatActivity {
             stockOeufsDisponible = stock != null ? (casse ? stock.getOeufsCassesDisponible() : stock.getOeufsDisponible()) : null;
             if (stockOeufsDisponible != null) {
                 tvStockOeufsInfo.setText(String.format(Locale.FRANCE, "Disponible %sdans ce magasin : %s%s",
-                        casse ? "(cassés) " : "", AlveoleUtils.formatOeufsAvecAlveoles(stockOeufsDisponible), suffix));
+                        casse ? "(cassés) " : "", AlveoleUtils.formatOeufsAvecAlveoles(stockOeufsDisponible), suffix)
+                        + (stockOeufsDisponible <= 0 ? "\n" + POINT_DE_VENTE_VIDE : ""));
             } else {
                 tvStockOeufsInfo.setText(fromCache ? "Stock non disponible (hors ligne)" : "Stock non disponible");
             }
@@ -3134,7 +3138,8 @@ public class SaisieFormActivity extends AppCompatActivity {
             // serveur + réformes en attente vers ce point de vente - ventes en attente depuis lui.
             Integer stockPdv = stockReformeAuPointDeVente(getSelectedMagasinUniqueId(spinnerMagasinReforme));
             if (stockPdv != null) {
-                tvStockReformeInfo.setText(String.format(Locale.FRANCE, "Disponible au point de vente : %d sujet(s)%s", Math.max(0, stockPdv), suffix));
+                tvStockReformeInfo.setText(String.format(Locale.FRANCE, "Disponible au point de vente : %d sujet(s)%s", Math.max(0, stockPdv), suffix)
+                        + (stockPdv <= 0 ? "\n" + POINT_DE_VENTE_VIDE : ""));
             } else {
                 tvStockReformeInfo.setText(fromCache ? "Stock non disponible (hors ligne)" : "Stock non disponible");
             }
