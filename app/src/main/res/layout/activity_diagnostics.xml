@@ -61,7 +61,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Serveur"
+                    android:text="Serveur *"
                     android:textColor="@color/primary"
                     android:textSize="16sp"
                     android:textStyle="bold" />
@@ -70,6 +70,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
+                    android:tag="explication:Serveur"
                     android:text="Adresse utilisée par l'app pour joindre le backend."
                     android:textColor="@android:color/darker_gray"
                     android:textSize="12sp" />
@@ -143,9 +144,10 @@
                     android:textStyle="bold" />
 
                 <TextView
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
+                    android:tag="explication:Vider le cache"
                     android:text="Ne touche ni aux saisies en attente ni à la session, mais tant que l'appareil ne se sera pas reconnecté au réseau pour les recharger, les projets/alertes/stock ne seront plus disponibles hors ligne."
                     android:textColor="@android:color/darker_gray"
                     android:textSize="12sp" />
@@ -190,6 +192,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
+                    android:tag="explication:Journal d'erreurs"
                     android:text="Chaque erreur 401 ou 5xx renvoyée par le serveur est enregistrée ici automatiquement."
                     android:textColor="@android:color/darker_gray"
                     android:textSize="12sp" />
@@ -272,9 +275,10 @@
                     android:textSize="12sp" />
 
                 <TextView
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
+                    android:tag="explication:Supprimer ce compte de l'appareil"
                     android:text="Retire définitivement ce compte de cet appareil : session, mot de passe hors ligne, projets en cache et identifiants enregistrés seront supprimés. Un nouveau scan QR sera nécessaire pour se reconnecter."
                     android:textColor="@android:color/darker_gray"
                     android:textSize="12sp" />
@@ -288,9 +292,10 @@
                     app:backgroundTint="@color/red_bright" />
 
                 <TextView
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
+                    android:tag="explication:Suppression du compte"
                     android:text="Pour supprimer définitivement votre compte Cocorico et les données de votre ferme sur le serveur, faites la demande ici."
                     android:textColor="@android:color/darker_gray"
                     android:textSize="12sp" />
@@ -320,9 +325,10 @@
                     android:textSize="12sp" />
 
                 <TextView
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
+                    android:tag="explication:Vider les données locales"
                     android:text="Supprime toutes les données locales : saisies en attente non synchronisées comprises. Action irréversible, à ne déclencher qu'en dernier recours."
                     android:textColor="@android:color/darker_gray"
                     android:textSize="12sp" />

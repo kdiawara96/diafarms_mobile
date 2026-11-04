@@ -61,6 +61,8 @@ public class DiagnosticsActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_diagnostics);
+        com.mobile.diafarms.util.ChampObligatoire.appliquer(findViewById(R.id.main_diagnostics));
+        com.mobile.diafarms.util.Explication.appliquer(findViewById(R.id.main_diagnostics));
 
         appSettings = new AppSettings(this);
         localDatabase = new LocalDatabase(this);

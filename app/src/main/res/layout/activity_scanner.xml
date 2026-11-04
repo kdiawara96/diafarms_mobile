@@ -161,15 +161,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Comment procéder :"
-                    android:textColor="@color/primary"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:layout_marginBottom="8dp" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:tag="explication:Comment procéder"
                     android:text="1. Demandez un QR code à votre administrateur\n2. Votre admin génère le code depuis son interface\n3. Scannez-le avec cette application, ou importez-le depuis votre galerie"
                     android:textColor="#B3000000"
                     android:textSize="14sp"

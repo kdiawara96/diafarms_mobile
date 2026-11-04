@@ -433,6 +433,7 @@ public class CameraScanActivity extends AppCompatActivity {
         MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this);
         View view = LayoutInflater.from(this).inflate(R.layout.dialog_set_local_password, null);
         com.mobile.diafarms.util.ChampObligatoire.appliquer(view);
+        com.mobile.diafarms.util.Explication.appliquer(view);
         builder.setView(view);
 
         com.google.android.material.textfield.TextInputEditText etPassword = view.findViewById(R.id.etPassword);

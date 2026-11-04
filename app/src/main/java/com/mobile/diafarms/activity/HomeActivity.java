@@ -191,6 +191,7 @@ public class HomeActivity extends AppCompatActivity {
         new WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView())
                 .setAppearanceLightStatusBars(false); // icônes heure/batterie en blanc, lisibles sur le vert
         setContentView(R.layout.activity_home);
+        com.mobile.diafarms.util.ChampObligatoire.appliquer(findViewById(R.id.main_home_act));
         if (!BuildConfig.MISE_A_JOUR_INTEGREE) miseAJourPlayStore = creerMiseAJourPlayStore();
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.appBar), (v, insets) -> {

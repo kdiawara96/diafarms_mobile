@@ -1072,7 +1072,8 @@
                 <View android:layout_width="match_parent" android:layout_height="8dp" />
 
                 <TextView
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:tag="explication"
                     android:text="Ce client sera disponible pour une vente/commande une fois synchronisé (voir l'accueil)."
                     android:textSize="12sp"
                     android:textColor="@android:color/darker_gray" />
@@ -1501,9 +1502,10 @@
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <TextView
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
+                    android:tag="explication"
                     android:text="L'acompte réservé à la commande règle la livraison en premier."
                     android:textColor="@color/gray_text_soft"
                     android:textSize="12sp" />
@@ -1577,9 +1579,10 @@
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <TextView
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
+                    android:tag="explication"
                     android:text="Avec une commande, l'argent lui est réservé : il réglera ses livraisons."
                     android:textSize="12sp"
                     android:textColor="@color/gray_text_soft" />
@@ -1751,7 +1754,8 @@
                 <View android:layout_width="match_parent" android:layout_height="8dp" />
 
                 <TextView
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:tag="explication"
                     android:text="Montant estimé avec le taux de la dernière synchronisation. Le serveur calcule le montant réel au taux de la période payée. Ne changez le montant que pour une prime ou une retenue : il sera alors appliqué tel quel."
                     android:textSize="12sp"
                     android:textColor="@android:color/darker_gray" />
@@ -2214,10 +2218,12 @@
 
             <TextView
                 android:id="@+id/tvNoteLocal"
-                android:layout_width="match_parent"
+                android:layout_width="wrap_content"
+                android:layout_gravity="center_horizontal"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                android:text="Enregistré sur l'appareil, synchronisez depuis l'accueil quand vous êtes en ligne."
+                android:tag="explication"
+                    android:text="Enregistré sur l'appareil, synchronisez depuis l'accueil quand vous êtes en ligne."
                 android:textSize="12sp"
                 android:textAlignment="center"
                 android:textColor="@android:color/darker_gray" />

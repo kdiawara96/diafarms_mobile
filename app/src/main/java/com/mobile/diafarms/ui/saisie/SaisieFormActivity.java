@@ -1116,6 +1116,8 @@ public class SaisieFormActivity extends AppCompatActivity {
         com.mobile.diafarms.util.ChiffresSaisie.appliquer(findViewById(R.id.main_saisie_form));
         // Après la devise (qui réécrit les indices) : étoile rouge des champs obligatoires.
         com.mobile.diafarms.util.ChampObligatoire.appliquer(findViewById(R.id.main_saisie_form));
+        // Textes d'aide repliés en lien « 💡 Explication ».
+        com.mobile.diafarms.util.Explication.appliquer(findViewById(R.id.main_saisie_form));
     }
 
     private void remplacerDeviseDansLibelles(View v) {

@@ -37,6 +37,7 @@ public class ScannerActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_scanner);
+        com.mobile.diafarms.util.Explication.appliquer(findViewById(R.id.main_scanner_act));
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main_section_scanner_act), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
