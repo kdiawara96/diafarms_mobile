@@ -133,6 +133,8 @@ public class PeseeSessionActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_pesee_session);
+        // Étoile rouge des champs obligatoires.
+        com.mobile.diafarms.util.ChampObligatoire.appliquer(findViewById(R.id.main_pesee));
         // Chiffres groupés par milliers pendant la frappe, comme les autres saisies.
         com.mobile.diafarms.util.ChiffresSaisie.appliquer(getWindow().getDecorView());
 
@@ -481,7 +483,7 @@ public class PeseeSessionActivity extends AppCompatActivity {
         if (dialogueNouvelleSessionOuvert || session != null) return;
         dialogueNouvelleSessionOuvert = true;
         TextInputLayout til = new TextInputLayout(this, null, com.google.android.material.R.attr.textInputOutlinedStyle);
-        til.setHint("Nombre habituel de sujets par pesée");
+        til.setHint(com.mobile.diafarms.util.ChampObligatoire.etoile("Nombre habituel de sujets par pesée *"));
         TextInputEditText et = new TextInputEditText(til.getContext());
         et.setInputType(InputType.TYPE_CLASS_NUMBER);
         et.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(6)});
@@ -809,7 +811,7 @@ public class PeseeSessionActivity extends AppCompatActivity {
         form.setPadding(dp(20), dp(8), dp(20), 0);
 
         TextInputLayout tilN = new TextInputLayout(this, null, com.google.android.material.R.attr.textInputOutlinedStyle);
-        tilN.setHint("Nombre de sujets");
+        tilN.setHint(com.mobile.diafarms.util.ChampObligatoire.etoile("Nombre de sujets *"));
         TextInputEditText etN = new TextInputEditText(tilN.getContext());
         etN.setInputType(InputType.TYPE_CLASS_NUMBER);
         etN.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(6)});
@@ -820,7 +822,7 @@ public class PeseeSessionActivity extends AppCompatActivity {
         form.addView(tilN);
 
         TextInputLayout tilP = new TextInputLayout(this, null, com.google.android.material.R.attr.textInputOutlinedStyle);
-        tilP.setHint("Poids (kg)");
+        tilP.setHint(com.mobile.diafarms.util.ChampObligatoire.etoile("Poids (kg) *"));
         TextInputEditText etP = new TextInputEditText(tilP.getContext());
         // Virgule acceptée comme le point (comme android:digits du champ principal).
         etP.setKeyListener(android.text.method.DigitsKeyListener.getInstance("0123456789.,"));

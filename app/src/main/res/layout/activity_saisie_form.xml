@@ -94,7 +94,7 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Date"
+                        android:text="Date *"
                         android:textColor="@android:color/black"
                         android:textSize="14sp"
                         android:layout_marginBottom="4dp" />
@@ -265,7 +265,7 @@
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="Type de soin"
+                    android:hint="Type de soin *"
                     style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                     app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
                     app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
@@ -334,7 +334,7 @@
 
                     <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:hint="Produit">
+                        android:hint="Produit *">
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/etProduit"
                             android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -368,7 +368,7 @@
 
                     <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:hint="Nom du vaccin">
+                        android:hint="Nom du vaccin *">
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/etNomVaccin"
                             android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -379,7 +379,7 @@
 
                     <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:hint="Quantité (doses)">
+                        android:hint="Quantité (doses) *">
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/etQuantiteVaccin"
                             android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -443,7 +443,7 @@
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Niveau"
+                    android:hint="Niveau *"
                     style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                     app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
                     app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
@@ -464,7 +464,7 @@
 
                     <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:hint="Poulailler"
+                        android:hint="Poulailler *"
                         style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                         app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
                         app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
@@ -478,7 +478,7 @@
 
                     <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:hint="Type"
+                        android:hint="Type *"
                         style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                         app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
                         app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
@@ -493,7 +493,7 @@
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Description">
+                    android:hint="Description *">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etDescriptionEntretien"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -522,7 +522,7 @@
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Nombre de sujets morts">
+                    android:hint="Nombre de sujets morts *">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etNombreMorts"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -560,7 +560,7 @@
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Nombre de sujets réformés">
+                    android:hint="Nombre de sujets réformés *">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etNombreSujetsReforme"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -619,7 +619,7 @@
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Quantité consommée (kg)">
+                    android:hint="Quantité consommée (kg) *">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etQuantiteKgConso"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -638,7 +638,7 @@
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="Magasin de vente"
+                    android:hint="Magasin de vente *"
                     style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                     app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
                     app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
@@ -726,7 +726,7 @@
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/tilQuantiteOeufsVente"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Nombre d'œufs vendus">
+                    android:hint="Nombre d'œufs vendus *">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etQuantiteOeufsVente"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -738,7 +738,7 @@
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/tilPrixUnitaireOeufs"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Prix unitaire (FCFA)">
+                    android:hint="Prix unitaire (FCFA) *">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etPrixUnitaireOeufs"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -772,7 +772,7 @@
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/tilMontantRapporteVenteOeufs"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Montant rapporté (FCFA)">
+                    android:hint="Montant rapporté (FCFA) *">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etMontantRapporteVenteOeufs"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -815,7 +815,7 @@
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="Magasin de vente"
+                    android:hint="Magasin de vente *"
                     style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                     app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
                     app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
@@ -880,7 +880,7 @@
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Nombre de sujets vendus">
+                    android:hint="Nombre de sujets vendus *">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etNombreSujetsVente"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -914,7 +914,7 @@
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/tilPoidsTotalReforme"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Poids total pesé (kg)"
+                    android:hint="Poids total pesé (kg) *"
                     android:visibility="gone">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etPoidsTotalReforme"
@@ -939,7 +939,7 @@
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/tilPrixUnitaireReforme"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Prix unitaire (FCFA)">
+                    android:hint="Prix unitaire (FCFA) *">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etPrixUnitaireReforme"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -970,7 +970,7 @@
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/tilMontantRapporteVenteReforme"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Montant rapporté (FCFA)">
+                    android:hint="Montant rapporté (FCFA) *">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etMontantRapporteVenteReforme"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -1119,7 +1119,7 @@
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="Magasin de vente"
+                    android:hint="Magasin de vente *"
                     style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                     app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
                     app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
@@ -1186,7 +1186,7 @@
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/tilQuantiteCommande"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Quantité commandée">
+                    android:hint="Quantité commandée *">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etQuantiteCommande"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -1231,7 +1231,7 @@
                     android:visibility="gone">
                     <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:hint="Prix du kg estimé (FCFA)">
+                        android:hint="Prix du kg estimé (FCFA) *">
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/etPrixKgCommande"
                             android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -1288,7 +1288,7 @@
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/tilMontantEstimeCommande"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Montant estimé (FCFA)">
+                    android:hint="Montant estimé (FCFA) *">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etMontantEstimeCommande"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -1407,7 +1407,7 @@
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/tilQuantiteLivraison"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Quantité livrée">
+                    android:hint="Quantité livrée *">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etQuantiteLivraison"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -1485,7 +1485,7 @@
                     android:id="@+id/tilModePaiementLivraison"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="Mode de paiement"
+                    android:hint="Mode de paiement *"
                     android:visibility="gone"
                     style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                     app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
@@ -1712,7 +1712,7 @@
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/tilQuantiteSalaire"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Jours/heures travaillés"
+                    android:hint="Jours/heures travaillés *"
                     android:visibility="gone">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etQuantiteSalaire"
@@ -1850,7 +1850,7 @@
                     android:id="@+id/tilCategoriePrecision"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:hint="Préciser la catégorie * (ex. Gardiennage)"
+                    android:hint="Préciser la catégorie (ex. Gardiennage) *"
                     android:visibility="gone">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etCategoriePrecision"
@@ -1871,7 +1871,7 @@
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="Type d'aliment"
+                    android:hint="Type d'aliment *"
                     style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                     app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
                     app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
@@ -1909,7 +1909,7 @@
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Quantité totale (kg)">
+                    android:hint="Quantité totale (kg) *">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etQuantiteKgAchat"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -2031,7 +2031,7 @@
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/tilMontant"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:hint="Montant (FCFA)">
+                    android:hint="Montant (FCFA) *">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etMontant"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -2104,7 +2104,7 @@
                     android:id="@+id/tvTitreConcerne"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Cette dépense concerne :"
+                    android:text="Cette dépense concerne *"
                     android:textSize="14sp"
                     android:textStyle="bold"
                     android:textColor="@android:color/black" />

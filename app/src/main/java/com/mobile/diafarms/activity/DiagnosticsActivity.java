@@ -314,6 +314,7 @@ public class DiagnosticsActivity extends AppCompatActivity {
      */
     private void confirmAvecMotDePasse(String title, String message, String actionLabel, Runnable action) {
         View passwordView = LayoutInflater.from(this).inflate(R.layout.dialog_confirm_password, null);
+        com.mobile.diafarms.util.ChampObligatoire.appliquer(passwordView);
         TextInputEditText etPassword = passwordView.findViewById(R.id.etConfirmPassword);
 
         AlertDialog dialog = new MaterialAlertDialogBuilder(this)

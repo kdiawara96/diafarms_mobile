@@ -37,6 +37,8 @@ public class LoginActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_login);
+        // Étoile rouge des champs obligatoires.
+        com.mobile.diafarms.util.ChampObligatoire.appliquer(findViewById(R.id.main_login_act));
 
         // Liaison des vues
         editIdentifiant = findViewById(R.id.editIdentifiant);

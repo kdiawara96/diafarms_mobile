@@ -750,8 +750,8 @@ public class SaisieFormActivity extends AppCompatActivity {
         etMontantRapporteVenteOeufs = findViewById(R.id.etMontantRapporteVenteOeufs);
         radioGroupUniteVenteOeufs.setOnCheckedChangeListener((group, checkedId) -> {
             boolean enAlveoles = isVenteOeufsEnAlveoles();
-            tilQuantiteOeufsVente.setHint(enAlveoles ? "Nombre d'alvéoles vendues" : "Nombre d'œufs vendus");
-            tilPrixUnitaireOeufs.setHint(monnaie.libelle(enAlveoles ? "Prix par alvéole (FCFA)" : "Prix unitaire (FCFA)"));
+            tilQuantiteOeufsVente.setHint(com.mobile.diafarms.util.ChampObligatoire.etoile(enAlveoles ? "Nombre d'alvéoles vendues *" : "Nombre d'œufs vendus *"));
+            tilPrixUnitaireOeufs.setHint(com.mobile.diafarms.util.ChampObligatoire.etoile(monnaie.libelle(enAlveoles ? "Prix par alvéole (FCFA) *" : "Prix unitaire (FCFA) *")));
             recalculerMontantVenteOeufs();
             refreshCoherence();
         });
@@ -1114,6 +1114,8 @@ public class SaisieFormActivity extends AppCompatActivity {
         }
         // Après les setInputType ci-dessus : groupe les milliers dans tous les champs chiffrés.
         com.mobile.diafarms.util.ChiffresSaisie.appliquer(findViewById(R.id.main_saisie_form));
+        // Après la devise (qui réécrit les indices) : étoile rouge des champs obligatoires.
+        com.mobile.diafarms.util.ChampObligatoire.appliquer(findViewById(R.id.main_saisie_form));
     }
 
     private void remplacerDeviseDansLibelles(View v) {
@@ -1428,7 +1430,7 @@ public class SaisieFormActivity extends AppCompatActivity {
     private static void setHintParent(android.widget.EditText champ, String hint) {
         android.view.ViewParent p = champ.getParent() != null ? champ.getParent().getParent() : null;
         if (p instanceof com.google.android.material.textfield.TextInputLayout) {
-            ((com.google.android.material.textfield.TextInputLayout) p).setHint(hint);
+            ((com.google.android.material.textfield.TextInputLayout) p).setHint(com.mobile.diafarms.util.ChampObligatoire.etoile(hint));
         }
     }
 
@@ -1455,7 +1457,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         setHintParent(etPrixUnitaireSante, medicament ? "Prix unitaire (facultatif)" : "Prix par jour (facultatif)");
         setHintParent(etDescriptionTransaction, !sante ? "Description" : medicament ? "Observations (facultatif)" : "Nature du service *");
         com.google.android.material.textfield.TextInputLayout tilMontant = findViewById(R.id.tilMontant);
-        if (tilMontant != null) tilMontant.setHint(monnaie.libelle(sante ? "Montant total (FCFA) *" : "Montant (FCFA)"));
+        if (tilMontant != null) tilMontant.setHint(com.mobile.diafarms.util.ChampObligatoire.etoile(monnaie.libelle(sante ? "Montant total (FCFA) *" : "Montant (FCFA) *")));
         groupBatimentTop.setVisibility(sante && batiments.size() > 1 ? View.VISIBLE : View.GONE);
         if (sante) populateBatimentSpinner();
     }
@@ -1513,7 +1515,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         // Autre vente : montant * et commentaire * (comme le web).
         groupVenteDiverse.setVisibility(estVenteDiverse() ? View.VISIBLE : View.GONE);
         groupSacsVenteDiverse.setVisibility(type == SaisieType.VENTE_FIENTES ? View.VISIBLE : View.GONE);
-        tilDescriptionVenteDiverse.setHint(type == SaisieType.VENTE_AUTRE ? "Commentaire * (ce qui a été vendu)" : "Description (facultatif)");
+        tilDescriptionVenteDiverse.setHint(com.mobile.diafarms.util.ChampObligatoire.etoile(type == SaisieType.VENTE_AUTRE ? "Commentaire (ce qui a été vendu) *" : "Description (facultatif)"));
 
         // Aucun de ces types n'a de notion de bâtiment (poulailler), client, commande et
         // salaire sont farm-scopés (voir Client.java/Commande.java/Salaire.java côté
@@ -1690,6 +1692,9 @@ public class SaisieFormActivity extends AppCompatActivity {
         groupUniteLivraison.setVisibility(oeufs ? View.VISIBLE : View.GONE);
         groupKiloLivraison.setVisibility(kilo ? View.VISIBLE : View.GONE);
         if (kilo && c.prixKgEstime != null) etPrixKgLivraison.setText(formatSaisie(c.prixKgEstime));
+        // Prix du kg obligatoire seulement sans prix estimé à la commande (voir onValider).
+        boolean prixKgRequis = c.prixKgEstime == null || c.prixKgEstime <= 0;
+        setHintParent(etPrixKgLivraison, monnaie.libelle(prixKgRequis ? "Prix du kg (FCFA) *" : "Prix du kg (FCFA)"));
         spinnerModePaiementLivraison.setAdapter(new ArrayAdapter<>(this,
                 android.R.layout.simple_dropdown_item_1line, modesPaiement.libelles()));
         spinnerModePaiementLivraison.setText(modesPaiement.premierLibelle(), false);
@@ -1750,11 +1755,11 @@ public class SaisieFormActivity extends AppCompatActivity {
 
     private void appliquerLibellesLivraison() {
         if (commandeLivree.estOeufs()) {
-            tilQuantiteLivraison.setHint(isLivraisonEnAlveoles() ? "Nombre d'alvéoles livrées *" : "Nombre d'œufs livrés *");
+            tilQuantiteLivraison.setHint(com.mobile.diafarms.util.ChampObligatoire.etoile(isLivraisonEnAlveoles() ? "Nombre d'alvéoles livrées *" : "Nombre d'œufs livrés *"));
             // En alvéoles : œufs en plus d'une alvéole pleine, comme à la collecte et au web.
             tilOeufsSuppLivraison.setVisibility(isLivraisonEnAlveoles() ? View.VISIBLE : View.GONE);
         } else {
-            tilQuantiteLivraison.setHint("Nombre de sujets livrés *");
+            tilQuantiteLivraison.setHint(com.mobile.diafarms.util.ChampObligatoire.etoile("Nombre de sujets livrés *"));
         }
     }
 
@@ -1872,8 +1877,9 @@ public class SaisieFormActivity extends AppCompatActivity {
         boolean visible = (estTypeTransaction() && !estSante()) || vente;
         groupConcerne.setVisibility(visible ? View.VISIBLE : View.GONE);
         if (!visible) return;
-        tvTitreConcerne.setText(vente ? "Cette vente concerne :"
-                : type == SaisieType.TRANSACTION_ENTREE ? "Cette entrée d'argent concerne :" : "Cette dépense concerne :");
+        // Choix obligatoire (voir onValider) : étoile rouge.
+        tvTitreConcerne.setText(com.mobile.diafarms.util.ChampObligatoire.etoile(vente ? "Cette vente concerne *"
+                : type == SaisieType.TRANSACTION_ENTREE ? "Cette entrée d'argent concerne *" : "Cette dépense concerne *"));
         boolean projet = projetChoisi();
         rbConcerneProjet.setText(projet ? "Le Projet (" + (projetLabel != null ? projetLabel : "projet de l'accueil") + ")" : "Le Projet");
         rbConcerneProjet.setEnabled(projet);
@@ -2092,7 +2098,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         int visibility = kilo ? View.VISIBLE : View.GONE;
         tilPoidsTotalReforme.setVisibility(visibility);
         spacerPoidsTotalReforme.setVisibility(visibility);
-        tilPrixUnitaireReforme.setHint(monnaie.libelle(kilo ? "Prix du kg (FCFA)" : "Prix unitaire (FCFA)"));
+        tilPrixUnitaireReforme.setHint(com.mobile.diafarms.util.ChampObligatoire.etoile(monnaie.libelle(kilo ? "Prix du kg (FCFA) *" : "Prix unitaire (FCFA) *")));
         refreshPoidsMoyenReforme();
         refreshEstimationPesee();
     }
@@ -2144,11 +2150,11 @@ public class SaisieFormActivity extends AppCompatActivity {
      * radioGroupUniteVenteOeufs (bindViews). */
     private void applyLabelsQuantiteCommande() {
         if (isCommandeReforme()) {
-            tilQuantiteCommande.setHint("Nombre de sujets");
+            tilQuantiteCommande.setHint(com.mobile.diafarms.util.ChampObligatoire.etoile("Nombre de sujets *"));
             tilPrixUnitaireCommande.setHint(monnaie.libelle("Prix unitaire estimé (FCFA, optionnel)"));
         } else {
             boolean enAlveoles = isCommandeEnAlveoles();
-            tilQuantiteCommande.setHint(enAlveoles ? "Nombre d'alvéoles commandées" : "Nombre d'œufs commandés");
+            tilQuantiteCommande.setHint(com.mobile.diafarms.util.ChampObligatoire.etoile(enAlveoles ? "Nombre d'alvéoles commandées *" : "Nombre d'œufs commandés *"));
             tilPrixUnitaireCommande.setHint(monnaie.libelle(enAlveoles ? "Prix par alvéole (FCFA, optionnel)" : "Prix unitaire (FCFA, optionnel)"));
         }
     }
@@ -2168,10 +2174,11 @@ public class SaisieFormActivity extends AppCompatActivity {
             boolean calcule = prixKg != null && prixKg > 0 && poids != null && poids > 0;
             if (calcule) etMontantEstimeCommande.setText(monnaie.saisie(poids * prixKg));
             etMontantEstimeCommande.setEnabled(!calcule);
-            tilMontantEstimeCommande.setHint(monnaie.libelle(calcule ? "Montant estimé (FCFA) = poids x prix du kg" : "Montant estimé (FCFA)"));
+            // Calculé (poids x prix du kg) : champ grisé, sans étoile ; sinon à saisir.
+            tilMontantEstimeCommande.setHint(com.mobile.diafarms.util.ChampObligatoire.etoile(monnaie.libelle(calcule ? "Montant estimé (FCFA) = poids x prix du kg" : "Montant estimé (FCFA) *")));
         } else {
             etMontantEstimeCommande.setEnabled(true);
-            tilMontantEstimeCommande.setHint(monnaie.libelle("Montant estimé (FCFA)"));
+            tilMontantEstimeCommande.setHint(com.mobile.diafarms.util.ChampObligatoire.etoile(monnaie.libelle("Montant estimé (FCFA) *")));
             int saisie = parseIntSafe(etQuantiteCommande.getText());
             Double prix = parseDoubleOrNull(etPrixUnitaireCommande.getText());
             if (saisie > 0 && prix != null && prix > 0) {
@@ -2375,7 +2382,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         List<String> labels = new ArrayList<>();
         boolean obligatoire = poulaillerObligatoire();
         com.google.android.material.textfield.TextInputLayout til = findViewById(R.id.tilBatimentTop);
-        if (til != null) til.setHint(obligatoire ? "Poulailler *" : "Poulailler (optionnel)");
+        if (til != null) til.setHint(com.mobile.diafarms.util.ChampObligatoire.etoile(obligatoire ? "Poulailler *" : "Poulailler (optionnel)"));
         if (!obligatoire) labels.add(estSante() ? LIBELLE_TOUT_LE_PROJET : "Aucun bâtiment précis");
         for (OccupationBatimentResponse b : batiments) {
             labels.add(b.getNomBatiment());
@@ -2717,14 +2724,15 @@ public class SaisieFormActivity extends AppCompatActivity {
      * null (voir onValider). */
     private void refreshModePaiementVenteOeufs() {
         boolean hasClient = getSelectedClientUniqueId(spinnerClientVenteOeufs, true) != null;
-        tilMontantRapporteVenteOeufs.setHint(monnaie.libelle(hasClient ? "Montant reçu maintenant (FCFA)" : "Montant rapporté (FCFA)"));
+        // Sans client, le montant rapporté est obligatoire (voir onValider).
+        tilMontantRapporteVenteOeufs.setHint(com.mobile.diafarms.util.ChampObligatoire.etoile(monnaie.libelle(hasClient ? "Montant reçu maintenant (FCFA)" : "Montant rapporté (FCFA) *")));
         tilModePaiementVenteOeufs.setVisibility(hasClient ? View.VISIBLE : View.GONE);
     }
 
     /** Même raisonnement que refreshModePaiementVenteOeufs. */
     private void refreshModePaiementVenteReforme() {
         boolean hasClient = getSelectedClientUniqueId(spinnerClientVenteReforme, true) != null;
-        tilMontantRapporteVenteReforme.setHint(monnaie.libelle(hasClient ? "Montant reçu maintenant (FCFA)" : "Montant rapporté (FCFA)"));
+        tilMontantRapporteVenteReforme.setHint(com.mobile.diafarms.util.ChampObligatoire.etoile(monnaie.libelle(hasClient ? "Montant reçu maintenant (FCFA)" : "Montant rapporté (FCFA) *")));
         tilModePaiementVenteReforme.setVisibility(hasClient ? View.VISIBLE : View.GONE);
     }
 
@@ -2837,7 +2845,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         }
         boolean mensuel = "MENSUEL".equals(s.getModePaiement());
         tilQuantiteSalaire.setVisibility(mensuel ? View.GONE : View.VISIBLE);
-        tilQuantiteSalaire.setHint("HORAIRE".equals(s.getModePaiement()) ? "Heures travaillées" : "Jours travaillés");
+        tilQuantiteSalaire.setHint(com.mobile.diafarms.util.ChampObligatoire.etoile("HORAIRE".equals(s.getModePaiement()) ? "Heures travaillées *" : "Jours travaillés *"));
         Double taux = s.getTauxBase();
         String suffixe = "HORAIRE".equals(s.getModePaiement()) ? "/ heure" : ("JOURNALIER".equals(s.getModePaiement()) ? "/ jour" : "/ mois");
         tvTauxInfoSalaire.setText(taux != null ? "Taux (dernière synchronisation) : " + monnaie.prixUnitaire(taux) + " " + suffixe : "");
@@ -4218,8 +4226,10 @@ public class SaisieFormActivity extends AppCompatActivity {
                     toast("Veuillez saisir un montant positif");
                     return;
                 }
-                if (description.isEmpty()) {
-                    toast("Veuillez saisir une description");
+                // Description facultative (la catégorie suffit), sauf pour un service de
+                // santé où elle dit la nature du service (« Nature du service * »).
+                if (description.isEmpty() && estSante()) {
+                    toast("Veuillez préciser la nature du service");
                     return;
                 }
                 if (type == SaisieType.TRANSACTION_ENTREE
@@ -4242,7 +4252,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 TransactionCreateRequest req = new TransactionCreateRequest();
                 req.type = (type == SaisieType.TRANSACTION_SORTIE) ? "SORTIE" : "ENTREE";
                 req.date = date;
-                req.description = description;
+                req.description = description.isEmpty() ? null : description;
                 req.montant = montant;
                 req.categorie = categorieChoisie;
                 req.categoriePrecision = precisionCategorie;
@@ -4750,6 +4760,11 @@ public class SaisieFormActivity extends AppCompatActivity {
                 nomAlimentExistant = nullIfBlank(req.nomAliment);
                 String libelleType = typeAlimentLibelle(req.typeAliment);
                 if (libelleType != null) spinnerTypeAliment.setText(libelleType, false);
+                // Achat d'une version antérieure (sans type) : le type n'y est plus obligatoire.
+                if (nomAlimentExistant != null && spinnerTypeAliment.getParent() != null
+                        && spinnerTypeAliment.getParent().getParent() instanceof TextInputLayout) {
+                    ((TextInputLayout) spinnerTypeAliment.getParent().getParent()).setHint("Type d'aliment");
+                }
                 double poids = req.poidsSacKg != null && req.poidsSacKg > 0 ? req.poidsSacKg : POIDS_SAC_DEFAUT_KG;
                 // Pas de recalcul pendant le pré-remplissage : la quantité enregistrée fait foi.
                 majQuantiteAchatAuto = true;
