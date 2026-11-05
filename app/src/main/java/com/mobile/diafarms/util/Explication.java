@@ -12,7 +12,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.mobile.diafarms.R;
 
 /**
- * Textes d'aide repliés en un petit lien « 💡 Explication » : un clic ouvre une petite
+ * Textes d'aide repliés sur une ligne « 💡 début du texte… » : un clic ouvre une petite
  * fenêtre avec le texte complet. L'écran garde ainsi seulement les libellés, les valeurs
  * et les alertes ; le contenu de l'aide reste le même.
  *
@@ -48,6 +48,7 @@ public final class Explication {
     public static void transformer(TextView aide, CharSequence titre) {
         if (aide == null) return;
         CharSequence texte = aide.getText();
+        if (TAG_FAIT.equals(aide.getTag())) return;
         if (texte == null || texte.toString().trim().isEmpty() || LIBELLE.contentEquals(texte)) return;
         lier(aide, titre, texte);
     }
@@ -64,7 +65,13 @@ public final class Explication {
     public static void lier(TextView lien, CharSequence titre, CharSequence texte) {
         if (lien == null) return;
         Context ctx = lien.getContext();
-        lien.setText(LIBELLE);
+        // « 💡 » + début du texte sur une ligne, coupé par « … » : on voit de quoi il
+        // s'agit, et toute la ligne ouvre le texte complet.
+        String apercu = texte == null ? "" : texte.toString().replaceAll("\\s+", " ").trim();
+        lien.setText(apercu.isEmpty() ? LIBELLE : "💡 " + apercu);
+        lien.setSingleLine(true);
+        lien.setMaxLines(1);
+        lien.setEllipsize(android.text.TextUtils.TruncateAt.END);
         lien.setTextColor(ContextCompat.getColor(ctx, R.color.primary));
         lien.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
         int p = Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 4, ctx.getResources().getDisplayMetrics()));
