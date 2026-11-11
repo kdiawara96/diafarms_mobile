@@ -1441,7 +1441,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         return CATEGORIES_TRANSACTION_ENTREE;
     }
 
-    /** Catégorie « Autre » (entrée ou sortie) : champ « Préciser la catégorie * » affiché. */
+    /** Catégorie « Autre » (entrée ou sortie) : champ « Préciser la nature * » affiché. */
     private void majCategoriePrecision() {
         boolean autre = (type == SaisieType.TRANSACTION_ENTREE || type == SaisieType.TRANSACTION_SORTIE)
                 && CATEGORIE_AUTRE.equals(spinnerCategorie.getText().toString());
@@ -4333,7 +4333,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 }
                 String precisionCategorie = CATEGORIE_AUTRE.equals(categorieChoisie) ? nullIfBlank(textOf(etCategoriePrecision)) : null;
                 if (CATEGORIE_AUTRE.equals(categorieChoisie) && precisionCategorie == null) {
-                    toast("Veuillez préciser la catégorie");
+                    toast("Veuillez préciser la nature");
                     return;
                 }
                 if (type == SaisieType.TRANSACTION_SORTIE && estSante() && spinnerNatureSante.getText().length() == 0) {

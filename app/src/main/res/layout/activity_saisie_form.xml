@@ -2003,12 +2003,12 @@
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <!-- Catégorie « Autre » : précision obligatoire (categoriePrecision), comme
-                     « Préciser la catégorie » du web. -->
+                     « Préciser la nature » du web. -->
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/tilCategoriePrecision"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:hint="Préciser la catégorie (ex. Gardiennage) *"
+                    android:hint="Préciser la nature (ex. Gardiennage) *"
                     android:visibility="gone">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etCategoriePrecision"
