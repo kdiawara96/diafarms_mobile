@@ -110,7 +110,15 @@ public class SyncManager {
         syncNext(0);
     }
 
+    // Correction de client / d'employé envoyée : listes locales à recharger en fin d'envoi.
+    private boolean clientsModifies, employesModifies;
+
     private void terminer() {
+        if (clientsModifies || employesModifies) {
+            CachePrefetcher.rafraichirClientsEtSalaires(appContext, localDatabase, clientsModifies, employesModifies);
+            clientsModifies = false;
+            employesModifies = false;
+        }
         appelant.onBilan(bilan);
     }
 
@@ -161,6 +169,8 @@ public class SyncManager {
                 if (data != null && data.getUniqueId() != null) {
                     localDatabase.markSynced(saisie.getLocalId(), data.getUniqueId());
                     bilan.envoyees++;
+                    if (saisie.getType() == SaisieType.CLIENT_UPDATE) clientsModifies = true;
+                    if (saisie.getType() == SaisieType.EMPLOYE_UPDATE) employesModifies = true;
                     syncNext(index + 1);
                 } else {
                     traiterEchec(index, saisie, response.code(), extractServerMessage(response));
@@ -422,6 +432,20 @@ public class SyncManager {
             case SALAIRE_PAYER:
                 api.payerSalaire(cle, gson.fromJson(json, SalairePayerRequest.class)).enqueue(callback);
                 break;
+            case CLIENT_UPDATE: {
+                com.mobile.diafarms.network.dto.ClientUpdateRequest c =
+                        gson.fromJson(json, com.mobile.diafarms.network.dto.ClientUpdateRequest.class);
+                if (c == null || c.clientUniqueId == null) return false; // @Path null : jamais envoyable
+                api.updateClient(cle, c.clientUniqueId, c.corps()).enqueue(callback);
+                break;
+            }
+            case EMPLOYE_UPDATE: {
+                com.mobile.diafarms.network.dto.EmployeUpdateRequest e =
+                        gson.fromJson(json, com.mobile.diafarms.network.dto.EmployeUpdateRequest.class);
+                if (e == null || e.employeUniqueId == null) return false; // @Path null : jamais envoyable
+                api.updatePersonnel(cle, e.employeUniqueId, e.corps()).enqueue(callback);
+                break;
+            }
             default:
                 return false;
         }

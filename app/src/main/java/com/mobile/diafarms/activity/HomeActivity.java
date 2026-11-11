@@ -143,6 +143,10 @@ public class HomeActivity extends AppCompatActivity {
     private CardView btnVenteReforme;
     private CardView btnVenteFientes, btnAutreVente;
     private CardView btnNouveauClient;
+    // Modifier un client : comme btnNouveauClient, plus RESPONSABLE/ADMIN (voir majModifierClient).
+    private CardView btnModifierClient;
+    // Modifier un employé : exactement comme btnPayerSalaire.
+    private CardView btnModifierEmploye;
     private CardView btnNouvelleCommande;
     private CardView btnCommandes;
     private CardView btnEncaissement;
@@ -318,6 +322,8 @@ public class HomeActivity extends AppCompatActivity {
         btnVenteFientes = findViewById(R.id.btnVenteFientes);
         btnAutreVente = findViewById(R.id.btnAutreVente);
         btnNouveauClient = findViewById(R.id.btnNouveauClient);
+        btnModifierClient = findViewById(R.id.btnModifierClient);
+        btnModifierEmploye = findViewById(R.id.btnModifierEmploye);
         btnNouvelleCommande = findViewById(R.id.btnNouvelleCommande);
         btnCommandes = findViewById(R.id.btnCommandes);
         btnEncaissement = findViewById(R.id.btnEncaissement);
@@ -436,6 +442,7 @@ public class HomeActivity extends AppCompatActivity {
         gridVente.setVisibility(sectionVente ? View.VISIBLE : View.GONE);
         btnCommandes.setVisibility(gereCommandesSansReglage ? View.VISIBLE : View.GONE);
         majEncaissement(null);
+        majModifierClient(null);
         appliquerConsultationSeule();
         if (!isVente) {
             btnVenteOeufs.setVisibility(View.GONE);
@@ -458,6 +465,7 @@ public class HomeActivity extends AppCompatActivity {
             btnEntreeArgent.setVisibility(View.GONE);
             btnSortieArgent.setVisibility(View.GONE);
             btnPayerSalaire.setVisibility(View.GONE);
+            btnModifierEmploye.setVisibility(View.GONE);
         }
         if (isVente) {
             btnVenteOeufs.setVisibility(View.GONE);
@@ -517,6 +525,7 @@ public class HomeActivity extends AppCompatActivity {
             // la grille (ajouter un salarié, fixer son taux) reste une action web (voir
             // SaisieType.SALAIRE_PAYER, DefinirSalaireDialog côté web).
             btnPayerSalaire.setVisibility(s.isComptableMobileEnabled() ? View.VISIBLE : View.GONE);
+            btnModifierEmploye.setVisibility(btnPayerSalaire.getVisibility());
         }
         if (currentUser.isVente()) {
             btnVenteOeufs.setVisibility(s.isVenteMobileEnabled() ? View.VISIBLE : View.GONE);
@@ -530,7 +539,18 @@ public class HomeActivity extends AppCompatActivity {
             }
         }
         majEncaissement(s);
+        majModifierClient(s);
         appliquerConsultationSeule();
+    }
+
+    /** « Modifier un client » : comme « Nouveau client » (VENTE avec la vente mobile
+     * activée), et aussi RESPONSABLE/ADMIN, qui voient la grille Vente pour les commandes
+     * (le serveur les autorise, ClientServiceImpl.ensureCanEdit). Réglages inconnus
+     * (s null) : fermé pour VENTE seul, comme les autres cartes Vente. */
+    private void majModifierClient(FarmAppSettingsResponse s) {
+        boolean sansReglage = currentUser.isResponsable() || currentUser.isAdmin();
+        boolean vente = currentUser.isVente() && s != null && s.isVenteMobileEnabled();
+        btnModifierClient.setVisibility(sansReglage || vente ? View.VISIBLE : View.GONE);
     }
 
     /** Compte de démonstration : le serveur refuse toute écriture (ConsultationSeuleFilter),
@@ -545,7 +565,7 @@ public class HomeActivity extends AppCompatActivity {
         tvSectionComptable.setVisibility(View.GONE);
         gridComptable.setVisibility(View.GONE);
         CardView[] saisiesVente = {btnEncaissement, btnVenteOeufs, btnVenteReforme, btnVenteFientes, btnAutreVente,
-                btnNouveauClient, btnNouvelleCommande};
+                btnNouveauClient, btnNouvelleCommande, btnModifierClient};
         for (CardView c : saisiesVente) c.setVisibility(View.GONE);
         boolean commandes = btnCommandes.getVisibility() == View.VISIBLE;
         tvSectionVente.setVisibility(commandes ? View.VISIBLE : View.GONE);
@@ -941,11 +961,13 @@ public class HomeActivity extends AppCompatActivity {
         btnVenteFientes.setOnClickListener(v -> openSaisie(SaisieType.VENTE_FIENTES));
         btnAutreVente.setOnClickListener(v -> openSaisie(SaisieType.VENTE_AUTRE));
         btnNouveauClient.setOnClickListener(v -> openSaisie(SaisieType.CLIENT_CREATE));
+        btnModifierClient.setOnClickListener(v -> openSaisie(SaisieType.CLIENT_UPDATE));
         btnNouvelleCommande.setOnClickListener(v -> openSaisie(SaisieType.COMMANDE_CREATE));
         btnCommandes.setOnClickListener(v -> startActivity(new Intent(this, CommandesActivity.class)));
         btnEncaissement.setOnClickListener(v -> openSaisie(SaisieType.PAIEMENT_CLIENT));
         btnEncaissementCompta.setOnClickListener(v -> openSaisie(SaisieType.PAIEMENT_CLIENT));
         btnPayerSalaire.setOnClickListener(v -> openSaisie(SaisieType.SALAIRE_PAYER));
+        btnModifierEmploye.setOnClickListener(v -> openSaisie(SaisieType.EMPLOYE_UPDATE));
 
         // Sync, écouteur sur l'ImageButton interne, même raison que btnDiagnostics ci-dessus.
         findViewById(R.id.imgBtnSync).setOnClickListener(v -> forceSync());
@@ -977,6 +999,7 @@ public class HomeActivity extends AppCompatActivity {
         boolean needsProjet = type != SaisieType.TRANSACTION_ENTREE && type != SaisieType.TRANSACTION_SORTIE
                 && type != SaisieType.VENTE_OEUFS && type != SaisieType.VENTE_REFORME && type != SaisieType.VENTE_FIENTES && type != SaisieType.VENTE_AUTRE
                 && type != SaisieType.CLIENT_CREATE && type != SaisieType.COMMANDE_CREATE && type != SaisieType.SALAIRE_PAYER
+                && type != SaisieType.CLIENT_UPDATE && type != SaisieType.EMPLOYE_UPDATE
                 && type != SaisieType.ENTRETIEN && type != SaisieType.PAIEMENT_CLIENT && type != SaisieType.LIVRAISON_COMMANDE;
         if (needsProjet && currentProjet == null) {
             Toast.makeText(this, "Veuillez sélectionner un projet", Toast.LENGTH_SHORT).show();

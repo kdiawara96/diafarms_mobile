@@ -43,6 +43,8 @@ import com.mobile.diafarms.network.dto.AlimentationCreateRequest;
 import com.mobile.diafarms.network.dto.ApiEnvelope;
 import com.mobile.diafarms.network.dto.ClientCreateRequest;
 import com.mobile.diafarms.network.dto.ClientSelectResponse;
+import com.mobile.diafarms.network.dto.ClientUpdateRequest;
+import com.mobile.diafarms.network.dto.EmployeUpdateRequest;
 import com.mobile.diafarms.network.dto.CollecteOeufsCreateRequest;
 import com.mobile.diafarms.network.dto.CommandeCreateRequest;
 import com.mobile.diafarms.network.dto.ConsommationAlimentCreateRequest;
@@ -331,6 +333,22 @@ public class SaisieFormActivity extends AppCompatActivity {
     private TextInputEditText etClientNom, etClientTelephone, etClientAdresse, etClientEmail;
     // Indicatif du pays du téléphone du client (voir util/IndicatifTelephone).
     private android.widget.Spinner spinnerIndicatifClient;
+    // Modifier un client (CLIENT_UPDATE) : mêmes champs que groupClient, plus le client à
+    // corriger (clients déjà synchronisés, voir loadClients). Adresse/email vides = inchangés.
+    private View groupClientAModifier, tvExplicationClientCreate, tvExplicationClientUpdate;
+    private AutoCompleteTextView spinnerClientAModifier;
+    private TextView tvAucunClientAModifier;
+    private TextInputLayout tilClientAdresse, tilClientEmail;
+    private String clientAModifierUid;
+
+    // Modifier un employé (EMPLOYE_UPDATE) : employés de la grille salariale synchronisée
+    // (voir loadSalaires). Poste/téléphone vides = inchangés (le serveur ignore les null).
+    private View groupEmploye;
+    private AutoCompleteTextView spinnerEmployeAModifier;
+    private TextView tvAucunEmployeAModifier;
+    private TextInputEditText etEmployeNom, etEmployePoste, etEmployeTelephone;
+    private android.widget.Spinner spinnerIndicatifEmploye;
+    private String employeAModifierUid;
 
     // Nouvelle commande (VENTE), client TOUJOURS obligatoire et déjà synchronisé
     // (spinnerClientCommande, pas d'option "aucun"), contrairement aux ventes. Voir
@@ -615,8 +633,11 @@ public class SaisieFormActivity extends AppCompatActivity {
         if (type == SaisieType.COLLECTE_OEUFS) {
             loadMagasinsStockage();
         }
-        if (type == SaisieType.SALAIRE_PAYER) {
+        if (type == SaisieType.SALAIRE_PAYER || type == SaisieType.EMPLOYE_UPDATE) {
             loadSalaires();
+        }
+        if (type == SaisieType.CLIENT_UPDATE) {
+            loadClients();
         }
         if (type == SaisieType.LIVRAISON_COMMANDE) {
             setupLivraison();
@@ -826,14 +847,15 @@ public class SaisieFormActivity extends AppCompatActivity {
         etClientTelephone = findViewById(R.id.etClientTelephone);
         // Le numéro sans l'indicatif : seulement des chiffres et des espaces (l'indicatif
         // est choisi dans la liste à côté).
-        etClientTelephone.setFilters(new android.text.InputFilter[] {(source, start, end, dest, dstart, dend) -> {
+        android.text.InputFilter chiffresEtEspaces = (source, start, end, dest, dstart, dend) -> {
             StringBuilder garde = new StringBuilder();
             for (int i = start; i < end; i++) {
                 char ch = source.charAt(i);
                 if ((ch >= '0' && ch <= '9') || ch == ' ') garde.append(ch);
             }
             return garde.length() == end - start ? null : garde.toString();
-        }});
+        };
+        etClientTelephone.setFilters(new android.text.InputFilter[] {chiffresEtEspaces});
         spinnerIndicatifClient = findViewById(R.id.spinnerIndicatifClient);
         android.widget.ArrayAdapter<String> adapterIndicatif = new android.widget.ArrayAdapter<>(this,
                 android.R.layout.simple_spinner_item, com.mobile.diafarms.util.IndicatifTelephone.libelles());
@@ -843,6 +865,27 @@ public class SaisieFormActivity extends AppCompatActivity {
                 com.mobile.diafarms.util.IndicatifTelephone.INDICATIF_DEFAUT));
         etClientAdresse = findViewById(R.id.etClientAdresse);
         etClientEmail = findViewById(R.id.etClientEmail);
+        tilClientAdresse = findViewById(R.id.tilClientAdresse);
+        tilClientEmail = findViewById(R.id.tilClientEmail);
+        tvExplicationClientCreate = findViewById(R.id.tvExplicationClientCreate);
+        tvExplicationClientUpdate = findViewById(R.id.tvExplicationClientUpdate);
+        groupClientAModifier = findViewById(R.id.groupClientAModifier);
+        spinnerClientAModifier = findViewById(R.id.spinnerClientAModifier);
+        tvAucunClientAModifier = findViewById(R.id.tvAucunClientAModifier);
+        spinnerClientAModifier.setOnItemClickListener((parent, view, position, id) -> surClientAModifierChoisi());
+
+        groupEmploye = findViewById(R.id.groupEmploye);
+        spinnerEmployeAModifier = findViewById(R.id.spinnerEmployeAModifier);
+        tvAucunEmployeAModifier = findViewById(R.id.tvAucunEmployeAModifier);
+        etEmployeNom = findViewById(R.id.etEmployeNom);
+        etEmployePoste = findViewById(R.id.etEmployePoste);
+        etEmployeTelephone = findViewById(R.id.etEmployeTelephone);
+        etEmployeTelephone.setFilters(new android.text.InputFilter[] {chiffresEtEspaces});
+        spinnerIndicatifEmploye = findViewById(R.id.spinnerIndicatifEmploye);
+        spinnerIndicatifEmploye.setAdapter(adapterIndicatif);
+        spinnerIndicatifEmploye.setSelection(com.mobile.diafarms.util.IndicatifTelephone.position(
+                com.mobile.diafarms.util.IndicatifTelephone.INDICATIF_DEFAUT));
+        spinnerEmployeAModifier.setOnItemClickListener((parent, view, position, id) -> surEmployeAModifierChoisi());
 
         groupCommande = findViewById(R.id.groupCommande);
         spinnerClientCommande = findViewById(R.id.spinnerClientCommande);
@@ -1503,7 +1546,16 @@ public class SaisieFormActivity extends AppCompatActivity {
         groupVenteOeufs.setVisibility(type == SaisieType.VENTE_OEUFS ? View.VISIBLE : View.GONE);
         groupVenteReforme.setVisibility(type == SaisieType.VENTE_REFORME ? View.VISIBLE : View.GONE);
         if (type == SaisieType.VENTE_REFORME) refreshTypeVenteReformeUi();
-        groupClient.setVisibility(type == SaisieType.CLIENT_CREATE ? View.VISIBLE : View.GONE);
+        boolean modifClient = type == SaisieType.CLIENT_UPDATE;
+        groupClient.setVisibility(type == SaisieType.CLIENT_CREATE || modifClient ? View.VISIBLE : View.GONE);
+        groupClientAModifier.setVisibility(modifClient ? View.VISIBLE : View.GONE);
+        tvExplicationClientCreate.setVisibility(modifClient ? View.GONE : View.VISIBLE);
+        tvExplicationClientUpdate.setVisibility(modifClient ? View.VISIBLE : View.GONE);
+        if (modifClient) {
+            tilClientAdresse.setHint("Adresse (vide = inchangée)");
+            tilClientEmail.setHint("Email (vide = inchangé)");
+        }
+        groupEmploye.setVisibility(type == SaisieType.EMPLOYE_UPDATE ? View.VISIBLE : View.GONE);
         groupCommande.setVisibility(type == SaisieType.COMMANDE_CREATE ? View.VISIBLE : View.GONE);
         groupSalaire.setVisibility(type == SaisieType.SALAIRE_PAYER ? View.VISIBLE : View.GONE);
         groupLivraison.setVisibility(type == SaisieType.LIVRAISON_COMMANDE ? View.VISIBLE : View.GONE);
@@ -1532,6 +1584,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         // poulaillers de la ferme), le champ partagé ci-dessus ne liste que ceux
         // occupés par le projet sélectionné, non pertinent ici.
         boolean sansBatiment = type == SaisieType.CLIENT_CREATE || type == SaisieType.COMMANDE_CREATE || type == SaisieType.SALAIRE_PAYER
+                || type == SaisieType.CLIENT_UPDATE || type == SaisieType.EMPLOYE_UPDATE
                 || type == SaisieType.VENTE_OEUFS || type == SaisieType.VENTE_REFORME || type == SaisieType.VENTE_FIENTES
                 || type == SaisieType.VENTE_AUTRE
                 // Achat d'aliment : il entre dans le stock du projet, c'est la consommation qui
@@ -1548,7 +1601,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         // n'avait tout simplement pas ce champ. Seuls Client/Salaire restent sans
         // aucune notion de date/heure de saisie.
         // Salaire : la date est celle du paiement (datePaiement), sans heure.
-        groupDateHeureTop.setVisibility(type == SaisieType.CLIENT_CREATE ? View.GONE : View.VISIBLE);
+        groupDateHeureTop.setVisibility(sansDate() ? View.GONE : View.VISIBLE);
         findViewById(R.id.groupHeureTop).setVisibility(
                 type == SaisieType.SALAIRE_PAYER || estVenteDiverse() ? View.INVISIBLE : View.VISIBLE);
         if (type == SaisieType.LIVRAISON_COMMANDE && commandeLivree != null) {
@@ -2659,7 +2712,95 @@ public class SaisieFormActivity extends AppCompatActivity {
         tvAucunClientPaiement.setVisibility(clients.isEmpty() ? View.VISIBLE : View.GONE);
         if (type == SaisieType.PAIEMENT_CLIENT) surClientPaiementChoisi(false);
 
+        populateClientAModifier();
         applyPendingClientSelection();
+    }
+
+    /** Ni date ni heure : nouveau client, et les corrections de fiche client/employé. */
+    private boolean sansDate() {
+        return type == SaisieType.CLIENT_CREATE || type == SaisieType.CLIENT_UPDATE || type == SaisieType.EMPLOYE_UPDATE;
+    }
+
+    // ===================== MODIFIER UN CLIENT / UN EMPLOYÉ =====================
+
+    /** Liste « Client à modifier » ; le client déjà choisi (ou celui d'une saisie rééditée)
+     * reste affiché, sans toucher aux champs déjà remplis. */
+    private void populateClientAModifier() {
+        if (spinnerClientAModifier == null) return;
+        List<String> labels = new ArrayList<>();
+        for (ClientSelectResponse c : clients) labels.add(c.getNom());
+        spinnerClientAModifier.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, labels));
+        tvAucunClientAModifier.setVisibility(type == SaisieType.CLIENT_UPDATE && clients.isEmpty() ? View.VISIBLE : View.GONE);
+        afficherClientAModifier();
+    }
+
+    private void afficherClientAModifier() {
+        if (clientAModifierUid == null) return;
+        for (ClientSelectResponse c : clients) {
+            if (clientAModifierUid.equals(c.getUniqueId())) {
+                spinnerClientAModifier.setText(c.getNom(), false);
+                return;
+            }
+        }
+    }
+
+    /** Client choisi dans la liste : nom et téléphone pré-remplis, adresse/email vides
+     * (vides = inchangés côté serveur). */
+    private void surClientAModifierChoisi() {
+        String choisi = spinnerClientAModifier.getText().toString();
+        for (ClientSelectResponse c : clients) {
+            if (choisi.equals(c.getNom())) {
+                clientAModifierUid = c.getUniqueId();
+                etClientNom.setText(c.getNom());
+                String[] tel = com.mobile.diafarms.util.IndicatifTelephone.decouper(c.getTelephone(),
+                        com.mobile.diafarms.util.IndicatifTelephone.INDICATIF_DEFAUT);
+                spinnerIndicatifClient.setSelection(com.mobile.diafarms.util.IndicatifTelephone.position(tel[0]));
+                etClientTelephone.setText(tel[1]);
+                etClientAdresse.setText("");
+                etClientEmail.setText("");
+                return;
+            }
+        }
+    }
+
+    /** Liste « Employé à modifier » (grille salariale synchronisée), même principe que
+     * populateClientAModifier. */
+    private void populateEmployeAModifier() {
+        List<String> labels = new ArrayList<>();
+        for (SalaireSelectResponse s : salaires) labels.add(s.getEmployeNom());
+        spinnerEmployeAModifier.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, labels));
+        tvAucunEmployeAModifier.setVisibility(salaires.isEmpty() ? View.VISIBLE : View.GONE);
+        afficherEmployeAModifier();
+    }
+
+    private void afficherEmployeAModifier() {
+        if (employeAModifierUid == null) return;
+        for (SalaireSelectResponse s : salaires) {
+            if (employeAModifierUid.equals(s.getEmployeUniqueId())) {
+                spinnerEmployeAModifier.setText(s.getEmployeNom(), false);
+                return;
+            }
+        }
+    }
+
+    /** Employé choisi : nom pré-rempli ; poste et téléphone vides (= inchangés). */
+    private void surEmployeAModifierChoisi() {
+        String choisi = spinnerEmployeAModifier.getText().toString();
+        for (SalaireSelectResponse s : salaires) {
+            if (choisi.equals(s.getEmployeNom())) {
+                employeAModifierUid = s.getEmployeUniqueId();
+                etEmployeNom.setText(s.getEmployeNom());
+                etEmployePoste.setText("");
+                etEmployeTelephone.setText("");
+                return;
+            }
+        }
+    }
+
+    private String indicatifEmploye() {
+        int i = spinnerIndicatifEmploye.getSelectedItemPosition();
+        java.util.List<com.mobile.diafarms.util.IndicatifTelephone.Pays> p = com.mobile.diafarms.util.IndicatifTelephone.PAYS;
+        return i >= 0 && i < p.size() ? p.get(i).indicatif : com.mobile.diafarms.util.IndicatifTelephone.INDICATIF_DEFAUT;
     }
 
     /** Position dans "clients" (pas dans le spinner : les sélecteurs Vente ont un
@@ -2811,6 +2952,10 @@ public class SaisieFormActivity extends AppCompatActivity {
     }
 
     private void populateSalaireSpinner() {
+        if (type == SaisieType.EMPLOYE_UPDATE) {
+            populateEmployeAModifier();
+            return;
+        }
         List<String> labels = new ArrayList<>();
         for (SalaireSelectResponse s : salaires) labels.add(s.getEmployeNom());
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, labels);
@@ -3666,17 +3811,26 @@ public class SaisieFormActivity extends AppCompatActivity {
         return i >= 0 && i < p.size() ? p.get(i).indicatif : com.mobile.diafarms.util.IndicatifTelephone.INDICATIF_DEFAUT;
     }
 
-    private String clientDoublon(String nom, String telephone) {
+    private String clientDoublon(String nom, String telephone, String exclureUid) {
         String n = nom.trim();
         // Comparés en chiffres seuls : « +223 70 12 34 56 » et « 70123456 » sont le même numéro.
         String t = com.mobile.diafarms.util.IndicatifTelephone.chiffres(telephone);
         for (ClientSelectResponse c : lireListeCache(CachePrefetcher.CACHE_CLIENTS_SELECT, ClientSelectResponse.class)) {
+            // Client corrigé (CLIENT_UPDATE) : il ne se compte pas contre lui-même.
+            if (exclureUid != null && exclureUid.equals(c.getUniqueId())) continue;
             if (c.getNom() != null && c.getNom().trim().equalsIgnoreCase(n)) return "Un client portant ce nom existe déjà";
             if (c.getTelephone() != null && com.mobile.diafarms.util.IndicatifTelephone.chiffres(c.getTelephone()).equals(t)) return "Un client avec ce numéro de téléphone existe déjà (" + c.getNom() + ")";
         }
         for (SaisieLocale s : saisiesEnAttente(SaisieType.CLIENT_CREATE)) {
             ClientCreateRequest r = gson.fromJson(s.getPayloadJson(), ClientCreateRequest.class);
             if (r == null) continue;
+            if (r.nom != null && r.nom.trim().equalsIgnoreCase(n)) return "Un client portant ce nom attend déjà d'être envoyé";
+            if (r.telephone != null && com.mobile.diafarms.util.IndicatifTelephone.chiffres(r.telephone).equals(t)) return "Un client avec ce numéro attend déjà d'être envoyé (" + r.nom + ")";
+        }
+        // Corrections d'autres clients pas encore envoyées (nouveau nom ou numéro).
+        for (SaisieLocale s : saisiesEnAttente(SaisieType.CLIENT_UPDATE)) {
+            ClientUpdateRequest r = gson.fromJson(s.getPayloadJson(), ClientUpdateRequest.class);
+            if (r == null || (exclureUid != null && exclureUid.equals(r.clientUniqueId))) continue;
             if (r.nom != null && r.nom.trim().equalsIgnoreCase(n)) return "Un client portant ce nom attend déjà d'être envoyé";
             if (r.telephone != null && com.mobile.diafarms.util.IndicatifTelephone.chiffres(r.telephone).equals(t)) return "Un client avec ce numéro attend déjà d'être envoyé (" + r.nom + ")";
         }
@@ -3699,7 +3853,7 @@ public class SaisieFormActivity extends AppCompatActivity {
         // Même règle que le serveur (DateSaisie) : une saisie ne peut pas être datée dans le
         // futur. Refusée ici plutôt qu'à l'envoi, parfois des jours plus tard. La date de
         // livraison PRÉVUE d'une commande est un autre champ, elle peut être future.
-        if (type != SaisieType.CLIENT_CREATE && date.compareTo(isoDate.format(new java.util.Date())) > 0) {
+        if (!sansDate() && date.compareTo(isoDate.format(new java.util.Date())) > 0) {
             toast("La date ne peut pas être dans le futur");
             return;
         }
@@ -4329,7 +4483,7 @@ public class SaisieFormActivity extends AppCompatActivity {
                 }
                 // Le serveur refuse un nom ou un téléphone déjà utilisé : vérifié ici sur les
                 // clients connus du téléphone et les nouveaux clients pas encore envoyés.
-                String doublon = clientDoublon(nom, telephoneClient);
+                String doublon = clientDoublon(nom, telephoneClient, null);
                 if (doublon != null) {
                     toast(doublon);
                     return;
@@ -4341,6 +4495,60 @@ public class SaisieFormActivity extends AppCompatActivity {
                 req.email = nullIfBlank(textOf(etClientEmail));
                 requestObject = req;
                 summary = "Nouveau client : " + nom;
+                break;
+            }
+            case CLIENT_UPDATE: {
+                if (clientAModifierUid == null) {
+                    toast("Veuillez choisir le client à modifier");
+                    return;
+                }
+                String nom = textOf(etClientNom);
+                if (nom.isEmpty()) {
+                    toast("Veuillez saisir le nom du client");
+                    return;
+                }
+                String telephoneClient = com.mobile.diafarms.util.IndicatifTelephone.assembler(indicatifClient(),
+                        textOf(etClientTelephone));
+                if (telephoneClient.isEmpty()) {
+                    toast("Veuillez saisir le numéro de téléphone du client");
+                    return;
+                }
+                // Nom ou téléphone déjà pris par un AUTRE client (mêmes règles que le serveur).
+                String doublon = clientDoublon(nom, telephoneClient, clientAModifierUid);
+                if (doublon != null) {
+                    toast(doublon);
+                    return;
+                }
+                ClientUpdateRequest req = new ClientUpdateRequest();
+                req.clientUniqueId = clientAModifierUid;
+                req.nom = nom;
+                req.telephone = telephoneClient;
+                // Vide = inchangé : le serveur ignore les champs null.
+                req.adresse = nullIfBlank(textOf(etClientAdresse));
+                req.email = nullIfBlank(textOf(etClientEmail));
+                requestObject = req;
+                summary = "Modification client : " + nom;
+                break;
+            }
+            case EMPLOYE_UPDATE: {
+                if (employeAModifierUid == null) {
+                    toast("Veuillez choisir l'employé à modifier");
+                    return;
+                }
+                String nom = textOf(etEmployeNom);
+                if (nom.isEmpty()) {
+                    toast("Veuillez saisir le nom de l'employé");
+                    return;
+                }
+                EmployeUpdateRequest req = new EmployeUpdateRequest();
+                req.employeUniqueId = employeAModifierUid;
+                req.nom = nom;
+                // Vides = inchangés : le serveur ignore les champs null.
+                req.poste = nullIfBlank(textOf(etEmployePoste));
+                req.telephone = nullIfBlank(com.mobile.diafarms.util.IndicatifTelephone.assembler(indicatifEmploye(),
+                        textOf(etEmployeTelephone)));
+                requestObject = req;
+                summary = "Modification employé : " + nom;
                 break;
             }
             case COMMANDE_CREATE: {
@@ -4840,6 +5048,33 @@ public class SaisieFormActivity extends AppCompatActivity {
                 etClientTelephone.setText(tel[1]);
                 etClientAdresse.setText(req.adresse);
                 etClientEmail.setText(req.email);
+                break;
+            }
+            case CLIENT_UPDATE: {
+                ClientUpdateRequest req = gson.fromJson(json, ClientUpdateRequest.class);
+                clientAModifierUid = req.clientUniqueId;
+                afficherClientAModifier();
+                etClientNom.setText(req.nom);
+                String[] tel = com.mobile.diafarms.util.IndicatifTelephone.decouper(req.telephone,
+                        com.mobile.diafarms.util.IndicatifTelephone.INDICATIF_DEFAUT);
+                spinnerIndicatifClient.setSelection(com.mobile.diafarms.util.IndicatifTelephone.position(tel[0]));
+                etClientTelephone.setText(tel[1]);
+                etClientAdresse.setText(req.adresse);
+                etClientEmail.setText(req.email);
+                break;
+            }
+            case EMPLOYE_UPDATE: {
+                EmployeUpdateRequest req = gson.fromJson(json, EmployeUpdateRequest.class);
+                employeAModifierUid = req.employeUniqueId;
+                afficherEmployeAModifier();
+                etEmployeNom.setText(req.nom);
+                etEmployePoste.setText(req.poste);
+                if (req.telephone != null) {
+                    String[] tel = com.mobile.diafarms.util.IndicatifTelephone.decouper(req.telephone,
+                            com.mobile.diafarms.util.IndicatifTelephone.INDICATIF_DEFAUT);
+                    spinnerIndicatifEmploye.setSelection(com.mobile.diafarms.util.IndicatifTelephone.position(tel[0]));
+                    etEmployeTelephone.setText(tel[1]);
+                }
                 break;
             }
             case COMMANDE_CREATE: {

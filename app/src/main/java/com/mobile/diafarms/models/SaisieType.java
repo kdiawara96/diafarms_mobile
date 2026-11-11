@@ -77,7 +77,12 @@ public enum SaisieType {
     // Rôle Comptable uniquement : payer un salaire déjà défini (grille synchronisée
     // via CachePrefetcher, voir SalaireSelectResponse), pas de création/modification
     // de la grille elle-même sur mobile, ça reste une action web (voir DefinirSalaireDialog).
-    SALAIRE_PAYER("Payer un salaire", Categorie.FINANCE);
+    SALAIRE_PAYER("Payer un salaire", Categorie.FINANCE),
+    // Correction d'un client déjà synchronisé : PUT /clients/update/{uid} (champs null
+    // ignorés par le serveur). Ni projet, ni poulailler, ni date, comme CLIENT_CREATE.
+    CLIENT_UPDATE("Modifier un client", Categorie.FINANCE),
+    // Correction d'un employé de la grille salariale : PUT /personnel/update/{uid}.
+    EMPLOYE_UPDATE("Modifier un employé", Categorie.FINANCE);
 
     public enum Categorie { PRODUCTION, FINANCE }
 

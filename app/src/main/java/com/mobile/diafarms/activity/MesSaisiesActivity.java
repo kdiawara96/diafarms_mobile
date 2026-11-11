@@ -409,6 +409,7 @@ public class MesSaisiesActivity extends AppCompatActivity {
                 case VENTE_REFORME:
                     return R.drawable.reforme;
                 case CLIENT_CREATE:
+                case CLIENT_UPDATE:
                     return R.drawable.ic_client;
                 case TRANSACTION_ENTREE:
                     return android.R.drawable.arrow_down_float;

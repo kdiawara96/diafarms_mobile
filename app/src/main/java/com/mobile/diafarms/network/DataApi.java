@@ -174,6 +174,18 @@ public interface DataApi {
     @POST("clients/create")
     Call<ApiEnvelope<CreatedEntityResponse>> createClient(@Header("Idempotency-Key") String idempotencyKey, @Body ClientCreateRequest request);
 
+    // Correction d'un client (CLIENT_UPDATE) : corps ClientCreate {nom, telephone, adresse,
+    // email}, champs null ignorés. Réponse ClientDTO, dont seul le uniqueId est lu.
+    @PUT("clients/update/{uniqueId}")
+    Call<ApiEnvelope<CreatedEntityResponse>> updateClient(@Header("Idempotency-Key") String idempotencyKey,
+            @Path("uniqueId") String clientUniqueId, @Body ClientCreateRequest request);
+
+    // Correction d'un employé (EMPLOYE_UPDATE) : corps PersonnelCreate {nom, poste,
+    // telephone}, champs null ignorés. Réponse PersonnelDTO, dont seul le uniqueId est lu.
+    @PUT("personnel/update/{uniqueId}")
+    Call<ApiEnvelope<CreatedEntityResponse>> updatePersonnel(@Header("Idempotency-Key") String idempotencyKey,
+            @Path("uniqueId") String employeUniqueId, @Body com.mobile.diafarms.network.dto.PersonnelUpdateBody request);
+
     // ============== COMMANDE (VENTE : ce qu'un client demande avant la vente) ==============
     @POST("commandes/create")
     Call<ApiEnvelope<CreatedEntityResponse>> createCommande(@Header("Idempotency-Key") String idempotencyKey, @Body CommandeCreateRequest request);

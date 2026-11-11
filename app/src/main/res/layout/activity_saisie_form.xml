@@ -1009,6 +1009,45 @@
                 android:orientation="vertical"
                 android:visibility="gone">
 
+                <!-- Modifier un client (CLIENT_UPDATE) : client à corriger, choisi parmi les
+                     clients déjà synchronisés ; masqué pour un nouveau client. -->
+                <LinearLayout
+                    android:id="@+id/groupClientAModifier"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="Client à modifier *"
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                        app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
+                        app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
+
+                        <AutoCompleteTextView
+                            android:id="@+id/spinnerClientAModifier"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="none"
+                            android:editable="false" />
+
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <TextView
+                        android:id="@+id/tvAucunClientAModifier"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Aucun client synchronisé : synchronisez depuis l'accueil."
+                        android:textSize="12sp"
+                        android:textColor="@color/red_error"
+                        android:visibility="gone" />
+
+                    <View android:layout_width="match_parent" android:layout_height="12dp" />
+                </LinearLayout>
+
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:hint="Nom du client *">
@@ -1050,6 +1089,7 @@
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 
                 <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilClientAdresse"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:hint="Adresse (optionnel)">
                     <com.google.android.material.textfield.TextInputEditText
@@ -1061,6 +1101,7 @@
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 
                 <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilClientEmail"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:hint="Email (optionnel)">
                     <com.google.android.material.textfield.TextInputEditText
@@ -1072,11 +1113,21 @@
                 <View android:layout_width="match_parent" android:layout_height="8dp" />
 
                 <TextView
+                    android:id="@+id/tvExplicationClientCreate"
                     android:layout_width="wrap_content" android:layout_height="wrap_content"
                     android:tag="explication"
                     android:text="Ce client sera disponible pour une vente/commande une fois synchronisé (voir l'accueil)."
                     android:textSize="12sp"
                     android:textColor="@android:color/darker_gray" />
+
+                <TextView
+                    android:id="@+id/tvExplicationClientUpdate"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:tag="explication"
+                    android:text="Adresse ou email laissés vides : ils ne sont pas modifiés. La correction part à la prochaine synchronisation."
+                    android:textSize="12sp"
+                    android:textColor="@android:color/darker_gray"
+                    android:visibility="gone" />
             </LinearLayout>
 
             <!-- ===================== NOUVELLE COMMANDE (VENTE : client obligatoire, déjà
@@ -1710,6 +1761,13 @@
                     </com.google.android.material.textfield.TextInputLayout>
                 </LinearLayout>
 
+                <TextView
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Vous pouvez choisir un mois passé."
+                    android:textSize="12sp"
+                    android:textColor="@android:color/darker_gray" />
+
                 <View android:layout_width="match_parent" android:layout_height="12dp" />
 
                 <com.google.android.material.textfield.TextInputLayout
@@ -1757,6 +1815,102 @@
                     android:layout_width="wrap_content" android:layout_height="wrap_content"
                     android:tag="explication"
                     android:text="Montant estimé avec le taux de la dernière synchronisation. Le serveur calcule le montant réel au taux de la période payée. Ne changez le montant que pour une prime ou une retenue : il sera alors appliqué tel quel."
+                    android:textSize="12sp"
+                    android:textColor="@android:color/darker_gray" />
+            </LinearLayout>
+
+            <!-- ===================== MODIFIER UN EMPLOYÉ (EMPLOYE_UPDATE) =====================
+                 PUT personnel/update/{uid} ; liste = grille salariale synchronisée. -->
+            <LinearLayout
+                android:id="@+id/groupEmploye"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Employé à modifier *"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    app:boxCornerRadiusTopStart="12dp" app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusBottomStart="12dp" app:boxCornerRadiusBottomEnd="12dp">
+
+                    <AutoCompleteTextView
+                        android:id="@+id/spinnerEmployeAModifier"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none"
+                        android:editable="false" />
+
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <TextView
+                    android:id="@+id/tvAucunEmployeAModifier"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Aucun employé synchronisé : synchronisez depuis l'accueil."
+                    android:textSize="12sp"
+                    android:textColor="@color/red_error"
+                    android:visibility="gone" />
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Nom *">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etEmployeNom"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="textPersonName" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:hint="Poste">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etEmployePoste"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="text" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+                <TextView
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="Téléphone"
+                    android:textSize="12sp"
+                    android:layout_marginBottom="4dp" />
+                <LinearLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <Spinner
+                        android:id="@+id/spinnerIndicatifEmploye"
+                        android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="2"
+                        android:minHeight="48dp" />
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="3"
+                        android:layout_marginStart="8dp"
+                        android:hint="70 12 34 56">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etEmployeTelephone"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:inputType="phone" />
+                    </com.google.android.material.textfield.TextInputLayout>
+                </LinearLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="8dp" />
+
+                <TextView
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:tag="explication"
+                    android:text="La liste montre les employés qui ont un salaire défini. Poste ou téléphone laissés vides : ils ne sont pas modifiés. La correction part à la prochaine synchronisation."
                     android:textSize="12sp"
                     android:textColor="@android:color/darker_gray" />
             </LinearLayout>

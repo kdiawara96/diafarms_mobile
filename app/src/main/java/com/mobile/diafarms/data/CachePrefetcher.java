@@ -304,6 +304,17 @@ public class CachePrefetcher {
         });
     }
 
+    /** Après l'envoi d'une correction de client ou d'employé (CLIENT_UPDATE,
+     * EMPLOYE_UPDATE, voir SyncManager) : listes clients et grille salariale rechargées,
+     * pour que les sélecteurs montrent le nouveau nom sans attendre le prochain passage. */
+    public static void rafraichirClientsEtSalaires(Context context, LocalDatabase localDatabaseAppelant,
+                                                    boolean clientsModifies, boolean employesModifies) {
+        Context appContext = context.getApplicationContext();
+        LocalDatabase localDatabase = localDatabaseAppelant.figee();
+        if (clientsModifies) prefetchClients(appContext, localDatabase);
+        if (employesModifies) prefetchSalaires(appContext, localDatabase);
+    }
+
     /** Précharge le détail/alertes/stock de chaque projet d'une liste déjà récupérée
      * (évite de refaire l'appel /projets/select quand l'appelant l'a déjà en main). */
     public static void prefetchProjectsDetails(Context context, LocalDatabase localDatabaseAppelant, List<ProjetSelectResponse> projets) {
