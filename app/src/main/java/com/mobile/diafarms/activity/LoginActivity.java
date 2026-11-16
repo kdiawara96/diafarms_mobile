@@ -1,6 +1,8 @@
 package com.mobile.diafarms.activity;
 
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.widget.ImageButton;
 import android.widget.PopupMenu;
@@ -13,10 +15,12 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
 import com.mobile.diafarms.R;
 import com.mobile.diafarms.data.LocalDatabase;
 import com.mobile.diafarms.data.SessionManager;
+import com.mobile.diafarms.network.Constants;
 import com.mobile.diafarms.util.DebugLog;
 
 import java.util.List;
@@ -130,7 +134,36 @@ public class LoginActivity extends AppCompatActivity {
             return;
         }
 
+        // Aucun QR scanné sur ce téléphone : la personne tape presque toujours les accès
+        // reçus par e-mail, qui ne servent que sur le site. On l'explique au lieu de
+        // dire « incorrect ».
+        if (!sessionManager.hasAnyAccount()) {
+            afficherPremiereConnexion();
+            return;
+        }
+
         Toast.makeText(this, getString(R.string.login_error_generic), Toast.LENGTH_LONG).show();
+    }
+
+    private void afficherPremiereConnexion() {
+        String message = "Les accès reçus par e-mail servent sur le site app.cocoricoferme.com.\n\n"
+                + "Connectez-vous sur le site, ouvrez Utilisateurs, choisissez votre nom et affichez votre QR code. "
+                + "Puis scannez-le ici.";
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("Première connexion ?")
+                .setMessage(message)
+                .setPositiveButton("Scanner le QR code", (d, w) -> startActivity(new Intent(this, ScannerActivity.class)))
+                .setNegativeButton("Ouvrir le site", (d, w) -> ouvrirLien(Constants.WEB_URL + "login"))
+                .setNeutralButton("Voir la vidéo", (d, w) -> ouvrirLien(Constants.VIDEO_URL))
+                .show();
+    }
+
+    private void ouvrirLien(String url) {
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+        } catch (ActivityNotFoundException e) {
+            Toast.makeText(this, "Ouvrez " + url + " dans votre navigateur", Toast.LENGTH_LONG).show();
+        }
     }
 
     /**

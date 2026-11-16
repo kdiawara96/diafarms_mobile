@@ -55,13 +55,14 @@ public class LauncherScreen extends AppCompatActivity {
         });
 
         findViewById(R.id.tvPasDeCompte).setOnClickListener(v -> afficherPremiersPas());
+        findViewById(R.id.tvVideo).setOnClickListener(v -> ouvrirLien(Constants.VIDEO_URL));
     }
 
     /** Quelqu'un qui installe l'app depuis le Play Store n'a pas encore de compte : la
      * ferme se crée sur le web, puis le QR code du propriétaire ouvre l'app. */
     private void afficherPremiersPas() {
         String message = "1. Créez votre ferme sur app.cocoricoferme.com (14 jours d'essai gratuit).\n\n"
-                + "2. Sur le site, ouvrez la page Utilisateurs, choisissez votre nom et affichez votre QR code.\n\n"
+                + "2. Connectez-vous sur ce site avec les accès reçus par e-mail. Ouvrez la page Utilisateurs, choisissez votre nom et affichez votre QR code.\n\n"
                 + "3. Revenez ici, appuyez sur QR Code et scannez-le.\n\n"
                 + "Vous êtes employé d'une ferme ? Demandez votre QR code au propriétaire.";
         new MaterialAlertDialogBuilder(this)
@@ -69,6 +70,7 @@ public class LauncherScreen extends AppCompatActivity {
                 .setMessage(message)
                 .setPositiveButton("Créer ma ferme", (d, w) -> ouvrirLien(Constants.WEB_URL + "inscription"))
                 .setNegativeButton("Fermer", null)
+                .setNeutralButton("Voir la vidéo", (d, w) -> ouvrirLien(Constants.VIDEO_URL))
                 .show();
     }
 

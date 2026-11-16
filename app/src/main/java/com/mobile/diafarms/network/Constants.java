@@ -13,6 +13,8 @@ public class Constants {
     // mise à jour directe depuis l'app (voir update/UpdateChecker). Voir aussi
     // AppSettings.getWebUrl, qui le déduit de l'adresse serveur quand elle a été changée.
     public static final String WEB_URL = "https://app.cocoricoferme.com/";
+    // Vidéo YouTube de présentation (les bases), liée depuis l'accueil et la connexion.
+    public static final String VIDEO_URL = "https://www.youtube.com/watch?v=xkBuuq9Qqyw";
     public static final String UPDATE_VERSION_PATH = "app/version.json";
     public static final String UPDATE_APK_PATH = "app/cocorico.apk";
 

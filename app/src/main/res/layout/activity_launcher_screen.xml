@@ -159,6 +159,16 @@
                 android:textSize="14sp"
                 android:textStyle="bold" />
 
+            <TextView
+                android:id="@+id/tvVideo"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:padding="8dp"
+                android:text="▶ Voir la vidéo de présentation"
+                android:textColor="@color/primary"
+                android:textSize="14sp" />
+
         </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
